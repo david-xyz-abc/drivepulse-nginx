@@ -1669,8 +1669,15 @@ function openPreviewModal(fileURL, fileName) {
     iconContainer.style.display = 'none';
     iconContainer.innerHTML = '';
     videoContainer.style.display = 'none';
-    videoPlayer.pause();
-    videoPlayer.src = '';
+    
+    // Reset video player
+    if (videoPlayer) {
+        videoPlayer.pause();
+        videoPlayer.removeAttribute('src'); // Use removeAttribute instead of setting to empty string
+        videoPlayer.load(); // Force reset of video element
+    }
+    
+    // Reset classes
     previewContent.classList.remove('image-preview');
     previewContent.classList.remove('video-preview');
     previewModal.classList.remove('fullscreen');
