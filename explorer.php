@@ -1489,11 +1489,32 @@ button, .btn, .file-row, .folder-item, img, i {
 }
 
 /* Remove any custom video control styles */
+
+// Add to your CSS section
+#videoPreviewContainer {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+}
+
+.video-js {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 90vh;
+}
+
+.vjs-big-play-centered .vjs-big-play-button {
+    margin-left: -1.5em;
+    margin-top: -1em;
+}
 </style>
 
 <!-- Add these in the <head> section after your other CSS/JS links: -->
-<link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
-<script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+<link href="https://vjs.zencdn.net/8.16.1/video-js.css" rel="stylesheet" />
+<script src="https://vjs.zencdn.net/8.16.1/video.min.js"></script>
 
 <!-- First, add these links in the <head> section: -->
 <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
@@ -1622,6 +1643,23 @@ button, .btn, .file-row, .folder-item, img, i {
         </div>
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
+        <div id="videoPreviewContainer" style="display: none;">
+            <video
+                id="videoPlayer"
+                class="video-js vjs-big-play-centered"
+                controls
+                preload="auto"
+                width="640"
+                height="264"
+                data-setup="{}"
+            >
+                <source src="" type="" />
+                <p class="vjs-no-js">
+                    To view this video please enable JavaScript, and consider upgrading to a
+                    web browser that supports HTML5 video
+                </p>
+            </video>
+        </div>
     </div>
   </div>
 
