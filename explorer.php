@@ -1563,7 +1563,14 @@ media-controller {
   --media-primary-color: #d32f2f;
   --media-secondary-color: #ffffff;
 }
-</style>
+
++ <style>
++   media-time-range {
++     --media-range-thumb-background: var(--media-primary-color);
++     --media-range-track-background: rgba(255, 255, 255, 0.2);
++     --media-range-track-progress-background: var(--media-primary-color);
++   }
++ </style>
 
 <!-- Add these in the <head> section after your other CSS/JS links: -->
 <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
@@ -1705,6 +1712,7 @@ media-controller {
                     id="videoPlayer"
                     slot="media" 
                     preload="auto"
+                    preload="metadata"
                 >
                     <source src="" type="">
                 </video>
@@ -1712,7 +1720,7 @@ media-controller {
                     <media-play-button></media-play-button>
                     <media-mute-button></media-mute-button>
                     <media-volume-range></media-volume-range>
-                    <media-time-range></media-time-range>
+                    <media-time-range seek-offset="0"></media-time-range>
                     <media-fullscreen-button></media-fullscreen-button>
                 </media-control-bar>
             </media-controller>
@@ -1983,6 +1991,9 @@ function openPreviewModal(fileURL, fileName) {
             const source = videoPlayer.querySelector('source');
             source.src = file.url;
             source.type = file.mime || 'video/mp4';
+            videoPlayer.addEventListener('loadedmetadata', () => {
+                videoPlayer.currentTime = 0;
+            });
             videoPlayer.load();
         } else if (file.type === 'image') {
             isLoadingImage = true;
