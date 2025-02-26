@@ -503,6 +503,15 @@ if (is_dir($currentDir)) {
                         'type' => 'image',
                         'icon' => getIconClass($one)
                     ];
+                } elseif (isVideo($one)) {
+                    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
+                    $previewableFiles[] = [
+                        'name' => $one,
+                        'url' => $fileURL,
+                        'type' => 'video',
+                        'mime' => mime_content_type($path),
+                        'icon' => getIconClass($one)
+                    ];
                 } else {
                     $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
                     $previewableFiles[] = [
@@ -1653,6 +1662,11 @@ button, .btn, .file-row, .folder-item, img, i {
         </div>
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
++       <div id="videoPreviewContainer" style="display: none;">
++           <video id="videoPlayer" controls>
++               <source src="" type="">
++           </video>
++       </div>
     </div>
   </div>
 
