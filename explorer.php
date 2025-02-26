@@ -1410,14 +1410,14 @@ html, body {
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
         <div id="videoPreviewContainer" style="display: none;">
-            <video id="videoPlayer" preload="auto"></video>
+            <video id="videoPlayer" preload="auto" onclick="togglePlay(event)"></video>
             <div class="video-controls">
                 <div class="video-controls-inner">
-                    <button id="playPauseBtn"><i class="fas fa-play"></i></button>
-                    <div id="videoProgress">
+                    <button id="playPauseBtn" onclick="togglePlay(event)"><i class="fas fa-play"></i></button>
+                    <div id="videoProgress" onclick="seekVideo(event)">
                         <div id="videoProgressBar"></div>
                     </div>
-                    <button id="fullscreenBtn"><i class="fas fa-expand"></i></button>
+                    <button id="fullscreenBtn" onclick="toggleFullscreen(event)"><i class="fas fa-expand"></i></button>
                 </div>
             </div>
         </div>
@@ -1728,34 +1728,9 @@ function openPreviewModal(fileURL, fileName) {
 }
 
 function setupVideoControls(video) {
-    const playPauseBtn = document.getElementById('playPauseBtn');
     const progressBar = document.getElementById('videoProgressBar');
-    const progress = document.getElementById('videoProgress');
-    const fullscreenBtn = document.getElementById('fullscreenBtn');
-    const previewModal = document.getElementById('previewModal');
-    const videoContainer = document.getElementById('videoPreviewContainer');
 
-    // Play/Pause button
-    playPauseBtn.onclick = (e) => {
-        e.stopPropagation();
-        if (video.paused) {
-            video.play();
-            playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-        } else {
-            video.pause();
-            playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-        }
-    };
-
-    // Progress bar click
-    progress.onclick = (e) => {
-        e.stopPropagation();
-        const rect = progress.getBoundingClientRect();
-        const pos = (e.clientX - rect.left) / rect.width;
-        video.currentTime = pos * video.duration;
-    };
-
-    // Time update
+    // Update progress bar
     video.ontimeupdate = () => {
         if (video.duration) {
             const percent = (video.currentTime / video.duration) * 100;
@@ -1765,35 +1740,8 @@ function setupVideoControls(video) {
 
     // Video ended
     video.onended = () => {
+        const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-    };
-
-    // Fullscreen button
-    fullscreenBtn.onclick = (e) => {
-        e.stopPropagation();
-        if (!document.fullscreenElement) {
-            videoContainer.requestFullscreen().then(() => {
-                previewModal.classList.add('fullscreen');
-                fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
-            }).catch(err => {
-                console.error('Fullscreen error:', err);
-            });
-        } else {
-            document.exitFullscreen().then(() => {
-                previewModal.classList.remove('fullscreen');
-                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-            }).catch(err => {
-                console.error('Exit fullscreen error:', err);
-            });
-        }
-    };
-
-    // Handle fullscreen change
-    document.onfullscreenchange = () => {
-        if (!document.fullscreenElement) {
-            previewModal.classList.remove('fullscreen');
-            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-        }
     };
 
     // Error handling
@@ -1801,24 +1749,69 @@ function setupVideoControls(video) {
         showAlert('Error loading video. Check file format or server logs.');
     };
 
-    // Prevent video click from closing modal
-    videoContainer.onclick = (e) => {
-        e.stopPropagation();
-    };
-
     // Space bar to play/pause
     document.onkeydown = (e) => {
         if (e.code === 'Space' && video.style.display !== 'none') {
             e.preventDefault();
-            if (video.paused) {
-                video.play();
-                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-            } else {
-                video.pause();
-                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-            }
+            togglePlay(e);
         }
     };
+
+    // Handle fullscreen change
+    document.onfullscreenchange = () => {
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const previewModal = document.getElementById('previewModal');
+        if (!document.fullscreenElement) {
+            previewModal.classList.remove('fullscreen');
+            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+        }
+    };
+}
+
+function togglePlay(e) {
+    e.stopPropagation();
+    const video = document.getElementById('videoPlayer');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    
+    if (video.paused) {
+        video.play();
+        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+    } else {
+        video.pause();
+        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+    }
+}
+
+function seekVideo(e) {
+    e.stopPropagation();
+    const video = document.getElementById('videoPlayer');
+    const progress = document.getElementById('videoProgress');
+    const rect = progress.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    video.currentTime = pos * video.duration;
+}
+
+function toggleFullscreen(e) {
+    e.stopPropagation();
+    const videoContainer = document.getElementById('videoPreviewContainer');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const previewModal = document.getElementById('previewModal');
+
+    if (!document.fullscreenElement) {
+        videoContainer.requestFullscreen().then(() => {
+            previewModal.classList.add('fullscreen');
+            fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+        }).catch(err => {
+            console.error('Fullscreen error:', err);
+        });
+    } else {
+        document.exitFullscreen().then(() => {
+            previewModal.classList.remove('fullscreen');
+            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+        }).catch(err => {
+            console.error('Exit fullscreen error:', err);
+        });
+    }
 }
 
 function navigatePreview(direction) {
