@@ -1529,6 +1529,24 @@ button, .btn, .file-row, .folder-item, img, i {
     margin-left: -1.5em;
     margin-top: -1em;
 }
+
+// Add these styles to your CSS
+#videoPreviewContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+media-controller {
+  width: 100%;
+  height: 100%;
+  max-height: 90vh;
+  --media-primary-color: #d32f2f;
+  --media-secondary-color: #ffffff;
+}
 </style>
 
 <!-- Add these in the <head> section after your other CSS/JS links: -->
@@ -1538,6 +1556,9 @@ button, .btn, .file-row, .folder-item, img, i {
 <!-- First, add these links in the <head> section: -->
 <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
 <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+
+// Add this in the <head> section
+<script type="module" src="https://cdn.jsdelivr.net/npm/media-chrome@1/+esm"></script>
 </head>
 <body>
   <div class="app-container">
@@ -1662,11 +1683,25 @@ button, .btn, .file-row, .folder-item, img, i {
         </div>
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
-+       <div id="videoPreviewContainer" style="display: none;">
-+           <video id="videoPlayer" controls>
-+               <source src="" type="">
-+           </video>
-+       </div>
+        <div id="videoPreviewContainer" style="display: none;">
+            <media-controller>
+              <video 
+                id="videoPlayer"
+                slot="media" 
+                crossorigin
+              >
+                <source src="" type="">
+              </video>
+              <media-control-bar>
+                <media-play-button></media-play-button>
+                <media-mute-button></media-mute-button>
+                <media-volume-range></media-volume-range>
+                <media-time-range></media-time-range>
+                <media-pip-button></media-pip-button>
+                <media-fullscreen-button></media-fullscreen-button>
+              </media-control-bar>
+            </media-controller>
+        </div>
     </div>
   </div>
 
