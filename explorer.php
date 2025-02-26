@@ -215,7 +215,7 @@ if ($currentDir === false || strpos($currentDir, $baseDir) !== 0) {
 }
 
 /************************************************
- * Calculate Storage Usage
+ * Calculate Global Storage Usage
  ************************************************/
 function getDirSize($dir) {
     static $cache = [];
@@ -233,8 +233,13 @@ function getDirSize($dir) {
     return $size;
 }
 
-$totalStorage = 10 * 1024 * 1024 * 1024; // 10 GB in bytes
-$usedStorage = getDirSize($baseDir);
+// Get total server storage and usage
+$webdavPath = "/var/www/html/webdav";
+$totalStorage = disk_total_space($webdavPath);     // Gets total disk space
+$freeStorage = disk_free_space($webdavPath);       // Gets free disk space
+$usedStorage = $totalStorage - $freeStorage;       // Calculate used space
+
+// Convert to GB for display
 $usedStorageGB = round($usedStorage / (1024 * 1024 * 1024), 2);
 $totalStorageGB = round($totalStorage / (1024 * 1024 * 1024), 2);
 $storagePercentage = round(($usedStorage / $totalStorage) * 100, 2);
