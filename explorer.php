@@ -1462,6 +1462,35 @@ button, .btn, .file-row, .folder-item, img, i {
         transform: translateY(0);
     }
 }
+
+.video-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    background: rgba(0,0,0,0.7);
+    padding: 10px 20px;
+    border-radius: 4px;
+    z-index: 2;
+}
+
+#videoPreviewContainer {
+    position: relative;
+    background: #000;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#videoPlayer {
+    max-width: 100%;
+    max-height: 100vh;
+    width: auto;
+    height: auto;
+}
 </style>
 </head>
 <body>
@@ -1878,14 +1907,55 @@ function openPreviewModal(fileURL, fileName) {
 
         if (file.type === 'video') {
             videoContainer.classList.remove('loaded');
-            videoPlayer.src = file.url;
+            
+            // Reset video player completely
+            videoPlayer.pause();
+            videoPlayer.removeAttribute('src');
             videoPlayer.load();
+            
+            // Set up container first
             videoContainer.style.display = 'block';
             previewContent.classList.add('video-preview');
+            
+            // Add loading indicator
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.className = 'video-loading';
+            loadingIndicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading video...';
+            videoContainer.appendChild(loadingIndicator);
+            
+            // Set video attributes for better performance
+            videoPlayer.preload = 'metadata';
+            videoPlayer.playsInline = true;
+            videoPlayer.controls = false; // We use custom controls
+            
+            // Set source with cache buster for large files
+            const fileSize = file.size || 0;
+            const cacheBuster = fileSize > 100 * 1024 * 1024 ? '?nocache=' + new Date().getTime() : '';
+            videoPlayer.src = file.url + cacheBuster;
+            
             setupVideoControls(videoPlayer);
             
+            // Handle metadata loaded
+            videoPlayer.onloadedmetadata = () => {
+                // Remove loading indicator once metadata is loaded
+                const loadingIndicator = videoContainer.querySelector('.video-loading');
+                if (loadingIndicator) {
+                    loadingIndicator.remove();
+                }
+            };
+            
+            // Handle when video is ready to play
             videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
+            };
+            
+            // Handle errors
+            videoPlayer.onerror = (e) => {
+                console.error('Video error:', videoPlayer.error);
+                const loadingIndicator = videoContainer.querySelector('.video-loading');
+                if (loadingIndicator) {
+                    loadingIndicator.innerHTML = '<i class="fas fa-exclamation-circle"></i> Error loading video';
+                }
             };
         } else if (file.type === 'image') {
             isLoadingImage = true;
