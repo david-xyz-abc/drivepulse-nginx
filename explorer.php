@@ -1198,60 +1198,68 @@ html, body {
   display: none;
   width: 100%;
   height: 100%;
-  max-width: 90vw;
-  max-height: 90vh;
   position: relative;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
 }
 
 #videoPlayer {
   width: 100%;
   height: 100%;
+  max-width: 100vw;
+  max-height: 100vh;
   object-fit: contain;
-  background: #000;
 }
 
 .video-controls {
   position: absolute;
-  bottom: 10px;
-  left: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 5px 10px;
-  border-radius: 5px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  opacity: 1;
-  transition: opacity 0.3s;
-  z-index: 9999;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-#previewModal.fullscreen .video-controls {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  right: 20px;
+#videoPreviewContainer:hover .video-controls {
+  opacity: 1;
+}
+
+.video-controls-inner {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px;
 }
 
 .video-controls button {
   background: none;
   border: none;
   color: #fff;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
-  padding: 5px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
 }
 
 .video-controls button:hover {
-  color: var(--accent-red);
+  transform: scale(1.1);
 }
 
 #videoProgress {
   flex: 1;
   height: 5px;
-  background: #555;
-  border-radius: 3px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2.5px;
   cursor: pointer;
   position: relative;
 }
@@ -1259,13 +1267,22 @@ html, body {
 #videoProgressBar {
   height: 100%;
   background: var(--accent-red);
-  border-radius: 3px;
+  border-radius: 2.5px;
   width: 0%;
   transition: width 0.1s linear;
+  position: relative;
 }
 
 #videoProgress:hover #videoProgressBar {
-  background: #fff;
+  transform: scaleY(1.5);
+}
+
+#previewContent.video-preview {
+  background: none;
+  border: none;
+  padding: 0;
+  max-width: 100vw;
+  max-height: 100vh;
 }
 </style>
 </head>
@@ -1395,11 +1412,13 @@ html, body {
         <div id="videoPreviewContainer" style="display: none;">
             <video id="videoPlayer" preload="auto"></video>
             <div class="video-controls">
-                <button id="playPauseBtn"><i class="fas fa-play"></i></button>
-                <div id="videoProgress" onclick="seekVideo(event)">
-                    <div id="videoProgressBar"></div>
+                <div class="video-controls-inner">
+                    <button id="playPauseBtn"><i class="fas fa-play"></i></button>
+                    <div id="videoProgress">
+                        <div id="videoProgressBar"></div>
+                    </div>
+                    <button id="fullscreenBtn"><i class="fas fa-expand"></i></button>
                 </div>
-                <button id="fullscreenBtn"><i class="fas fa-expand"></i></button>
             </div>
         </div>
     </div>
@@ -1653,6 +1672,7 @@ function openPreviewModal(fileURL, fileName) {
     videoPlayer.pause();
     videoPlayer.src = '';
     previewContent.classList.remove('image-preview');
+    previewContent.classList.remove('video-preview');
     previewModal.classList.remove('fullscreen');
 
     // Always show the close button
@@ -1672,6 +1692,8 @@ function openPreviewModal(fileURL, fileName) {
         videoPlayer.src = file.url;
         videoPlayer.load();
         videoContainer.style.display = 'block';
+        previewContent.classList.add('video-preview');
+        setupVideoControls(videoPlayer);
     } else if (file.type === 'image') {
         isLoadingImage = true;
         const img = new Image();
