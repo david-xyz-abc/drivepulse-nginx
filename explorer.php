@@ -1547,7 +1547,7 @@ button, .btn, .file-row, .folder-item, img, i {
                 $isImageFile = isImage($fileName);
                 log_debug("File URL for $fileName: $fileURL");
             ?>
-            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
+            <div class="file-row" data-url="<?php echo htmlspecialchars($fileURL); ?>" data-filename="<?php echo addslashes($fileName); ?>">
                 <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
                 <?php if ($isImageFile): ?>
                     <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
@@ -2225,6 +2225,38 @@ function closePreviewModal() {
     // Reset loading state
     isLoadingImage = false;
 }
+
+// Add these new functions and event listeners
+let lastTap = 0;
+let lastClickTime = 0;
+const DOUBLE_CLICK_DELAY = 300; // 300ms between clicks/taps
+
+// Handle double-click/tap for file rows
+document.querySelectorAll('.file-row').forEach(row => {
+    // Remove the existing onclick handler
+    row.removeAttribute('onclick');
+    
+    // Add the new click/tap handler
+    row.addEventListener('click', function(e) {
+        // Ignore clicks on buttons
+        if (e.target.closest('.file-actions')) {
+            return;
+        }
+
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTap;
+        
+        if (tapLength < DOUBLE_CLICK_DELAY && tapLength > 0) {
+            // Double click/tap detected
+            const fileURL = this.dataset.url;
+            const fileName = this.dataset.filename;
+            openPreviewModal(fileURL, fileName);
+            e.preventDefault();
+        }
+        
+        lastTap = currentTime;
+    });
+});
 </script>
 
 </body>
