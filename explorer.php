@@ -503,6 +503,15 @@ if (is_dir($currentDir)) {
                         'type' => 'image',
                         'icon' => getIconClass($one)
                     ];
+                } elseif (isVideo($one)) {
+                    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
+                    $previewableFiles[] = [
+                        'name' => $one,
+                        'url' => $fileURL,
+                        'type' => 'video',
+                        'mime' => mime_content_type($path),
+                        'icon' => getIconClass($one)
+                    ];
                 } else {
                     $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
                     $previewableFiles[] = [
@@ -1635,6 +1644,25 @@ button, .btn, .file-row, .folder-item, img, i {
         </div>
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
+        <div id="videoPreviewContainer" style="display: none;">
+            <media-controller>
+                <video 
+                    id="videoPlayer"
+                    slot="media" 
+                    crossorigin
+                >
+                    <source src="" type="">
+                </video>
+                <media-control-bar>
+                    <media-play-button></media-play-button>
+                    <media-mute-button></media-mute-button>
+                    <media-volume-range></media-volume-range>
+                    <media-time-range></media-time-range>
+                    <media-pip-button></media-pip-button>
+                    <media-fullscreen-button></media-fullscreen-button>
+                </media-control-bar>
+            </media-controller>
+        </div>
     </div>
   </div>
 
@@ -1873,9 +1901,9 @@ function openPreviewModal(fileURL, fileName) {
     const previewModal = document.getElementById('previewModal');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
+    const videoContainer = document.getElementById('videoPreviewContainer');
     const previewContent = document.getElementById('previewContent');
-    const previewClose = document.getElementById('previewClose');
-
+    
     // Add fade out effect
     previewContent.classList.add('fade-out');
     
@@ -1885,11 +1913,8 @@ function openPreviewModal(fileURL, fileName) {
         imageContainer.innerHTML = '';
         iconContainer.style.display = 'none';
         iconContainer.innerHTML = '';
+        videoContainer.style.display = 'none';
         
-        // Reset classes
-        previewContent.classList.remove('image-preview');
-        previewModal.classList.remove('fullscreen');
-
         currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
         let file = previewFiles.find(f => f.name === fileName);
 
@@ -1898,7 +1923,14 @@ function openPreviewModal(fileURL, fileName) {
             return;
         }
 
-        if (file.type === 'image') {
+        if (file.type === 'video') {
+            videoContainer.style.display = 'block';
+            const videoPlayer = document.getElementById('videoPlayer');
+            const source = videoPlayer.querySelector('source');
+            source.src = file.url;
+            source.type = file.mime || 'video/mp4';
+            videoPlayer.load();
+        } else if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
             img.onload = () => {
