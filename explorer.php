@@ -24,6 +24,18 @@ log_debug("Loggedin: " . (isset($_SESSION['loggedin']) ? var_export($_SESSION['l
 log_debug("Username: " . (isset($_SESSION['username']) ? $_SESSION['username'] : "Not set"));
 log_debug("GET params: " . var_export($_GET, true));
 
+// Add this near the top of the file with other includes
+if (!function_exists('imagecreatefromheic')) {
+    function imagecreatefromheic($filename) {
+        // Use ImageMagick as fallback if PHP's HEIC support is not available
+        $output = '/tmp/' . uniqid() . '.jpg';
+        exec("convert '$filename' '$output'");
+        $image = imagecreatefromjpeg($output);
+        unlink($output);
+        return $image;
+    }
+}
+
 // Optimized file serving with range support (no video-specific handling)
 if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file'])) {
     if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) {
@@ -71,6 +83,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
     ];
     $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     $mime = $mime_types[$ext] ?? mime_content_type($filePath) ?? 'application/octet-stream';
+
+    // If it's a HEIC file and preview is requested, convert to JPEG
+    if ($ext === 'heic' && isset($_GET['preview'])) {
+        header('Content-Type: image/jpeg');
+        $image = imagecreatefromheic($filePath);
+        imagejpeg($image);
+        imagedestroy($image);
+        exit;
+    }
 
     header("Content-Type: $mime");
     header("Accept-Ranges: bytes");
@@ -423,9 +444,14 @@ if (is_dir($currentDir)) {
                 $ext = strtolower(pathinfo($one, PATHINFO_EXTENSION));
                 
                 if (isImage($one)) {
+                    $previewUrl = $fileURL;
+                    if (strtolower(pathinfo($one, PATHINFO_EXTENSION)) === 'heic') {
+                        $previewUrl = $fileURL . '&preview=1';
+                    }
                     $previewableFiles[] = [
                         'name' => $one,
                         'url' => $fileURL,
+                        'previewUrl' => $previewUrl,
                         'type' => 'image',
                         'icon' => getIconClass($one)
                     ];
@@ -1742,7 +1768,8 @@ function openPreviewModal(fileURL, fileName) {
                 showAlert('Failed to load image preview');
                 isLoadingImage = false;
             };
-            img.src = file.url;
+            // Use previewUrl if available, otherwise fall back to url
+            img.src = file.previewUrl || file.url;
         }
     }
 
