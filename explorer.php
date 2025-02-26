@@ -76,6 +76,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         'jpeg' => 'image/jpeg',
         'gif' => 'image/gif',
         'heic' => 'image/heic',
+        'mp4' => 'video/mp4',
+        'webm' => 'video/webm',
+        'mkv' => 'video/x-matroska',
         'txt' => 'text/plain',
     ];
     
@@ -534,6 +537,7 @@ if ($currentDir !== $baseDir) {
  ************************************************/
 function getIconClass($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    if (isVideo($fileName)) return 'fas fa-file-video';
     if (isImage($fileName)) return 'fas fa-file-image';
     if ($ext === 'pdf') return 'fas fa-file-pdf';
     return 'fas fa-file';
@@ -545,6 +549,12 @@ function getIconClass($fileName) {
 function isImage($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic']);
+}
+
+// Add back video detection
+function isVideo($fileName) {
+    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    return in_array($ext, ['mp4', 'webm', 'mkv']);
 }
 ?>
 <!DOCTYPE html>
