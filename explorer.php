@@ -1621,6 +1621,7 @@ function openPreviewModal(fileURL, fileName) {
 
   if (file.type === 'video') {
     videoPlayer.src = file.url;
+    videoPlayer.load(); // Force reload of the video source
     videoContainer.style.display = 'block';
     previewClose.style.display = 'block';
     setupVideoControls(videoPlayer);
@@ -1658,6 +1659,7 @@ function openPreviewModal(fileURL, fileName) {
     }
   };
 }
+
 
 function setupVideoControls(video) {
   const playPauseBtn = document.getElementById('playPauseBtn');
