@@ -79,7 +79,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         'mkv' => 'video/x-matroska',
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
-        'ogg' => 'video/ogg'
+        'ogg' => 'video/ogg',
+        'txt' => 'text/plain',
     ];
     $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     $mime = $mime_types[$ext] ?? mime_content_type($filePath) ?? 'application/octet-stream';
@@ -87,10 +88,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
     // If it's a HEIC file and preview is requested, convert to JPEG
     if ($ext === 'heic' && isset($_GET['preview'])) {
         header('Content-Type: image/jpeg');
-        $image = imagecreatefromheic($filePath);
-        imagejpeg($image);
-        imagedestroy($image);
+        $output = '/tmp/' . uniqid() . '.jpg';
+        exec("convert '$filePath' '$output'");
+        readfile($output);
+        unlink($output);
         exit;
+    }
+
+    // Add Content-Disposition header for downloads
+    if (!isset($_GET['preview'])) {
+        header('Content-Disposition: attachment; filename="' . $fileName . '"');
     }
 
     header("Content-Type: $mime");
@@ -444,6 +451,7 @@ if (is_dir($currentDir)) {
                 $ext = strtolower(pathinfo($one, PATHINFO_EXTENSION));
                 
                 if (isImage($one)) {
+                    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
                     $previewUrl = $fileURL;
                     if (strtolower(pathinfo($one, PATHINFO_EXTENSION)) === 'heic') {
                         $previewUrl = $fileURL . '&preview=1';
@@ -456,6 +464,7 @@ if (is_dir($currentDir)) {
                         'icon' => getIconClass($one)
                     ];
                 } elseif (isVideo($one)) {
+                    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
                     $previewableFiles[] = [
                         'name' => $one,
                         'url' => $fileURL,
@@ -463,6 +472,7 @@ if (is_dir($currentDir)) {
                         'icon' => getIconClass($one)
                     ];
                 } else {
+                    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
                     $previewableFiles[] = [
                         'name' => $one,
                         'url' => $fileURL,
