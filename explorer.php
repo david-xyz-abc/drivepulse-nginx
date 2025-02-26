@@ -24,7 +24,7 @@ log_debug("Loggedin: " . (isset($_SESSION['loggedin']) ? var_export($_SESSION['l
 log_debug("Username: " . (isset($_SESSION['username']) ? $_SESSION['username'] : "Not set"));
 log_debug("GET params: " . var_export($_GET, true));
 
-// Optimized file serving with range support
+// Optimized file serving with range support (no video-specific handling)
 if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file'])) {
     if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) {
         log_debug("Unauthorized file request, redirecting to index.php");
@@ -64,9 +64,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         'jpeg' => 'image/jpeg',
         'gif' => 'image/gif',
         'heic' => 'image/heic',
-        'mp4' => 'video/mp4',
-        'webm' => 'video/webm',
-        'ogg' => 'video/ogg',
     ];
     $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     $mime = $mime_types[$ext] ?? mime_content_type($filePath) ?? 'application/octet-stream';
@@ -440,8 +437,8 @@ if ($currentDir !== $baseDir) {
  ************************************************/
 function getIconClass($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    if (in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic'])) return 'fas fa-file-image';
     if (in_array($ext, ['mp4', 'webm', 'ogg'])) return 'fas fa-file-video';
+    if (in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic'])) return 'fas fa-file-image';
     if ($ext === 'pdf') return 'fas fa-file-pdf';
     if ($ext === 'exe') return 'fas fa-file-exclamation';
     return 'fas fa-file';
@@ -454,9 +451,8 @@ function isImage($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic']);
 }
-
 /************************************************
- * 12b. Helper: Check if file is a video
+ * Helper: Check if file is a video
  ************************************************/
 function isVideo($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
@@ -485,14 +481,6 @@ function isVideo($fileName) {
   --accent-red: #d32f2f;
   --dropzone-bg: rgba(211, 47, 47, 0.1);
   --dropzone-border: #d32f2f;
-  /* Video Player Variables */
-  --bg-color: hsl(180, 15%, 10%);
-  --primary-color: hsl(180, 90%, 45%);
-  --text-light: hsl(0, 0%, 95%);
-  --text-dark: hsl(0, 0%, 15%);
-  --disabled: hsl(180, 10%, 40%);
-  --border-color-vid: hsl(180, 20%, 25%);
-  --shadow-color: hsl(180, 40%, 5%);
 }
 
 body.light-mode {
@@ -506,14 +494,6 @@ body.light-mode {
   --accent-red: #f44336;
   --dropzone-bg: rgba(244, 67, 54, 0.1);
   --dropzone-border: #f44336;
-  /* Video Player Light Mode Adjustments */
-  --bg-color: hsl(180, 15%, 90%);
-  --primary-color: hsl(180, 90%, 35%);
-  --text-light: hsl(0, 0%, 15%);
-  --text-dark: hsl(0, 0%, 85%);
-  --disabled: hsl(180, 10%, 60%);
-  --border-color-vid: hsl(180, 20%, 75%);
-  --shadow-color: hsl(180, 40%, 95%);
 }
 
 html, body {
@@ -1087,17 +1067,6 @@ html, body {
   display: block;
 }
 
-#videoPreviewContainer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  max-width: 90vw;
-  max-height: 90vh;
-  overflow: hidden;
-}
-
 #dialogModal {
   display: none;
   position: fixed;
@@ -1175,401 +1144,6 @@ html, body {
 
 #dropZone.active { display: flex; }
 
-/* Video Player Styles */
-.nex-video-player {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-family: Arial, Helvetica, sans-serif;
-  color: var(--text-light);
-  position: relative;
-  width: 100%;
-  padding-top: 56.25%; /* 16:9 Aspect Ratio */
-  background: var(--bg-color);
-  overflow: hidden;
-  border-radius: 2px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-}
-
-.nex-video-player video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.nex-video-player i {
-  color: var(--text-light);
-  font-size: 22px;
-}
-
-/* Loader Animation */
-.custom-loader {
-  position: absolute;
-  top: 35.75%;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  border: 5px solid var(--text-light);
-  border-top-color: transparent;
-  z-index: 999;
-  animation: rotation 1s infinite ease;
-  display: none;
-}
-
-.player-state {
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  top: 35.75%;
-  position: absolute;
-  width: 100%;
-}
-
-.player-state i {
-  font-size: 32px;
-}
-
-/* Play/Pause Button */
-.state-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: hsla(180, 15%, 10%, 0.6);
-  border: 1px solid var(--text-light);
-  cursor: pointer;
-  z-index: 99;
-  opacity: 0;
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  user-select: none;
-}
-
-.state-btn:hover {
-  background: hsla(180, 15%, 10%, 0.8);
-}
-
-.animate-state {
-  animation: playPause 0.5s forwards;
-}
-
-.show-state {
-  transform: scale(1.1);
-  opacity: 1;
-}
-
-/* Video Controls */
-.controls {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  padding: 0.25rem 0.5rem;
-  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.2) 10%, rgba(0, 0, 0, 0.9) 50%);
-  box-sizing: border-box;
-  opacity: 0;
-  visibility: hidden;
-  z-index: 99;
-  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  user-select: none;
-}
-
-.show-controls {
-  opacity: 1 !important;
-  transform: translateY(0) !important;
-  visibility: visible !important;
-}
-
-.video-info {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  margin-bottom: 0.25rem;
-  width: 100%;
-}
-
-.video-info .video-title,
-.video-info .time-container {
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 0.8rem;
-  margin: 0;
-  color: var(--text-light);
-}
-
-.progress-bar {
-  position: relative;
-  width: 100%;
-  height: 3px;
-  background: hsl(0, 0%, 85%);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.progress-bar:hover {
-  height: 5px;
-}
-
-.progress-bar .buffer {
-  height: 100%;
-  position: absolute;
-  inset: 0;
-  background-color: hsl(0, 0%, 75%);
-  z-index: 9;
-  width: 0;
-}
-
-.hover-time {
-  height: 100%;
-  position: absolute;
-  inset: 0;
-  background: hsl(0, 0%, 75%);
-  z-index: 99;
-  display: flex;
-  align-items: center;
-  width: 0;
-}
-
-.hover-time .hover-duration {
-  position: absolute;
-  right: calc((-35px / 2));
-  top: -25px;
-  border: 1px solid var(--text-light);
-  background: hsl(0, 0%, 85%);
-  color: var(--text-dark);
-  padding: 0.2rem 0.25rem;
-  border-radius: 6px;
-  font-size: 0.7rem;
-  visibility: hidden;
-  font-weight: bold;
-  opacity: 0;
-  transform: scale(0);
-}
-
-.progress-bar:hover .hover-time .hover-duration {
-  visibility: visible;
-  opacity: 1;
-  transition: all 0.2s;
-  transform: scale(1);
-}
-
-.progress-bar .current-time {
-  height: 100%;
-  position: absolute;
-  inset: 0;
-  background: var(--text-light);
-  z-index: 999;
-  display: flex;
-  align-items: center;
-  width: 0;
-}
-
-.current-time::before {
-  content: "";
-  position: absolute;
-  right: calc((-12px / 2));
-  background: var(--text-light);
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  transition: all 0.2s;
-  visibility: hidden;
-  transform: scale(0);
-}
-
-.progress-bar:hover .current-time::before {
-  visibility: visible;
-  transform: scale(1);
-}
-
-.btn-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 0.25rem;
-}
-
-.left-controls,
-.right-controls {
-  display: flex;
-  align-items: center;
-}
-
-.left-controls span,
-.right-controls span {
-  cursor: pointer;
-}
-
-.play-pause {
-  display: flex;
-  margin-right: 0.5rem;
-}
-
-.control-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0.2rem;
-  border-radius: 50%;
-  background: transparent;
-  border: 1px solid transparent;
-  box-sizing: border-box;
-  position: relative;
-  margin: 0 0.25rem;
-}
-
-.control-btn:last-child {
-  margin-right: 0;
-}
-
-.control-btn:hover {
-  border: 1px solid hsla(0, 0%, 20%, 0.3);
-  background: hsla(0, 0%, 20%, 0.5);
-}
-
-.control-btn:active {
-  transform: scale(1);
-  border: 1px solid hsla(0, 0%, 20%, 0.3);
-}
-
-/* Volume Controls */
-.volume {
-  display: flex;
-  align-items: center;
-  cursor: default;
-}
-
-.mute-unmute {
-  display: flex;
-  cursor: pointer;
-}
-
-.max-vol {
-  height: 3px;
-  cursor: pointer;
-  background: hsl(0, 0%, 75%);
-  transition: all 0.1s;
-  width: 0;
-  visibility: hidden;
-  transform: scaleX(0);
-  transform-origin: left;
-  display: flex;
-  align-items: center;
-}
-
-.max-vol.show {
-  width: 56px;
-  visibility: visible;
-  transform: scaleX(1);
-}
-
-.current-vol {
-  position: absolute;
-  inset: 0;
-  width: 20%;
-  height: 100%;
-  background: var(--text-light);
-  display: flex;
-  transition: none;
-  align-items: center;
-}
-
-.current-vol::before {
-  content: "";
-  position: absolute;
-  right: -5px;
-  width: 12px;
-  height: 12px;
-  display: block;
-  border-radius: 50%;
-  background: var(--text-light);
-}
-
-/* Settings Menu */
-.setting-menu {
-  opacity: 0;
-  visibility: hidden;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  position: absolute;
-  bottom: 3.5rem;
-  transition: all 0.2s;
-  background: hsla(0, 0%, 10%, 0.9);
-  transform: scaleY(0);
-  transform-origin: bottom;
-  border-radius: 3px;
-}
-
-.setting-menu li {
-  padding: 0.25rem 0.75rem;
-  transition: all 0.2s;
-  font-size: 0.8rem;
-  color: var(--text-light);
-}
-
-.setting-menu li:hover {
-  background: hsl(0, 0%, 15%);
-}
-
-.speed-active {
-  background: hsl(0, 0%, 9%);
-}
-
-.show-setting-menu {
-  opacity: 1;
-  transform: scaleY(1);
-  visibility: visible;
-}
-
-/* Theater Mode */
-.nex-video-player.theater {
-  width: 100% !important;
-  height: 80vh;
-}
-
-.nex-video-player.theater .theater-default,
-.nex-video-player:not(.theater) .theater-active {
-  display: none;
-}
-
-/* Fullscreen Mode */
-.nex-video-player.fullscreen {
-  position: absolute !important;
-  max-width: 100% !important;
-  width: 100% !important;
-  height: 100% !important;
-  display: flex !important;
-  background: #000 !important;
-  align-items: center !important;
-}
-
-.full,
-.contract {
-  display: none;
-}
-
-.nex-video-player:not(.fullscreen) .full,
-.nex-video-player.fullscreen .contract {
-  display: inline;
-}
-
-/* Keyframe Animations */
-@keyframes rotation {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes playPause {
-  50% { opacity: 1; transform: scale(1.1); }
-  100% { opacity: 0; transform: scale(1); }
-}
-
 @media (max-width: 768px) {
   .file-list.grid-view { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   .file-list.grid-view .file-row { height: 150px; }
@@ -1579,11 +1153,79 @@ html, body {
   #iconPreviewContainer i { font-size: 80px; }
   #previewNav button { width: 30px; height: 30px; font-size: 16px; }
   #previewClose { top: 10px; right: 10px; font-size: 25px; }
-  .state-btn { width: 50px; height: 50px; }
+}
+#videoPreviewContainer {
+  display: none;
+  width: 100%;
+  height: 100%;
+  max-width: 90vw;
+  max-height: 90vh;
+  position: relative;
+  overflow: hidden;
 }
 
-@media (max-width: 480px) {
-  .state-btn { width: 40px; height: 40px; }
+#videoPlayer {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.video-controls {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 5px 10px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 1;
+  transition: opacity 0.3s;
+  z-index: 9999;
+}
+
+#previewModal.fullscreen .video-controls {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+}
+
+.video-controls button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.video-controls button:hover {
+  color: var(--accent-red);
+}
+
+#videoProgress {
+  flex: 1;
+  height: 5px;
+  background: #555;
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+}
+
+#videoProgressBar {
+  height: 100%;
+  background: var(--accent-red);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+#videoProgress:hover #videoProgressBar {
+  background: #fff;
 }
 </style>
 </head>
@@ -1665,41 +1307,38 @@ html, body {
       <div class="content-inner">
         <div id="dropZone">Drop files here to upload</div>
         <div class="file-list" id="fileList">
-  <?php foreach ($files as $fileName): ?>
-    <?php 
-        $relativePath = $currentRel . '/' . $fileName;
-        $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
-        $iconClass = getIconClass($fileName);
-        $isImageFile = isImage($fileName);
-        $isVideoFile = isVideo($fileName);
-        log_debug("File URL for $fileName: $fileURL");
-    ?>
-    <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
-        <i class="<?php echo $iconClass; ?> file-icon<?php echo ($isImageFile || $isVideoFile) ? '' : ' no-preview'; ?>"></i>
-        <?php if ($isImageFile): ?>
-            <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
-        <?php elseif ($isVideoFile): ?>
-            <i class="<?php echo $iconClass; ?> file-icon-large"></i> <!-- Video placeholder -->
-        <?php else: ?>
-            <i class="<?php echo $iconClass; ?> file-icon-large"></i>
-        <?php endif; ?>
-        <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
-            <?php echo htmlspecialchars($fileName); ?>
+          <?php foreach ($files as $fileName): ?>
+            <?php 
+                $relativePath = $currentRel . '/' . $fileName;
+                $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
+                $iconClass = getIconClass($fileName);
+                $isImageFile = isImage($fileName);
+                log_debug("File URL for $fileName: $fileURL");
+            ?>
+            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
+                <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
+                <?php if ($isImageFile): ?>
+                    <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
+                <?php else: ?>
+                    <i class="<?php echo $iconClass; ?> file-icon-large"></i>
+                <?php endif; ?>
+                <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
+                    <?php echo htmlspecialchars($fileName); ?>
+                </div>
+                <div class="file-actions">
+                    <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+          <?php endforeach; ?>
         </div>
-        <div class="file-actions">
-            <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
-                <i class="fas fa-download"></i>
-            </button>
-            <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
-                <i class="fas fa-edit"></i>
-            </button>
-            <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
-                <i class="fas fa-trash"></i>
-            </button>
-        </div>
-    </div>
-  <?php endforeach; ?>
-</div>
       </div>
     </div>
   </div>
@@ -1712,8 +1351,17 @@ html, body {
     </div>
     <span id="previewClose" onclick="closePreviewModal()"><i class="fas fa-times"></i></span>
     <div id="imagePreviewContainer" style="display: none;"></div>
-    <div id="videoPreviewContainer" style="display: none;"></div>
     <div id="iconPreviewContainer" style="display: none;"></div>
+    <div id="videoPreviewContainer" style="display: none;">
+      <video id="videoPlayer" preload="auto"></video>
+      <div class="video-controls">
+        <button id="playPauseBtn"><i class="fas fa-play"></i></button>
+        <div id="videoProgress" onclick="seekVideo(event)">
+          <div id="videoProgressBar"></div>
+        </div>
+        <button id="fullscreenBtn"><i class="fas fa-expand"></i></button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1945,25 +1593,21 @@ foreach ($files as $fileName) {
     $relativePath = $currentRel . '/' . $fileName;
     $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
     $iconClass = getIconClass($fileName);
-    $type = isImage($fileName) ? 'image' : (isVideo($fileName) ? 'video' : 'other');
+    $type = isVideo($fileName) ? 'video' : (isImage($fileName) ? 'image' : 'other');
     $previewableFiles[] = ['name' => $fileName, 'url' => $fileURL, 'type' => $type, 'icon' => $iconClass];
 }
 ?>
-
 function openPreviewModal(fileURL, fileName) {
   if (isLoadingImage) return;
   console.log("Previewing: " + fileURL);
   const previewModal = document.getElementById('previewModal');
   const imageContainer = document.getElementById('imagePreviewContainer');
-  const videoContainer = document.getElementById('videoPreviewContainer');
   const iconContainer = document.getElementById('iconPreviewContainer');
   const previewContent = document.getElementById('previewContent');
   const previewClose = document.getElementById('previewClose');
 
   imageContainer.style.display = 'none';
   imageContainer.innerHTML = '';
-  videoContainer.style.display = 'none';
-  videoContainer.innerHTML = '';
   iconContainer.style.display = 'none';
   iconContainer.innerHTML = '';
   previewContent.classList.remove('image-preview');
@@ -1991,15 +1635,6 @@ function openPreviewModal(fileURL, fileName) {
       .finally(() => {
         isLoadingImage = false;
       });
-  } else if (file.type === 'video') {
-    const videoPlayer = document.createElement('div');
-    videoPlayer.className = 'nex-video-player';
-    videoPlayer.setAttribute('data-src', file.url);
-    videoPlayer.setAttribute('data-title', file.name);
-    videoContainer.appendChild(videoPlayer);
-    videoContainer.style.display = 'flex';
-    previewClose.style.display = 'block';
-    initializeVideoPlayer(videoPlayer);
   } else {
     const icon = document.createElement('i');
     icon.className = file.icon;
@@ -2012,7 +1647,7 @@ function openPreviewModal(fileURL, fileName) {
   updateNavigationButtons();
 
   previewModal.onclick = function(e) {
-    if (e.target === previewModal && (file.type === 'image' || file.type === 'video')) {
+    if (e.target === previewModal && file.type === 'image') {
       closePreviewModal();
     }
   };
@@ -2043,6 +1678,381 @@ function updateNavigationButtons() {
   const nextBtn = document.getElementById('nextBtn');
   prevBtn.disabled = previewFiles.length <= 1;
   nextBtn.disabled = previewFiles.length <= 1;
+}
+
+const uploadForm = document.getElementById('uploadForm');
+const fileInput = document.getElementById('fil<script>
+let selectedFolder = null;
+let currentXhr = null;
+let previewFiles = [];
+let currentPreviewIndex = -1;
+let isLoadingImage = false;
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sb.classList.toggle('open');
+  overlay.classList.toggle('show');
+}
+document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+
+function selectFolder(element, folderName) {
+  document.querySelectorAll('.folder-item.selected').forEach(item => item.classList.remove('selected'));
+  element.classList.add('selected');
+  selectedFolder = folderName;
+  document.getElementById('btnDeleteFolder').style.display = 'flex';
+  document.getElementById('btnRenameFolder').style.display = 'flex';
+}
+
+function openFolder(folderPath) {
+  console.log("Opening folder: " + folderPath);
+  window.location.href = '/selfhostedgdrive/explorer.php?folder=' + folderPath;
+}
+
+function showPrompt(message, defaultValue, callback) {
+  const dialogModal = document.getElementById('dialogModal');
+  const dialogMessage = document.getElementById('dialogMessage');
+  const dialogButtons = document.getElementById('dialogButtons');
+  dialogMessage.innerHTML = '';
+  dialogButtons.innerHTML = '';
+  const msgEl = document.createElement('div');
+  msgEl.textContent = message;
+  msgEl.style.marginBottom = '10px';
+  dialogMessage.appendChild(msgEl);
+  const inputField = document.createElement('input');
+  inputField.type = 'text';
+  inputField.value = defaultValue || '';
+  inputField.style.width = '100%';
+  inputField.style.padding = '8px';
+  inputField.style.border = '1px solid #555';
+  inputField.style.borderRadius = '4px';
+  inputField.style.background = '#2a2a2a';
+  inputField.style.color = '#fff';
+  inputField.style.marginBottom = '15px';
+  dialogMessage.appendChild(inputField);
+  const okBtn = document.createElement('button');
+  okBtn.className = 'dialog-button';
+  okBtn.textContent = 'OK';
+  okBtn.onclick = () => { closeDialog(); if (callback) callback(inputField.value); };
+  dialogButtons.appendChild(okBtn);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'dialog-button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = () => { closeDialog(); if (callback) callback(null); };
+  dialogButtons.appendChild(cancelBtn);
+  dialogModal.classList.add('show');
+}
+
+function closeDialog() {
+  document.getElementById('dialogModal').classList.remove('show');
+}
+
+function showAlert(message, callback) {
+  const dialogModal = document.getElementById('dialogModal');
+  const dialogMessage = document.getElementById('dialogMessage');
+  const dialogButtons = document.getElementById('dialogButtons');
+  dialogMessage.textContent = message;
+  dialogButtons.innerHTML = '';
+  const okBtn = document.createElement('button');
+  okBtn.className = 'dialog-button';
+  okBtn.textContent = 'OK';
+  okBtn.onclick = () => { closeDialog(); if (callback) callback(); };
+  dialogButtons.appendChild(okBtn);
+  dialogModal.classList.add('show');
+}
+
+function showConfirm(message, onYes, onNo) {
+  const dialogModal = document.getElementById('dialogModal');
+  const dialogMessage = document.getElementById('dialogMessage');
+  const dialogButtons = document.getElementById('dialogButtons');
+  dialogMessage.textContent = message;
+  dialogButtons.innerHTML = '';
+  const yesBtn = document.createElement('button');
+  yesBtn.className = 'dialog-button';
+  yesBtn.textContent = 'Yes';
+  yesBtn.onclick = () => { closeDialog(); if (onYes) onYes(); };
+  dialogButtons.appendChild(yesBtn);
+  const noBtn = document.createElement('button');
+  noBtn.className = 'dialog-button';
+  noBtn.textContent = 'No';
+  noBtn.onclick = () => { closeDialog(); if (onNo) onNo(); };
+  dialogButtons.appendChild(noBtn);
+  dialogModal.classList.add('show');
+}
+
+function createFolder() {
+  showPrompt("Enter new folder name:", "", function(folderName) {
+    if (folderName && folderName.trim() !== "") {
+      let form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
+      let inputCreate = document.createElement('input');
+      inputCreate.type = 'hidden';
+      inputCreate.name = 'create_folder';
+      inputCreate.value = '1';
+      form.appendChild(inputCreate);
+      let inputName = document.createElement('input');
+      inputName.type = 'hidden';
+      inputName.name = 'folder_name';
+      inputName.value = folderName.trim();
+      form.appendChild(inputName);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  });
+}
+
+document.getElementById('btnRenameFolder').addEventListener('click', function() {
+  if (!selectedFolder) return;
+  showPrompt("Enter new folder name:", selectedFolder, function(newName) {
+    if (newName && newName.trim() !== "" && newName !== selectedFolder) {
+      let form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
+      let inputAction = document.createElement('input');
+      inputAction.type = 'hidden';
+      inputAction.name = 'rename_folder';
+      inputAction.value = '1';
+      form.appendChild(inputAction);
+      let inputOld = document.createElement('input');
+      inputOld.type = 'hidden';
+      inputOld.name = 'old_folder_name';
+      inputOld.value = selectedFolder;
+      form.appendChild(inputOld);
+      let inputNew = document.createElement('input');
+      inputNew.type = 'hidden';
+      inputNew.name = 'new_folder_name';
+      inputNew.value = newName.trim();
+      form.appendChild(inputNew);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  });
+});
+
+document.getElementById('btnDeleteFolder').addEventListener('click', function() {
+  if (!selectedFolder) return;
+  showConfirm(`Delete folder "${selectedFolder}"?`, () => {
+    let form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>&delete=' + encodeURIComponent(selectedFolder);
+    document.body.appendChild(form);
+    form.submit();
+  });
+});
+
+function renameFilePrompt(fileName) {
+  let dotIndex = fileName.lastIndexOf(".");
+  let baseName = fileName;
+  let ext = "";
+  if (dotIndex > 0) {
+    baseName = fileName.substring(0, dotIndex);
+    ext = fileName.substring(dotIndex);
+  }
+  showPrompt("Enter new file name:", baseName, function(newBase) {
+    if (newBase && newBase.trim() !== "" && newBase.trim() !== baseName) {
+      let finalName = newBase.trim() + ext;
+      let form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
+      let inputAction = document.createElement('input');
+      inputAction.type = 'hidden';
+      inputAction.name = 'rename_file';
+      inputAction.value = '1';
+      form.appendChild(inputAction);
+      let inputOld = document.createElement('input');
+      inputOld.type = 'hidden';
+      inputOld.name = 'old_file_name';
+      inputOld.value = fileName;
+      form.appendChild(inputOld);
+      let inputNew = document.createElement('input');
+      inputNew.type = 'hidden';
+      inputNew.name = 'new_file_name';
+      inputNew.value = finalName;
+      form.appendChild(inputNew);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  });
+}
+
+function confirmFileDelete(fileName) {
+  showConfirm(`Delete file "${fileName}"?`, () => {
+    let form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>&delete=' + encodeURIComponent(fileName);
+    document.body.appendChild(form);
+    form.submit();
+  });
+}
+
+function downloadFile(fileURL) {
+  console.log("Downloading: " + fileURL);
+  const a = document.createElement('a');
+  a.href = fileURL;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+<?php
+$previewableFiles = [];
+foreach ($files as $fileName) {
+    $relativePath = $currentRel . '/' . $fileName;
+    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
+    $iconClass = getIconClass($fileName);
+    $type = isVideo($fileName) ? 'video' : (isImage($fileName) ? 'image' : 'other');
+    $previewableFiles[] = ['name' => $fileName, 'url' => $fileURL, 'type' => $type, 'icon' => $iconClass];
+}
+?>
+
+function openPreviewModal(fileURL, fileName) {
+  if (isLoadingImage) return;
+  console.log("Previewing: " + fileURL);
+  const previewModal = document.getElementById('previewModal');
+  const imageContainer = document.getElementById('imagePreviewContainer');
+  const iconContainer = document.getElementById('iconPreviewContainer');
+  const videoContainer = document.getElementById('videoPreviewContainer');
+  const videoPlayer = document.getElementById('videoPlayer');
+  const previewContent = document.getElementById('previewContent');
+  const previewClose = document.getElementById('previewClose');
+
+  // Reset all containers
+  imageContainer.style.display = 'none';
+  imageContainer.innerHTML = '';
+  iconContainer.style.display = 'none';
+  iconContainer.innerHTML = '';
+  videoContainer.style.display = 'none';
+  videoPlayer.pause();
+  videoPlayer.src = '';
+  previewContent.classList.remove('image-preview');
+  previewModal.classList.remove('fullscreen');
+
+  previewFiles = <?php echo json_encode($previewableFiles); ?>;
+  currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
+  let file = previewFiles.find(f => f.name === fileName);
+
+  if (file.type === 'video') {
+    videoPlayer.src = file.url;
+    videoContainer.style.display = 'block';
+    previewClose.style.display = 'block';
+    setupVideoControls(videoPlayer);
+  } else if (file.type === 'image') {
+    isLoadingImage = true;
+    fetch(file.url)
+      .then(response => {
+        if (!response.ok) throw new Error('Preview failed: ' + response.status);
+        return response.blob();
+      })
+      .then(blob => {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(blob);
+        imageContainer.appendChild(img);
+        imageContainer.style.display = 'flex';
+        previewClose.style.display = 'none';
+        previewContent.classList.add('image-preview');
+      })
+      .catch(error => showAlert('Preview error: ' + error.message))
+      .finally(() => isLoadingImage = false);
+  } else {
+    const icon = document.createElement('i');
+    icon.className = file.icon;
+    iconContainer.appendChild(icon);
+    iconContainer.style.display = 'flex';
+    previewClose.style.display = 'block';
+  }
+
+  previewModal.style.display = 'flex';
+  updateNavigationButtons();
+
+  previewModal.onclick = function(e) {
+    if (e.target === previewModal && file.type === 'image') {
+      closePreviewModal();
+    }
+  };
+}
+window.openPreviewModal = openPreviewModal;
+
+function closePreviewModal() {
+  document.getElementById('previewModal').style.display = 'none';
+  document.getElementById('previewClose').style.display = 'block';
+  document.getElementById('previewContent').classList.remove('image-preview');
+  const videoPlayer = document.getElementById('videoPlayer');
+  videoPlayer.pause();
+  videoPlayer.src = '';
+  isLoadingImage = false;
+  previewFiles = [];
+  currentPreviewIndex = -1;
+}
+window.closePreviewModal = closePreviewModal;
+
+function navigatePreview(direction) {
+  if (previewFiles.length === 0 || currentPreviewIndex === -1 || isLoadingImage) return;
+  currentPreviewIndex += direction;
+  if (currentPreviewIndex < 0) currentPreviewIndex = previewFiles.length - 1;
+  if (currentPreviewIndex >= previewFiles.length) currentPreviewIndex = 0;
+  const file = previewFiles[currentPreviewIndex];
+  openPreviewModal(file.url, file.name);
+}
+
+function updateNavigationButtons() {
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  prevBtn.disabled = previewFiles.length <= 1;
+  nextBtn.disabled = previewFiles.length <= 1;
+}
+
+function setupVideoControls(video) {
+  const playPauseBtn = document.getElementById('playPauseBtn');
+  const progressBar = document.getElementById('videoProgressBar');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const previewModal = document.getElementById('previewModal');
+
+  playPauseBtn.onclick = () => {
+    if (video.paused) {
+      video.play();
+      playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+    } else {
+      video.pause();
+      playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+    }
+  };
+
+  video.ontimeupdate = () => {
+    const percent = (video.currentTime / video.duration) * 100;
+    progressBar.style.width = percent + '%';
+  };
+
+  video.onended = () => {
+    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+  };
+
+  fullscreenBtn.onclick = () => {
+    if (!document.fullscreenElement) {
+      previewModal.requestFullscreen().then(() => {
+        previewModal.classList.add('fullscreen');
+        fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        previewModal.classList.remove('fullscreen');
+        fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+      });
+    }
+  };
+
+  video.onerror = () => {
+    showAlert('Error loading video. Check file format or server logs.');
+  };
+}
+
+function seekVideo(event) {
+  const video = document.getElementById('videoPlayer');
+  const progress = document.getElementById('videoProgress');
+  const rect = progress.getBoundingClientRect();
+  const pos = (event.clientX - rect.left) / rect.width;
+  video.currentTime = pos * video.duration;
 }
 
 const uploadForm = document.getElementById('uploadForm');
@@ -2183,443 +2193,6 @@ gridToggleBtn.addEventListener('click', () => {
   localStorage.setItem('gridView', isGridView);
   updateGridView();
 });
-
-function initializeVideoPlayer(videoContainer) {
-  const videoSrc = videoContainer.getAttribute('data-src');
-  const videoTitle = videoContainer.getAttribute('data-title');
-
-  const videoElement = document.createElement('video');
-  videoElement.id = 'video';
-  videoElement.disableRemotePlayback = true;
-  videoElement.setAttribute('disableRemotePlayback', '');
-  videoElement.src = videoSrc;
-  videoContainer.appendChild(videoElement);
-
-  const loaderspn = document.createElement('span');
-  loaderspn.className = 'custom-loader';
-  videoContainer.appendChild(loaderspn);
-
-  const playerState = document.createElement('div');
-  playerState.className = 'player-state';
-
-  const backwardButton = document.createElement('span');
-  backwardButton.className = 'state-btn state-backward';
-  backwardButton.innerHTML = '<i class="fas fa-backward"></i>';
-  playerState.appendChild(backwardButton);
-
-  const mainStateButton = document.createElement('span');
-  mainStateButton.className = 'state-btn main-state';
-  mainStateButton.innerHTML = '<i class="fas fa-play"></i>';
-  playerState.appendChild(mainStateButton);
-
-  const forwardButton = document.createElement('span');
-  forwardButton.className = 'state-btn state-forward';
-  forwardButton.innerHTML = '<i class="fas fa-forward"></i>';
-  playerState.appendChild(forwardButton);
-
-  videoContainer.appendChild(playerState);
-
-  const controlsdiv = document.createElement('div');
-  controlsdiv.className = 'controls';
-
-  const videoinfo = document.createElement('div');
-  videoinfo.className = 'video-info';
-  controlsdiv.appendChild(videoinfo);
-
-  const videotitle = document.createElement('h2');
-  videotitle.className = 'video-title';
-  videotitle.textContent = videoTitle;
-  videoinfo.appendChild(videotitle);
-
-  const videotimer = document.createElement('div');
-  videotimer.className = 'time-container';
-  videotimer.innerHTML = `<span class="current-duration">00:00</span><span> / </span><span class="total-duration">00:00</span>`;
-  videoinfo.appendChild(videotimer);
-
-  const durationDiv = document.createElement('div');
-  durationDiv.className = 'progress-bar';
-  durationDiv.innerHTML = `<div class="current-time"></div><div class="hover-time"><span class="hover-duration"></span></div><div class="buffer"></div>`;
-  controlsdiv.appendChild(durationDiv);
-
-  const btnControls = document.createElement('div');
-  btnControls.className = 'btn-controls';
-  btnControls.innerHTML = `
-    <div class="left-controls">
-      <span class="play-pause control-btn" title="play"><i class="fas fa-play"></i></span>
-      <span class="backward control-btn" title="5 backward"><i class="fas fa-backward"></i></span>
-      <span class="forward control-btn" title="5 forward"><i class="fas fa-forward"></i></span>
-      <span class="volume">
-        <span class="mute-unmute control-btn" title="mute"><i class="fas fa-volume-up"></i></span>
-        <div class="max-vol">
-          <span class="current-vol"></span>
-        </div>
-      </span>
-    </div>
-    <div class="right-controls">
-      <span class="mini-player control-btn" title="mini player"><i class="fas fa-compress"></i></span>
-      <span class="settings control-btn" title="settings">
-        <i class="fas fa-cog setting-btn"></i>
-        <ul class="setting-menu"><li data-value="0.25">0.25x</li><li data-value="0.5">0.5x</li><li data-value="0.75">0.75x</li><li data-value="1" class="speed-active">1x</li><li data-value="1.25">1.25x</li><li data-value="1.5">1.5x</li><li data-value="1.75">1.75x</li><li data-value="2">2x</li></ul>
-      </span>
-      <span class="theater-btn control-btn" title="theater">
-        <i class="fas fa-desktop theater-default"></i>
-        <i class="fas fa-desktop theater-active" style="display:none;"></i>
-      </span>
-      <span class="fullscreen-btn control-btn" title="fullscreen">
-        <i class="fas fa-expand full"></i>
-        <i class="fas fa-compress contract" style="display:none;"></i>
-      </span>
-    </div>`;
-  controlsdiv.appendChild(btnControls);
-
-  videoContainer.appendChild(controlsdiv);
-
-  const video = videoContainer.querySelector("video");
-  const fullscreen = videoContainer.querySelector(".fullscreen-btn");
-  const playPause = videoContainer.querySelector(".play-pause");
-  const volume = videoContainer.querySelector(".volume");
-  const currentTime = videoContainer.querySelector(".current-time");
-  const duration = videoContainer.querySelector(".progress-bar");
-  const buffer = videoContainer.querySelector(".buffer");
-  const totalDuration = videoContainer.querySelector(".total-duration");
-  const currentDuration = videoContainer.querySelector(".current-duration");
-  const controls = videoContainer.querySelector(".controls");
-  const currentVol = videoContainer.querySelector(".current-vol");
-  const totalVol = videoContainer.querySelector(".max-vol");
-  const mainState = videoContainer.querySelector(".main-state");
-  const muteUnmute = videoContainer.querySelector(".mute-unmute");
-  const forward = videoContainer.querySelector(".forward");
-  const backward = videoContainer.querySelector(".backward");
-  const hoverTime = videoContainer.querySelector(".hover-time");
-  const hoverDuration = videoContainer.querySelector(".hover-duration");
-  const miniPlayer = videoContainer.querySelector(".mini-player");
-  const settingsBtn = videoContainer.querySelector(".setting-btn");
-  const settingMenu = videoContainer.querySelector(".setting-menu");
-  const theaterBtn = videoContainer.querySelector(".theater-btn");
-  const speedButtons = videoContainer.querySelectorAll(".setting-menu li");
-  const backwardSate = videoContainer.querySelector(".state-backward");
-  const forwardSate = videoContainer.querySelector(".state-forward");
-  const loader = videoContainer.querySelector(".custom-loader");
-
-  let isPlaying = false,
-      mouseDownProgress = false,
-      mouseDownVol = false,
-      isCursorOnControls = false,
-      muted = false,
-      timeout,
-      volumeVal = 1,
-      mouseOverDuration = false,
-      touchClientX = 0,
-      touchPastDurationWidth = 0,
-      touchStartTime = 0;
-
-  currentVol.style.width = volumeVal * 100 + "%";
-
-  video.addEventListener("loadedmetadata", canPlayInit);
-  video.addEventListener("play", play);
-  video.addEventListener("pause", pause);
-  video.addEventListener("progress", handleProgress);
-  video.addEventListener("waiting", handleWaiting);
-  video.addEventListener("playing", handlePlaying);
-
-  document.addEventListener("keydown", handleShorthand);
-  fullscreen.addEventListener("click", toggleFullscreen);
-
-  playPause.addEventListener("click", (e) => {
-    if (!isPlaying) play(); else pause();
-  });
-
-  duration.addEventListener("click", navigate);
-  duration.addEventListener("mousedown", (e) => { mouseDownProgress = true; navigate(e); });
-  totalVol.addEventListener("mousedown", (e) => { mouseDownVol = true; handleVolume(e); });
-  document.addEventListener("mouseup", () => { mouseDownProgress = false; mouseDownVol = false; });
-  document.addEventListener("mousemove", handleMousemove);
-
-  duration.addEventListener("mouseenter", () => { mouseOverDuration = true; });
-  duration.addEventListener("mouseleave", () => {
-    mouseOverDuration = false;
-    hoverTime.style.width = 0;
-    hoverDuration.innerHTML = "";
-  });
-
-  videoContainer.addEventListener("click", toggleMainState);
-  videoContainer.addEventListener("fullscreenchange", () => {
-    videoContainer.classList.toggle("fullscreen", document.fullscreenElement);
-    fullscreen.querySelector('.full').style.display = document.fullscreenElement ? 'none' : 'inline';
-    fullscreen.querySelector('.contract').style.display = document.fullscreenElement ? 'inline' : 'none';
-  });
-  videoContainer.addEventListener("mouseleave", hideControls);
-  videoContainer.addEventListener("mousemove", () => {
-    controls.classList.add("show-controls");
-    hideControls();
-  });
-  videoContainer.addEventListener("touchstart", (e) => {
-    controls.classList.add("show-controls");
-    touchClientX = e.changedTouches[0].clientX;
-    const currentTimeRect = currentTime.getBoundingClientRect();
-    touchPastDurationWidth = currentTimeRect.width;
-    touchStartTime = e.timeStamp;
-  });
-  videoContainer.addEventListener("touchend", hideControls);
-  videoContainer.addEventListener("touchmove", handleTouchNavigate);
-
-  controls.addEventListener("mouseenter", () => { controls.classList.add("show-controls"); isCursorOnControls = true; });
-  controls.addEventListener("mouseleave", () => { isCursorOnControls = false; });
-
-  mainState.addEventListener("click", toggleMainState);
-  mainState.addEventListener("animationend", handleMainSateAnimationEnd);
-
-  muteUnmute.addEventListener("click", toggleMuteUnmute);
-  muteUnmute.addEventListener("mouseenter", () => { if (!muted) totalVol.classList.add("show"); else totalVol.classList.remove("show"); });
-  muteUnmute.addEventListener("mouseleave", (e) => { if (e.relatedTarget != volume) totalVol.classList.remove("show"); });
-
-  forward.addEventListener("click", handleForward);
-  forwardSate.addEventListener("animationend", () => { forwardSate.classList.remove("show-state", "animate-state"); });
-
-  backward.addEventListener("click", handleBackward);
-  backwardSate.addEventListener("animationend", () => { backwardSate.classList.remove("show-state", "animate-state"); });
-
-  miniPlayer.addEventListener("click", toggleMiniPlayer);
-  theaterBtn.addEventListener("click", toggleTheater);
-  settingsBtn.addEventListener("click", handleSettingMenu);
-  speedButtons.forEach(btn => btn.addEventListener("click", handlePlaybackRate));
-
-  function canPlayInit() {
-    totalDuration.innerHTML = showDuration(video.duration);
-    video.volume = volumeVal;
-    muted = video.muted;
-    if (video.paused) {
-      controls.classList.add("show-controls");
-      mainState.classList.add("show-state");
-      handleMainStateIcon('<i class="fas fa-play"></i>');
-    }
-  }
-
-  function play() {
-    video.play();
-    isPlaying = true;
-    playPause.innerHTML = '<i class="fas fa-pause"></i>';
-    mainState.classList.remove("show-state");
-    handleMainStateIcon('<i class="fas fa-pause"></i>');
-    watchProgress();
-  }
-
-  function watchProgress() {
-    if (isPlaying) {
-      requestAnimationFrame(watchProgress);
-      handleProgressBar();
-    }
-  }
-
-  video.ontimeupdate = handleProgressBar;
-
-  function handleProgressBar() {
-    currentTime.style.width = (video.currentTime / video.duration) * 100 + "%";
-    currentDuration.innerHTML = showDuration(video.currentTime);
-  }
-
-  function pause() {
-    video.pause();
-    isPlaying = false;
-    playPause.innerHTML = '<i class="fas fa-play"></i>';
-    controls.classList.add("show-controls");
-    mainState.classList.add("show-state");
-    handleMainStateIcon('<i class="fas fa-play"></i>');
-    if (video.ended) currentTime.style.width = "100%";
-  }
-
-  function handleWaiting() { loader.style.display = "unset"; }
-  function handlePlaying() { loader.style.display = "none"; }
-
-  function navigate(e) {
-    const totalDurationRect = duration.getBoundingClientRect();
-    const width = Math.min(Math.max(0, e.clientX - totalDurationRect.x), totalDurationRect.width);
-    currentTime.style.width = (width / totalDurationRect.width) * 100 + "%";
-    video.currentTime = (width / totalDurationRect.width) * video.duration;
-  }
-
-  function handleTouchNavigate(e) {
-    hideControls();
-    if (e.timeStamp - touchStartTime > 500) {
-      const durationRect = duration.getBoundingClientRect();
-      const clientX = e.changedTouches[0].clientX;
-      const value = Math.min(Math.max(0, touchPastDurationWidth + (clientX - touchClientX) * 0.2), durationRect.width);
-      currentTime.style.width = value + "px";
-      video.currentTime = (value / durationRect.width) * video.duration;
-      currentDuration.innerHTML = showDuration(video.currentTime);
-    }
-  }
-
-  function showDuration(time) {
-    const hours = Math.floor(time / 60 ** 2);
-    const min = Math.floor((time / 60) % 60);
-    const sec = Math.floor(time % 60);
-    return hours > 0 ? `${formatter(hours)}:${formatter(min)}:${formatter(sec)}` : `${formatter(min)}:${formatter(sec)}`;
-  }
-
-  function formatter(number) {
-    return new Intl.NumberFormat({}, { minimumIntegerDigits: 2 }).format(number);
-  }
-
-  function toggleMuteUnmute() {
-    if (!muted) {
-      video.volume = 0;
-      muted = true;
-      muteUnmute.innerHTML = '<i class="fas fa-volume-mute"></i>';
-      handleMainStateIcon('<i class="fas fa-volume-mute"></i>');
-      totalVol.classList.remove("show");
-    } else {
-      video.volume = volumeVal;
-      muted = false;
-      totalVol.classList.add("show");
-      handleMainStateIcon('<i class="fas fa-volume-up"></i>');
-      muteUnmute.innerHTML = '<i class="fas fa-volume-up"></i>';
-    }
-  }
-
-  function hideControls() {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => {
-      if (isPlaying && !isCursorOnControls) {
-        controls.classList.remove("show-controls");
-        settingMenu.classList.remove("show-setting-menu");
-      }
-    }, 1000);
-  }
-
-  function toggleMainState(e) {
-    e.stopPropagation();
-    const path = e.composedPath();
-    if (!path.includes(controls)) {
-      if (!isPlaying) play(); else pause();
-    }
-  }
-
-  function handleVolume(e) {
-    const totalVolRect = totalVol.getBoundingClientRect();
-    currentVol.style.width = Math.min(Math.max(0, e.clientX - totalVolRect.x), totalVolRect.width) + "px";
-    volumeVal = Math.min(Math.max(0, (e.clientX - totalVolRect.x) / totalVolRect.width), 1);
-    video.volume = volumeVal;
-  }
-
-  function handleProgress() {
-    if (!video.buffered || !video.buffered.length) return;
-    const width = (video.buffered.end(0) / video.duration) * 100 + "%";
-    buffer.style.width = width;
-  }
-
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      videoContainer.requestFullscreen();
-      handleMainStateIcon('<i class="fas fa-expand"></i>');
-    } else {
-      document.exitFullscreen();
-      handleMainStateIcon('<i class="fas fa-compress"></i>');
-    }
-  }
-
-  function handleMousemove(e) {
-    if (mouseDownProgress) {
-      e.preventDefault();
-      navigate(e);
-    }
-    if (mouseDownVol) handleVolume(e);
-    if (mouseOverDuration) {
-      const rect = duration.getBoundingClientRect();
-      const width = Math.min(Math.max(0, e.clientX - rect.x), rect.width);
-      const percent = (width / rect.width) * 100;
-      hoverTime.style.width = width + "px";
-      hoverDuration.innerHTML = showDuration((video.duration / 100) * percent);
-    }
-  }
-
-  function handleForward() {
-    forwardSate.classList.add("show-state", "animate-state");
-    video.currentTime += 5;
-    handleProgressBar();
-  }
-
-  function handleBackward() {
-    backwardSate.classList.add("show-state", "animate-state");
-    video.currentTime -= 5;
-    handleProgressBar();
-  }
-
-  function handleMainStateIcon(icon) {
-    mainState.classList.add("animate-state");
-    mainState.innerHTML = icon;
-  }
-
-  function handleMainSateAnimationEnd() {
-    mainState.classList.remove("animate-state");
-    if (!isPlaying) mainState.innerHTML = '<i class="fas fa-play"></i>';
-    if (document.pictureInPictureElement) mainState.innerHTML = '<i class="fas fa-desktop"></i>';
-  }
-
-  function toggleTheater() {
-    videoContainer.classList.toggle("theater");
-    if (videoContainer.classList.contains("theater")) {
-      handleMainStateIcon('<i class="fas fa-desktop"></i>');
-      theaterBtn.querySelector('.theater-default').style.display = 'none';
-      theaterBtn.querySelector('.theater-active').style.display = 'inline';
-    } else {
-      handleMainStateIcon('<i class="fas fa-desktop"></i>');
-      theaterBtn.querySelector('.theater-default').style.display = 'inline';
-      theaterBtn.querySelector('.theater-active').style.display = 'none';
-    }
-  }
-
-  function toggleMiniPlayer() {
-    if (document.pictureInPictureElement) {
-      document.exitPictureInPicture();
-      handleMainStateIcon('<i class="fas fa-compress"></i>');
-    } else {
-      video.requestPictureInPicture();
-      handleMainStateIcon('<i class="fas fa-desktop"></i>');
-    }
-  }
-
-  function handleSettingMenu() {
-    settingMenu.classList.toggle("show-setting-menu");
-  }
-
-  function handlePlaybackRate(e) {
-    video.playbackRate = parseFloat(e.target.dataset.value);
-    speedButtons.forEach(btn => btn.classList.remove("speed-active"));
-    e.target.classList.add("speed-active");
-    settingMenu.classList.remove("show-setting-menu");
-  }
-
-  function handlePlaybackRateKey(type = "") {
-    if (type === "increase" && video.playbackRate < 2) video.playbackRate += 0.25;
-    else if (video.playbackRate > 0.25 && type !== "increase") video.playbackRate -= 0.25;
-    handleMainStateIcon(`<span style="font-size: 1.4rem">${video.playbackRate}x</span>`);
-    speedButtons.forEach(btn => {
-      btn.classList.remove("speed-active");
-      if (btn.dataset.value == video.playbackRate) btn.classList.add("speed-active");
-    });
-  }
-
-  function handleShorthand(e) {
-    const tagName = document.activeElement.tagName.toLowerCase();
-    if (tagName === "input") return;
-    if (e.key.match(/[0-9]/gi)) {
-      video.currentTime = (video.duration / 100) * (parseInt(e.key) * 10);
-      currentTime.style.width = parseInt(e.key) * 10 + "%";
-    }
-    switch (e.key.toLowerCase()) {
-      case " ": if (tagName === "button") return; if (isPlaying) video.pause(); else video.play(); break;
-      case "f": toggleFullscreen(); break;
-      case "arrowright": handleForward(); break;
-      case "arrowleft": handleBackward(); break;
-      case "t": toggleTheater(); break;
-      case "i": toggleMiniPlayer(); break;
-      case "m": toggleMuteUnmute(); break;
-      case "+": handlePlaybackRateKey("increase"); break;
-      case "-": handlePlaybackRateKey(); break;
-    }
-  }
-}
 </script>
 </body>
 </html>
