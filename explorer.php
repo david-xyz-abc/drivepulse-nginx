@@ -2640,69 +2640,35 @@ document.addEventListener('click', (e) => {
 
 // Helper functions for file actions
 function downloadFile(filename) {
-    showDialog(
-        'Download File',
-        `Do you want to download "${filename}"?`,
-        'Download',
-        () => {
-            const link = document.createElement('a');
-            link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(currentPath + '/' + filename)}`;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    );
+    const link = document.createElement('a');
+    link.href = `?action=serve&file=${encodeURIComponent(filename)}`;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 function renameFile(filename) {
-    const content = `
-        <p>Enter new name for "${filename}":</p>
-        <input type="text" id="newFileName" class="dialog-input" value="${filename}">
-    `;
-    
-    showDialog(
-        'Rename File',
-        content,
-        'Rename',
-        () => {
-            const newName = document.getElementById('newFileName').value.trim();
-            if (newName && newName !== filename) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = window.location.href;
-                form.innerHTML = `
-                    <input type="hidden" name="rename_file" value="1">
-                    <input type="hidden" name="old_file_name" value="${filename}">
-                    <input type="hidden" name="new_file_name" value="${newName}">
-                `;
-                document.body.appendChild(form);
-                form.submit();
-            }
-        }
-    );
-    
-    // Focus the input field
-    setTimeout(() => {
-        const input = document.getElementById('newFileName');
-        input.focus();
-        input.select();
-    }, 100);
+    const newName = document.getElementById('newFileName').value.trim();
+    if (newName && newName !== filename) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="rename_file" value="1">
+            <input type="hidden" name="old_file_name" value="${filename}">
+            <input type="hidden" name="new_file_name" value="${newName}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 
 function deleteFile(filename) {
-    showDialog(
-        'Delete File',
-        `Are you sure you want to delete "${filename}"?<br>This action cannot be undone.`,
-        'Delete',
-        () => {
-            fetch(`${window.location.pathname}?delete=${encodeURIComponent(filename)}`, {
-                method: 'POST'
-            }).then(() => {
-                location.reload();
-            });
-        }
-    );
+    fetch(`?delete=${encodeURIComponent(filename)}`, {
+        method: 'POST'
+    }).then(() => {
+        location.reload();
+    });
 }
 
 function showDialog(title, content, confirmText, onConfirm) {
