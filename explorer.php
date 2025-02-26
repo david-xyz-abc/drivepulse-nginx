@@ -1459,6 +1459,72 @@ button, .btn, .file-row, .folder-item, img, i {
         transform: translateY(0);
     }
 }
+
+/* Add this CSS in the style section: */
+.search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 10px;
+  display: none;
+  animation: slideIn 0.3s ease;
+}
+
+.search-box.active {
+  display: block;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+#searchInput {
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 8px 12px;
+  border-radius: 4px;
+  width: 200px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+#searchInput:focus {
+  border-color: var(--accent-red);
+  box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.2);
+}
+
+@media (max-width: 768px) {
+  .search-box {
+    position: fixed;
+    top: 70px;
+    left: 20px;
+    right: 20px;
+    transform: none;
+    margin: 0;
+    z-index: 1000;
+  }
+
+  #searchInput {
+    width: 100%;
+  }
+}
 </style>
 </head>
 <body>
@@ -1515,6 +1581,15 @@ button, .btn, .file-row, .folder-item, img, i {
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
         </div>
         <div style="display: flex; gap: 10px;">
+          <!-- Add this new search container -->
+          <div class="search-container">
+            <button type="button" class="btn" id="searchBtn" title="Search">
+              <i class="fas fa-search"></i>
+            </button>
+            <div class="search-box" id="searchBox">
+              <input type="text" id="searchInput" placeholder="Search files..." />
+            </div>
+          </div>
           <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
             <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
             <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
@@ -2260,6 +2335,143 @@ document.querySelectorAll('.file-row').forEach(row => {
         
         lastTap = currentTime;
     });
+});
+
+// Add this CSS in the style section:
+.search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 10px;
+  display: none;
+  animation: slideIn 0.3s ease;
+}
+
+.search-box.active {
+  display: block;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+#searchInput {
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 8px 12px;
+  border-radius: 4px;
+  width: 200px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+#searchInput:focus {
+  border-color: var(--accent-red);
+  box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.2);
+}
+
+@media (max-width: 768px) {
+  .search-box {
+    position: fixed;
+    top: 70px;
+    left: 20px;
+    right: 20px;
+    transform: none;
+    margin: 0;
+    z-index: 1000;
+  }
+
+  #searchInput {
+    width: 100%;
+  }
+}
+
+// Add this JavaScript at the end of your script section, before the closing </script> tag:
+// Search functionality
+const searchBtn = document.getElementById('searchBtn');
+const searchBox = document.getElementById('searchBox');
+const searchInput = document.getElementById('searchInput');
+
+let isSearchActive = false;
+
+searchBtn.addEventListener('click', () => {
+  isSearchActive = !isSearchActive;
+  searchBox.classList.toggle('active', isSearchActive);
+  searchBtn.innerHTML = isSearchActive ? '<i class="fas fa-times"></i>' : '<i class="fas fa-search"></i>';
+  searchBtn.title = isSearchActive ? 'Close Search' : 'Search';
+  
+  if (isSearchActive) {
+    searchInput.focus();
+  } else {
+    searchInput.value = '';
+    filterFiles('');
+  }
+});
+
+searchInput.addEventListener('input', (e) => {
+  filterFiles(e.target.value.toLowerCase());
+});
+
+function filterFiles(searchTerm) {
+  const fileRows = document.querySelectorAll('.file-row');
+  let hasVisibleFiles = false;
+
+  fileRows.forEach(row => {
+    const fileName = row.querySelector('.file-name').textContent.toLowerCase();
+    const isMatch = fileName.includes(searchTerm);
+    row.style.display = isMatch ? '' : 'none';
+    if (isMatch) hasVisibleFiles = true;
+  });
+
+  // Show/hide "no results" message
+  let noResultsMsg = document.getElementById('noResultsMsg');
+  if (!hasVisibleFiles && searchTerm) {
+    if (!noResultsMsg) {
+      noResultsMsg = document.createElement('div');
+      noResultsMsg.id = 'noResultsMsg';
+      noResultsMsg.style.textAlign = 'center';
+      noResultsMsg.style.padding = '20px';
+      noResultsMsg.style.color = 'var(--text-color)';
+      document.getElementById('fileList').appendChild(noResultsMsg);
+    }
+    noResultsMsg.textContent = 'No files found matching your search.';
+    noResultsMsg.style.display = 'block';
+  } else if (noResultsMsg) {
+    noResultsMsg.style.display = 'none';
+  }
+}
+
+// Close search when clicking outside
+document.addEventListener('click', (e) => {
+  if (isSearchActive && 
+      !e.target.closest('.search-container') && 
+      !e.target.closest('#searchInput')) {
+    searchBtn.click();
+  }
+});
+
+// Add escape key handler
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && isSearchActive) {
+    searchBtn.click();
+  }
 });
 </script>
 
