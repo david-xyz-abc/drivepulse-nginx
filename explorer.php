@@ -1881,8 +1881,13 @@ function openPreviewModal(fileURL, fileName) {
             previewContent.classList.add('video-preview');
             setupVideoControls(videoPlayer);
             
+            // Add this: Set the saved timestamp when video is ready
             videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
+                const savedTime = getSavedTimestamp(file.name);
+                if (savedTime > 0) {
+                    videoPlayer.currentTime = savedTime;
+                }
             };
         } else if (file.type === 'image') {
             isLoadingImage = true;
@@ -1952,6 +1957,11 @@ function setupVideoControls(video) {
     video.onended = () => {
         const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+        // Clear the saved timestamp when video ends
+        const currentFile = previewFiles[currentPreviewIndex];
+        if (currentFile) {
+            saveVideoTimestamp(currentFile.name, 0);
+        }
     };
 
     // Remove the video error handler completely
@@ -2203,6 +2213,14 @@ function closePreviewModal() {
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
     
+    // Save video timestamp before cleanup
+    if (videoPlayer && videoPlayer.src && !videoPlayer.ended) {
+        const currentFile = previewFiles[currentPreviewIndex];
+        if (currentFile && currentFile.type === 'video') {
+            saveVideoTimestamp(currentFile.name, videoPlayer.currentTime);
+        }
+    }
+    
     // Clear video properly
     try {
         if (videoPlayer) {
@@ -2257,6 +2275,19 @@ document.querySelectorAll('.file-row').forEach(row => {
         lastTap = currentTime;
     });
 });
+
+// Function to save video timestamp
+function saveVideoTimestamp(videoName, timestamp) {
+    const timestamps = JSON.parse(localStorage.getItem('videoTimestamps') || '{}');
+    timestamps[videoName] = timestamp;
+    localStorage.setItem('videoTimestamps', JSON.stringify(timestamps));
+}
+
+// Function to get saved timestamp
+function getSavedTimestamp(videoName) {
+    const timestamps = JSON.parse(localStorage.getItem('videoTimestamps') || '{}');
+    return timestamps[videoName] || 0;
+}
 </script>
 
 </body>
