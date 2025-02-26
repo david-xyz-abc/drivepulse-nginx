@@ -1902,6 +1902,27 @@ gridToggleBtn.addEventListener('click', () => {
   localStorage.setItem('gridView', isGridView);
   updateGridView();
 });
+
+function closePreviewModal() {
+    const previewModal = document.getElementById('previewModal');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const imageContainer = document.getElementById('imagePreviewContainer');
+    const iconContainer = document.getElementById('iconPreviewContainer');
+    
+    // Reset video if it exists
+    videoPlayer.pause();
+    videoPlayer.src = '';
+    
+    // Clear containers
+    imageContainer.innerHTML = '';
+    iconContainer.innerHTML = '';
+    
+    // Hide the modal
+    previewModal.style.display = 'none';
+    
+    // Reset loading state
+    isLoadingImage = false;
+}
 </script>
 
 </body>
