@@ -534,10 +534,8 @@ if ($currentDir !== $baseDir) {
  ************************************************/
 function getIconClass($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    if (isVideo($fileName)) return 'fas fa-file-video';
     if (isImage($fileName)) return 'fas fa-file-image';
     if ($ext === 'pdf') return 'fas fa-file-pdf';
-    if ($ext === 'exe') return 'fas fa-file-exclamation';
     return 'fas fa-file';
 }
 
@@ -547,14 +545,6 @@ function getIconClass($fileName) {
 function isImage($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic']);
-}
-
-/************************************************
- * Helper: Check if file is a video
- ************************************************/
-function isVideo($fileName) {
-    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    return in_array($ext, ['mp4', 'webm', 'ogg', 'mkv']);
 }
 ?>
 <!DOCTYPE html>
@@ -1391,18 +1381,6 @@ button, .btn, .file-row, .folder-item, img, i {
 }
 
 #imagePreviewContainer img.loaded {
-    opacity: 1;
-    transform: scale(1);
-}
-
-/* Video preview animations */
-#videoPreviewContainer {
-    opacity: 0;
-    transform: scale(0.95);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-#videoPreviewContainer.loaded {
     opacity: 1;
     transform: scale(1);
 }
@@ -2266,7 +2244,7 @@ document.querySelectorAll('.file-row').forEach(row => {
         lastTap = currentTime;
     });
 });
-</script>
+</script
 
 </body>
 </html>
