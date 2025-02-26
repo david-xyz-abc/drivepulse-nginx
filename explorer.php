@@ -1475,6 +1475,16 @@ button, .btn, .file-row, .folder-item, img, i {
     min-width: 100px;
     text-align: center;
 }
+
+/* Add these styles in your <style> section */
+.file-row {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.file-row.selected {
+    background: rgba(255, 255, 255, 0.1);
+}
 </style>
 </head>
 <body>
@@ -1563,7 +1573,7 @@ button, .btn, .file-row, .folder-item, img, i {
                 $isImageFile = isImage($fileName);
                 log_debug("File URL for $fileName: $fileURL");
             ?>
-            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
+            <div class="file-row" data-url="<?php echo htmlspecialchars($fileURL); ?>" data-filename="<?php echo htmlspecialchars($fileName); ?>">
                 <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
                 <?php if ($isImageFile): ?>
                     <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
@@ -2258,6 +2268,38 @@ function closePreviewModal() {
     // Reset loading state
     isLoadingImage = false;
 }
+
+document.querySelectorAll('.file-row').forEach(row => {
+    // Remove any existing click handler
+    row.removeAttribute('onclick');
+    
+    let clickTimeout;
+    
+    row.addEventListener('click', (e) => {
+        // Don't handle clicks on checkboxes or buttons
+        if (e.target.closest('.file-checkbox') || e.target.closest('button')) {
+            return;
+        }
+
+        if (clickTimeout) {
+            // Double click - open file
+            clearTimeout(clickTimeout);
+            clickTimeout = null;
+            const url = row.dataset.url;
+            const filename = row.dataset.filename;
+            openPreviewModal(url, filename);
+        } else {
+            // Single click - select row
+            clickTimeout = setTimeout(() => {
+                clickTimeout = null;
+                document.querySelectorAll('.file-row').forEach(r => {
+                    r.classList.remove('selected');
+                });
+                row.classList.add('selected');
+            }, 200);
+        }
+    });
+});
 </script>
 
 </body>
