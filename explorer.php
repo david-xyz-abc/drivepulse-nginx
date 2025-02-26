@@ -1879,16 +1879,18 @@ function openPreviewModal(fileURL, fileName) {
 
         if (file.type === 'video') {
             videoContainer.classList.remove('loaded');
+            const savedTime = getSavedTimestamp(file.name);
+            
+            // Set up the video player
             videoPlayer.src = file.url;
             videoPlayer.load();
             videoContainer.style.display = 'block';
             previewContent.classList.add('video-preview');
             setupVideoControls(videoPlayer);
             
-            // Add this: Set the saved timestamp when video is ready
-            videoPlayer.oncanplay = () => {
+            // Use loadedmetadata instead of canplay
+            videoPlayer.onloadedmetadata = () => {
                 videoContainer.classList.add('loaded');
-                const savedTime = getSavedTimestamp(file.name);
                 if (savedTime > 0) {
                     videoPlayer.currentTime = savedTime;
                 }
