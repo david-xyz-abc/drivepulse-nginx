@@ -1485,6 +1485,72 @@ button, .btn, .file-row, .folder-item, img, i {
 .file-row.selected {
     background: rgba(255, 255, 255, 0.1);
 }
+
+.file-actions {
+    display: none;
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.file-row:hover .file-actions,
+.file-row.selected .file-actions {
+    display: block;
+}
+
+.three-dots-btn {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    padding: 5px 10px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.three-dots-btn:hover {
+    opacity: 1;
+}
+
+.actions-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 5px 0;
+    min-width: 150px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    display: none;
+}
+
+.actions-menu.active {
+    display: block;
+}
+
+.actions-menu button {
+    display: block;
+    width: 100%;
+    padding: 8px 16px;
+    text-align: left;
+    border: none;
+    background: none;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.actions-menu button:hover {
+    background: var(--hover-color);
+}
+
+.actions-menu i {
+    width: 20px;
+    margin-right: 8px;
+}
 </style>
 </head>
 <body>
@@ -1584,14 +1650,8 @@ button, .btn, .file-row, .folder-item, img, i {
                     <?php echo htmlspecialchars($fileName); ?>
                 </div>
                 <div class="file-actions">
-                    <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
-                        <i class="fas fa-trash"></i>
+                    <button class="three-dots-btn" title="More actions">
+                        <i class="fas fa-ellipsis-v"></i>
                     </button>
                 </div>
             </div>
@@ -2300,6 +2360,78 @@ document.querySelectorAll('.file-row').forEach(row => {
         }
     });
 });
+
+// Add event handler for three-dots button
+document.querySelectorAll('.three-dots-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const fileRow = btn.closest('.file-row');
+        const filename = fileRow.dataset.filename;
+        
+        // Remove any existing menus
+        document.querySelectorAll('.actions-menu').forEach(menu => menu.remove());
+        
+        const menu = document.createElement('div');
+        menu.className = 'actions-menu';
+        menu.innerHTML = `
+            <button onclick="downloadFile('${filename}')">
+                <i class="fas fa-download"></i> Download
+            </button>
+            <button onclick="renameFile('${filename}')">
+                <i class="fas fa-edit"></i> Rename
+            </button>
+            <button onclick="deleteFile('${filename}')">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        `;
+        
+        btn.parentElement.appendChild(menu);
+        menu.classList.add('active');
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function closeMenu(e) {
+            if (!menu.contains(e.target) && e.target !== btn) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        });
+    });
+});
+
+// Helper functions for file actions
+function downloadFile(filename) {
+    const link = document.createElement('a');
+    link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(currentPath + '/' + filename)}`;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function renameFile(filename) {
+    const newName = prompt('Enter new name:', filename);
+    if (newName && newName !== filename) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="rename_file" value="1">
+            <input type="hidden" name="old_file_name" value="${filename}">
+            <input type="hidden" name="new_file_name" value="${newName}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function deleteFile(filename) {
+    if (confirm(`Are you sure you want to delete "${filename}"?`)) {
+        fetch(`/selfhostedgdrive/explorer.php?delete=${encodeURIComponent(filename)}`, {
+            method: 'POST'
+        }).then(() => {
+            location.reload();
+        });
+    }
+}
 </script>
 
 </body>
