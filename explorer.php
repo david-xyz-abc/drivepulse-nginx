@@ -2129,9 +2129,13 @@ function uploadChunk(file, startByte, fileName, totalUploaded) {
         if (endByte < file.size) {
           uploadChunk(file, endByte, fileName, totalUploaded);
         } else {
-          showAlert('Upload completed successfully.');
-          uploadProgressContainer.style.display = 'none';
-          location.reload();
+          uploadProgressBar.style.width = '100%';
+          uploadProgressPercent.textContent = '100% - Upload Complete';
+          // Short delay to show completion before reload
+          setTimeout(() => {
+            uploadProgressContainer.style.display = 'none';
+            window.location.reload();
+          }, 500);
         }
       } else {
         handleUploadError(xhr, attempts, maxAttempts);
