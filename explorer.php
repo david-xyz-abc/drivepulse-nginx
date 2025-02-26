@@ -1475,35 +1475,6 @@ button, .btn, .file-row, .folder-item, img, i {
     min-width: 100px;
     text-align: center;
 }
-
-/* Add/update these styles */
-#dropZone {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    pointer-events: none;
-}
-
-#dropZone.active {
-    display: flex;
-}
-
-#dropZone::after {
-    content: 'Drop files here to upload';
-    color: white;
-    font-size: 24px;
-    border: 3px dashed white;
-    padding: 2rem 4rem;
-    border-radius: 10px;
-    background: rgba(0, 0, 0, 0.5);
-}
 </style>
 </head>
 <body>
@@ -2150,84 +2121,70 @@ mainContent.addEventListener('drop', (e) => {
   if (files.length > 0) startUpload(files);
 });
 
-// Update the startUpload function and add upload queue handling
-let uploadQueue = [];
-let isUploading = false;
-
 function startUpload(fileList) {
-    // Add files to queue
-    uploadQueue.push(...Array.from(fileList));
-    
-    // If not already uploading, start the process
-    if (!isUploading) {
-        processUploadQueue();
-    }
+  for (let file of fileList) {
+    let totalUploaded = 0;
+    uploadChunk(file, 0, file.name, totalUploaded);
+  }
 }
 
-function processUploadQueue() {
-    if (uploadQueue.length === 0) {
-        isUploading = false;
-        uploadProgressContainer.style.display = 'none';
-        return;
-    }
-
-    isUploading = true;
-    uploadProgressContainer.style.display = 'block';
-    
-    const file = uploadQueue[0];
-    uploadChunk(file, 0, file.name, 0, () => {
-        // Remove the completed file from queue
-        uploadQueue.shift();
-        // Process next file
-        processUploadQueue();
-    });
-}
-
-function uploadChunk(file, start, fileName, totalUploaded, onComplete) {
-    const chunkSize = 1024 * 1024; // 1MB chunks
-    const chunk = file.slice(start, start + chunkSize);
-    const formData = new FormData();
-    
-    formData.append('upload_files[]', chunk);
-    formData.append('file_name', fileName);
-    formData.append('chunk_start', start);
-    formData.append('total_size', file.size);
-    formData.append('file_id', fileName + '_' + file.size); // Add unique file identifier
-
+function uploadChunk(file, startByte, fileName, totalUploaded) {
+  const chunkSize = 10 * 1024 * 1024; // 10 MB
+  const endByte = Math.min(startByte + chunkSize, file.size);
+  const chunk = file.slice(startByte, endByte);
+  const formData = new FormData();
+  formData.append('upload_files[]', chunk, file.name);
+  formData.append('file_name', file.name);
+  formData.append('chunk_start', startByte);
+  formData.append('chunk_end', endByte - 1);
+  formData.append('total_size', file.size);
+  uploadProgressContainer.style.display = 'block';
+  uploadProgressPercent.textContent = `0.0% - Uploading ${fileName}`;
+  let attempts = 0;
+  const maxAttempts = 3;
+  function attemptUpload() {
     const xhr = new XMLHttpRequest();
-    
+    currentXhr = xhr;
+    xhr.open('POST', uploadForm.action, true);
+    xhr.timeout = 3600000;
     xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-            const percentComplete = ((totalUploaded + e.loaded) / file.size) * 100;
-            uploadProgressBar.style.width = percentComplete + '%';
-            uploadProgressPercent.textContent = Math.round(percentComplete) + '%';
-        }
+      if (e.lengthComputable) {
+        const chunkUploaded = e.loaded;
+        const totalBytesUploaded = totalUploaded + chunkUploaded;
+        const totalPercent = Math.round((totalBytesUploaded / file.size) * 1000) / 10;
+        uploadProgressBar.style.width = totalPercent + '%';
+        uploadProgressPercent.textContent = `${totalPercent}% - Uploading ${fileName}`;
+      }
     };
-
     xhr.onload = () => {
-        if (xhr.status === 200) {
-            totalUploaded += chunk.size;
-            
-            if (totalUploaded < file.size) {
-                // Upload next chunk
-                uploadChunk(file, totalUploaded, fileName, totalUploaded, onComplete);
-            } else {
-                // File complete
-                if (onComplete) onComplete();
-            }
+      if (xhr.status === 200) {
+        totalUploaded += (endByte - startByte);
+        if (endByte < file.size) {
+          uploadChunk(file, endByte, fileName, totalUploaded);
         } else {
-            console.error('Upload failed:', xhr.statusText);
-            if (onComplete) onComplete();
+          showAlert('Upload completed successfully.');
+          uploadProgressContainer.style.display = 'none';
+          location.reload();
         }
+      } else {
+        handleUploadError(xhr, attempts, maxAttempts);
+      }
     };
-
-    xhr.onerror = () => {
-        console.error('Upload error');
-        if (onComplete) onComplete();
-    };
-
-    xhr.open('POST', window.location.href, true);
+    xhr.onerror = () => handleUploadError(xhr, attempts, maxAttempts);
+    xhr.ontimeout = () => handleUploadError(xhr, attempts, maxAttempts);
     xhr.send(formData);
+  }
+  function handleUploadError(xhr, attempts, maxAttempts) {
+    attempts++;
+    if (attempts < maxAttempts) {
+      showAlert(`Upload failed for ${fileName} (Attempt ${attempts}). Retrying in 5 seconds... Status: ${xhr.status} - ${xhr.statusText}`);
+      setTimeout(attemptUpload, 5000);
+    } else {
+      showAlert(`Upload failed for ${fileName} after ${maxAttempts} attempts. Status: ${xhr.status} - ${xhr.statusText}. Please check server logs or network connection.`);
+      uploadProgressContainer.style.display = 'none';
+    }
+  }
+  attemptUpload();
 }
 
 cancelUploadBtn.addEventListener('click', () => {
@@ -2300,54 +2257,6 @@ function closePreviewModal() {
     
     // Reset loading state
     isLoadingImage = false;
-}
-
-// Update the drag and drop event handlers
-let dragCounter = 0;
-
-document.addEventListener('dragenter', (e) => {
-    e.preventDefault();
-    dragCounter++;
-    if (dragCounter === 1) {
-        dropZone.classList.add('active');
-    }
-}, false);
-
-document.addEventListener('dragleave', (e) => {
-    e.preventDefault();
-    dragCounter--;
-    if (dragCounter === 0) {
-        dropZone.classList.remove('active');
-    }
-}, false);
-
-document.addEventListener('dragover', (e) => {
-    e.preventDefault();
-}, false);
-
-document.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dragCounter = 0;
-    dropZone.classList.remove('active');
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        startUpload(files);
-    }
-}, false);
-
-// Reset counter when leaving window
-window.addEventListener('blur', () => {
-    dragCounter = 0;
-    dropZone.classList.remove('active');
-});
-
-// Update the upload related functions
-function startUpload(fileList) {
-    uploadProgressContainer.style.display = 'block';
-    for (let file of fileList) {
-        let totalUploaded = 0;
-        uploadChunk(file, 0, file.name, totalUploaded);
-    }
 }
 </script>
 
