@@ -1751,9 +1751,12 @@ function setupVideoControls(video) {
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
     };
 
-    // Error handling
+    // Error handling - only show error for video files
     video.onerror = () => {
-        showAlert('Error loading video. Check file format or server logs.');
+        const currentFile = previewFiles[currentPreviewIndex];
+        if (currentFile && currentFile.type === 'video') {
+            showAlert('Error loading video. Check file format or server logs.');
+        }
     };
 
     // Space bar to play/pause
