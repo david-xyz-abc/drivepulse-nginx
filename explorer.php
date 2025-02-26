@@ -1463,26 +1463,6 @@ button, .btn, .file-row, .folder-item, img, i {
         transform: translateY(0);
     }
 }
-
-#videoPreviewContainer {
-    background: #000;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-#videoPlayer {
-    max-width: 100%;
-    max-height: 100vh;
-    width: auto;
-    height: auto;
-    display: block;
-    -webkit-transform: translateZ(0);
-    -webkit-backface-visibility: hidden;
-    -webkit-perspective: 1000;
-}
 </style>
 </head>
 <body>
@@ -1877,7 +1857,7 @@ function openPreviewModal(fileURL, fileName) {
         // Reset video player
         if (videoPlayer) {
             videoPlayer.pause();
-            videoPlayer.removeAttribute('src');
+            videoPlayer.src = '';
             videoPlayer.load();
         }
         
@@ -1898,43 +1878,20 @@ function openPreviewModal(fileURL, fileName) {
         }
 
         if (file.type === 'video') {
-            // Reset everything first
             videoContainer.classList.remove('loaded');
-            videoPlayer.pause();
-            videoPlayer.removeAttribute('src');
-            videoPlayer.load();
-            
-            // Clear any existing event listeners
-            videoPlayer.onloadedmetadata = null;
-            videoPlayer.oncanplay = null;
-            
-            // Get saved timestamp
-            const savedTime = getSavedTimestamp(file.name);
-            
-            // Set up container and player
-            videoContainer.style.display = 'flex';
-            previewContent.classList.add('video-preview');
-            
-            // Set source
             videoPlayer.src = file.url;
-            
-            // Set up controls after source
+            videoPlayer.load();
+            videoContainer.style.display = 'block';
+            previewContent.classList.add('video-preview');
             setupVideoControls(videoPlayer);
             
-            // Handle metadata loaded
-            videoPlayer.onloadedmetadata = () => {
-                if (savedTime > 0 && savedTime < videoPlayer.duration) {
-                    videoPlayer.currentTime = savedTime;
-                }
-            };
-            
-            // Handle when video is ready
+            // Add this: Set the saved timestamp when video is ready
             videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
-                // Force a repaint
-                videoPlayer.style.display = 'none';
-                videoPlayer.offsetHeight; // Force a repaint
-                videoPlayer.style.display = 'block';
+                const savedTime = getSavedTimestamp(file.name);
+                if (savedTime > 0) {
+                    videoPlayer.currentTime = savedTime;
+                }
             };
         } else if (file.type === 'image') {
             isLoadingImage = true;
@@ -1991,7 +1948,6 @@ function updateNavigationButtons() {
 
 function setupVideoControls(video) {
     const progressBar = document.getElementById('videoProgressBar');
-    const playPauseBtn = document.getElementById('playPauseBtn');
 
     // Update progress bar
     video.ontimeupdate = () => {
@@ -2003,6 +1959,7 @@ function setupVideoControls(video) {
 
     // Video ended
     video.onended = () => {
+        const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
         // Clear the saved timestamp when video ends
         const currentFile = previewFiles[currentPreviewIndex];
@@ -2011,24 +1968,7 @@ function setupVideoControls(video) {
         }
     };
 
-    // Make sure play/pause works
-    video.addEventListener('play', () => {
-        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-    });
-
-    video.addEventListener('pause', () => {
-        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-    });
-
-    // Fix seeking functionality
-    const videoProgress = document.getElementById('videoProgress');
-    videoProgress.addEventListener('click', (e) => {
-        const rect = videoProgress.getBoundingClientRect();
-        const pos = (e.clientX - rect.left) / rect.width;
-        video.currentTime = pos * video.duration;
-    });
-
-    // Remove the video error handler
+    // Remove the video error handler completely
     video.onerror = null;
 
     // Space bar to play/pause
@@ -2036,6 +1976,16 @@ function setupVideoControls(video) {
         if (e.code === 'Space' && video.style.display !== 'none') {
             e.preventDefault();
             togglePlay(e);
+        }
+    };
+
+    // Handle fullscreen change
+    document.onfullscreenchange = () => {
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const previewModal = document.getElementById('previewModal');
+        if (!document.fullscreenElement) {
+            previewModal.classList.remove('fullscreen');
+            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
         }
     };
 }
@@ -2046,9 +1996,11 @@ function togglePlay(e) {
     const playPauseBtn = document.getElementById('playPauseBtn');
     
     if (video.paused) {
-        video.play().catch(err => console.error('Play error:', err));
+        video.play();
+        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
     } else {
         video.pause();
+        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
     }
 }
 
@@ -2264,7 +2216,6 @@ function closePreviewModal() {
     const videoPlayer = document.getElementById('videoPlayer');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
-    const videoContainer = document.getElementById('videoPreviewContainer');
     
     // Save video timestamp before cleanup
     if (videoPlayer && videoPlayer.src && !videoPlayer.ended) {
@@ -2277,10 +2228,10 @@ function closePreviewModal() {
     // Clear video properly
     try {
         if (videoPlayer) {
+            videoPlayer.onerror = null;
             videoPlayer.pause();
-            videoPlayer.removeAttribute('src');
+            videoPlayer.src = '';
             videoPlayer.load();
-            videoContainer.classList.remove('loaded');
         }
     } catch (err) {
         console.error('Video cleanup error:', err);
@@ -2289,7 +2240,6 @@ function closePreviewModal() {
     // Clear containers
     imageContainer.innerHTML = '';
     iconContainer.innerHTML = '';
-    videoContainer.style.display = 'none';
     
     // Hide the modal
     previewModal.style.display = 'none';
