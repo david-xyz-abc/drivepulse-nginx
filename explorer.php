@@ -1509,7 +1509,10 @@ button, .btn, .file-row, .folder-item, img, i {
     max-height: 100vh;
     width: auto;
     height: auto;
+    background: #000;
 }
+
+/* Remove any custom video control styles */
 </style>
 </head>
 <body>
@@ -1942,29 +1945,20 @@ function openPreviewModal(fileURL, fileName) {
             loadingIndicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading video...';
             videoContainer.appendChild(loadingIndicator);
             
-            // Set video attributes for better performance
-            videoPlayer.preload = 'metadata';
+            // Use native video controls
+            videoPlayer.controls = true;
+            videoPlayer.preload = 'auto';
             videoPlayer.playsInline = true;
-            videoPlayer.controls = false; // We use custom controls
             
-            // Set source with cache buster for large files
-            const fileSize = file.size || 0;
-            const cacheBuster = fileSize > 100 * 1024 * 1024 ? '?nocache=' + new Date().getTime() : '';
-            videoPlayer.src = file.url + cacheBuster;
-            
-            setupVideoControls(videoPlayer);
+            // Set source
+            videoPlayer.src = file.url;
             
             // Handle metadata loaded
             videoPlayer.onloadedmetadata = () => {
-                // Remove loading indicator once metadata is loaded
                 const loadingIndicator = videoContainer.querySelector('.video-loading');
                 if (loadingIndicator) {
                     loadingIndicator.remove();
                 }
-            };
-            
-            // Handle when video is ready to play
-            videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
             };
             
