@@ -545,9 +545,9 @@ if ($currentDir !== $baseDir) {
  ************************************************/
 function getIconClass($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    if (isVideo($fileName)) return 'fas fa-file-video';
     if (isImage($fileName)) return 'fas fa-file-image';
     if ($ext === 'pdf') return 'fas fa-file-pdf';
+    if (isVideo($fileName)) return 'fas fa-file-video';
     return 'fas fa-file';
 }
 
@@ -559,10 +559,9 @@ function isImage($fileName) {
     return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic']);
 }
 
-// Add video detection function
 function isVideo($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    return in_array($ext, ['mp4', 'webm']); // Only support well-supported formats
+    return in_array($ext, ['mp4', 'webm']);
 }
 ?>
 <!DOCTYPE html>
@@ -1509,68 +1508,18 @@ button, .btn, .file-row, .folder-item, img, i {
 /* Remove any custom video control styles */
 
 #videoPreviewContainer {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #000;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-media-controller {
-  width: 100%;
-  height: 100%;
-  --media-background: transparent;
-  --media-control-background: transparent;
-  --media-control-hover-background: rgba(255, 255, 255, 0.2);
+#videoPlayer {
+    max-width: 100%;
+    max-height: 90vh;
 }
-
-video {
-  max-width: 100%;
-  max-height: 90vh;
-}
-
-#videoPreviewContainer {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #000;
-}
-
-media-controller {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: 90vh;
-  --media-primary-color: #d32f2f;
-  --media-secondary-color: #ffffff;
-}
-
-#videoPreviewContainer {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #000;
-}
-
-media-controller {
-  width: 100%;
-  max-width: 1280px;
-  aspect-ratio: 16 / 9;
-  --media-primary-color: #d32f2f;
-  --media-secondary-color: #ffffff;
-}
-
-+ <style>
-+   media-time-range {
-+     --media-range-thumb-background: var(--media-primary-color);
-+     --media-range-track-background: rgba(255, 255, 255, 0.2);
-+     --media-range-track-progress-background: var(--media-primary-color);
-+   }
-+ </style>
+</style>
 
 <!-- Add these in the <head> section after your other CSS/JS links: -->
 <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
@@ -1579,9 +1528,6 @@ media-controller {
 <!-- First, add these links in the <head> section: -->
 <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
 <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
-
-<!-- Add in the <head> section -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/media-chrome@1/+esm"></script>
 </head>
 <body>
   <div class="app-container">
@@ -1707,23 +1653,9 @@ media-controller {
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
         <div id="videoPreviewContainer" style="display: none;">
-            <media-controller>
-                <video 
-                    id="videoPlayer"
-                    slot="media" 
-                    preload="auto"
-                    preload="metadata"
-                >
-                    <source src="" type="">
-                </video>
-                <media-control-bar>
-                    <media-play-button></media-play-button>
-                    <media-mute-button></media-mute-button>
-                    <media-volume-range></media-volume-range>
-                    <media-time-range seek-offset="0"></media-time-range>
-                    <media-fullscreen-button></media-fullscreen-button>
-                </media-control-bar>
-            </media-controller>
+            <video id="videoPlayer" controls>
+                <source src="" type="">
+            </video>
         </div>
     </div>
   </div>
@@ -1966,77 +1898,69 @@ function openPreviewModal(fileURL, fileName) {
     const videoContainer = document.getElementById('videoPreviewContainer');
     const previewContent = document.getElementById('previewContent');
     
-    // Add fade out effect
-    previewContent.classList.add('fade-out');
-    
-    setTimeout(() => {
-        // Reset all containers
-        imageContainer.style.display = 'none';
-        imageContainer.innerHTML = '';
-        iconContainer.style.display = 'none';
-        iconContainer.innerHTML = '';
-        videoContainer.style.display = 'none';
-        
-        currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
-        let file = previewFiles.find(f => f.name === fileName);
+    // Reset all containers
+    imageContainer.style.display = 'none';
+    imageContainer.innerHTML = '';
+    iconContainer.style.display = 'none';
+    iconContainer.innerHTML = '';
+    videoContainer.style.display = 'none';
 
-        if (!file) {
-            console.error('File not found in previewFiles array:', fileName);
-            return;
-        }
+    currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
+    let file = previewFiles.find(f => f.name === fileName);
 
-        if (file.type === 'video') {
-            videoContainer.style.display = 'block';
-            const videoPlayer = document.getElementById('videoPlayer');
-            const source = videoPlayer.querySelector('source');
-            source.src = file.url;
-            source.type = file.mime || 'video/mp4';
-            videoPlayer.addEventListener('loadedmetadata', () => {
-                videoPlayer.currentTime = 0;
-            });
-            videoPlayer.load();
-        } else if (file.type === 'image') {
-            isLoadingImage = true;
-            const img = new Image();
-            img.onload = () => {
-                imageContainer.appendChild(img);
-                imageContainer.style.display = 'flex';
-                previewContent.classList.add('image-preview');
-                setTimeout(() => {
-                    img.classList.add('loaded');
-                    isLoadingImage = false;
-                }, 50);
-            };
-            img.onerror = () => {
-                console.error('Failed to load image:', file.url);
-                showAlert('Failed to load image preview');
+    if (!file) {
+        console.error('File not found in previewFiles array:', fileName);
+        return;
+    }
+
+    if (file.type === 'video') {
+        videoContainer.style.display = 'block';
+        const videoPlayer = document.getElementById('videoPlayer');
+        const source = videoPlayer.querySelector('source');
+        source.src = file.url;
+        source.type = file.mime || 'video/mp4';
+        videoPlayer.load();
+    } else if (file.type === 'image') {
+        isLoadingImage = true;
+        const img = new Image();
+        img.onload = () => {
+            imageContainer.appendChild(img);
+            imageContainer.style.display = 'flex';
+            previewContent.classList.add('image-preview');
+            setTimeout(() => {
+                img.classList.add('loaded');
                 isLoadingImage = false;
-            };
-            img.src = file.previewUrl || file.url;
-        } else {
-            const icon = document.createElement('i');
-            icon.className = file.icon;
-            iconContainer.appendChild(icon);
-            iconContainer.style.display = 'flex';
-        }
-
-        previewModal.style.display = 'flex';
-        
-        // Fade in the content
-        setTimeout(() => {
-            previewContent.classList.remove('fade-out');
-            previewContent.classList.add('fade-in');
-        }, 50);
-
-        updateNavigationButtons();
-
-        // Add click handler for closing when clicking outside
-        previewModal.onclick = function(e) {
-            if (e.target === previewModal) {
-                closePreviewModal();
-            }
+            }, 50);
         };
-    }, 300); // Wait for fade out
+        img.onerror = () => {
+            console.error('Failed to load image:', file.url);
+            showAlert('Failed to load image preview');
+            isLoadingImage = false;
+        };
+        img.src = file.previewUrl || file.url;
+    } else {
+        const icon = document.createElement('i');
+        icon.className = file.icon;
+        iconContainer.appendChild(icon);
+        iconContainer.style.display = 'flex';
+    }
+
+    previewModal.style.display = 'flex';
+    
+    // Fade in the content
+    setTimeout(() => {
+        previewContent.classList.remove('fade-out');
+        previewContent.classList.add('fade-in');
+    }, 50);
+
+    updateNavigationButtons();
+
+    // Add click handler for closing when clicking outside
+    previewModal.onclick = function(e) {
+        if (e.target === previewModal) {
+            closePreviewModal();
+        }
+    };
 }
 
 // Add this function back if it's missing
