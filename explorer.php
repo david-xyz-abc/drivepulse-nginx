@@ -1504,69 +1504,6 @@ button, .btn, .file-row, .folder-item, img, i {
     border-radius: 10px;
     background: rgba(0, 0, 0, 0.5);
 }
-
-.file-row .checkbox-wrapper {
-    display: flex;
-    align-items: center;
-    padding: 0 10px;
-}
-
-.file-checkbox {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    margin: 0;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.file-checkbox:hover {
-    opacity: 1;
-}
-
-.file-row.selected {
-    background: var(--accent-color-transparent);
-}
-
-#selectedActionsBtn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#selectedCount {
-    font-size: 0.9em;
-}
-
-.selected-actions-menu {
-    position: absolute;
-    background: var(--bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 8px 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    display: none;
-}
-
-.selected-actions-menu.active {
-    display: block;
-}
-
-.selected-actions-menu button {
-    display: block;
-    width: 100%;
-    padding: 8px 16px;
-    text-align: left;
-    border: none;
-    background: none;
-    color: var(--text-color);
-    cursor: pointer;
-}
-
-.selected-actions-menu button:hover {
-    background: var(--hover-color);
-}
 </style>
 </head>
 <body>
@@ -1656,9 +1593,6 @@ button, .btn, .file-row, .folder-item, img, i {
                 log_debug("File URL for $fileName: $fileURL");
             ?>
             <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" class="file-checkbox" data-name="<?= htmlspecialchars($fileName) ?>">
-                </div>
                 <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
                 <?php if ($isImageFile): ?>
                     <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
@@ -2414,104 +2348,6 @@ function startUpload(fileList) {
         let totalUploaded = 0;
         uploadChunk(file, 0, file.name, totalUploaded);
     }
-}
-
-// Add these variables at the top with your other variables
-const selectAllBtn = document.getElementById('selectAllBtn');
-const selectedActionsBtn = document.getElementById('selectedActionsBtn');
-let selectedFiles = new Set();
-
-// Add event listeners for selection
-document.querySelectorAll('.file-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', handleSelection);
-});
-
-selectAllBtn.addEventListener('click', toggleSelectAll);
-selectedActionsBtn.addEventListener('click', showSelectedActions);
-
-function handleSelection(e) {
-    const checkbox = e.target;
-    const fileName = checkbox.dataset.name;
-    const fileRow = checkbox.closest('.file-row');
-    
-    if (checkbox.checked) {
-        selectedFiles.add(fileName);
-        fileRow.classList.add('selected');
-    } else {
-        selectedFiles.delete(fileName);
-        fileRow.classList.remove('selected');
-    }
-    
-    updateSelectedUI();
-}
-
-function toggleSelectAll() {
-    const checkboxes = document.querySelectorAll('.file-checkbox');
-    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-    
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = !allChecked;
-        checkbox.dispatchEvent(new Event('change'));
-    });
-}
-
-function updateSelectedUI() {
-    const count = selectedFiles.size;
-    selectedActionsBtn.style.display = count > 0 ? 'flex' : 'none';
-    document.getElementById('selectedCount').textContent = `${count} selected`;
-}
-
-function showSelectedActions(e) {
-    const menu = document.createElement('div');
-    menu.className = 'selected-actions-menu';
-    menu.innerHTML = `
-        <button onclick="downloadSelected()"><i class="fas fa-download"></i> Download</button>
-        <button onclick="deleteSelected()"><i class="fas fa-trash"></i> Delete</button>
-    `;
-    
-    // Position the menu below the button
-    const rect = selectedActionsBtn.getBoundingClientRect();
-    menu.style.top = rect.bottom + 5 + 'px';
-    menu.style.left = rect.left + 'px';
-    
-    // Remove existing menu if any
-    document.querySelector('.selected-actions-menu')?.remove();
-    
-    document.body.appendChild(menu);
-    menu.classList.add('active');
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function closeMenu(e) {
-        if (!menu.contains(e.target) && e.target !== selectedActionsBtn) {
-            menu.remove();
-            document.removeEventListener('click', closeMenu);
-        }
-    });
-}
-
-function downloadSelected() {
-    selectedFiles.forEach(fileName => {
-        const link = document.createElement('a');
-        link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(currentPath + '/' + fileName)}`;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    });
-}
-
-function deleteSelected() {
-    if (!confirm(`Are you sure you want to delete ${selectedFiles.size} item(s)?`)) return;
-    
-    const promises = Array.from(selectedFiles).map(fileName => 
-        fetch(`/selfhostedgdrive/explorer.php?delete=${encodeURIComponent(fileName)}`, {
-            method: 'POST'
-        })
-    );
-    
-    Promise.all(promises).then(() => {
-        location.reload();
-    });
 }
 </script>
 
