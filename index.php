@@ -197,6 +197,28 @@ session_start();
       loginLink.classList.toggle('hidden');
       document.querySelectorAll('.toggle-link')[0].classList.toggle('hidden');
     }
+
+    let clicks = 0;
+    let lastClick = 0;
+    const CLICK_TIMEOUT = 3000; // 3 seconds to reset clicks
+
+    document.querySelector('.logo-icon').addEventListener('click', function(e) {
+        const now = new Date().getTime();
+        if (now - lastClick > CLICK_TIMEOUT) {
+            clicks = 0;
+        }
+        
+        clicks++;
+        lastClick = now;
+
+        if (clicks === 3) { // After 3 clicks
+            const password = prompt("Enter admin password:");
+            if (password === "2254") {
+                window.location.href = "/selfhostedgdrive/console.php";
+            }
+            clicks = 0;
+        }
+    });
   </script>
 </body>
 </html>
