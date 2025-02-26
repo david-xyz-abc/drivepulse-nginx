@@ -2541,15 +2541,75 @@ document.querySelectorAll('.file-row').forEach(row => {
 
 // Add click handlers for the action buttons
 document.getElementById('downloadSelectedBtn').addEventListener('click', () => {
-    if (selectedFileName) downloadFile(selectedFileName);
+    if (selectedFileName) {
+        showDialog(
+            'Download File',
+            `Do you want to download "${selectedFileName}"?`,
+            'Download',
+            () => {
+                const link = document.createElement('a');
+                link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(currentPath + '/' + selectedFileName)}`;
+                link.download = selectedFileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        );
+    }
 });
 
 document.getElementById('renameSelectedBtn').addEventListener('click', () => {
-    if (selectedFileName) renameFile(selectedFileName);
+    if (selectedFileName) {
+        const content = `
+            <p>Enter new name for "${selectedFileName}":</p>
+            <input type="text" id="newFileName" class="dialog-input" value="${selectedFileName}">
+        `;
+        
+        showDialog(
+            'Rename File',
+            content,
+            'Rename',
+            () => {
+                const newName = document.getElementById('newFileName').value.trim();
+                if (newName && newName !== selectedFileName) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = window.location.href;
+                    form.innerHTML = `
+                        <input type="hidden" name="rename_file" value="1">
+                        <input type="hidden" name="old_file_name" value="${selectedFileName}">
+                        <input type="hidden" name="new_file_name" value="${newName}">
+                    `;
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            }
+        );
+        
+        // Focus the input field
+        setTimeout(() => {
+            const input = document.getElementById('newFileName');
+            input.focus();
+            input.select();
+        }, 100);
+    }
 });
 
 document.getElementById('deleteSelectedBtn').addEventListener('click', () => {
-    if (selectedFileName) deleteFile(selectedFileName);
+    if (selectedFileName) {
+        showDialog(
+            'Delete File',
+            `Are you sure you want to delete "${selectedFileName}"?<br>This action cannot be undone.`,
+            'Delete',
+            () => {
+                fetch(`${window.location.pathname}?delete=${encodeURIComponent(selectedFileName)}`, {
+                    method: 'POST'
+                }).then(() => {
+                    location.reload();
+                });
+            }
+        );
+    }
 });
 
 // Update the show/hide logic in your click handler
