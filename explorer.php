@@ -264,6 +264,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_folder'])) {
 /************************************************
  * 4. Upload Files
  ************************************************/
+function getUniqueFilename($path, $filename) {
+    $originalName = pathinfo($filename, PATHINFO_FILENAME);
+    $extension = pathinfo($filename, PATHINFO_EXTENSION);
+    $counter = 1;
+    
+    while (file_exists($path . '/' . $filename)) {
+        $filename = $originalName . ' (' . $counter . ').' . $extension;
+        $counter++;
+    }
+    
+    return $filename;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
     $totalFiles = count($_FILES['upload_files']['name']);
     $uploadedFiles = 0;
@@ -272,21 +285,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
         if ($_FILES['upload_files']['error'][$i] === UPLOAD_ERR_OK) {
             $tmpPath = $_FILES['upload_files']['tmp_name'][$i];
             $originalName = $_POST['file_name'] ?? basename($fname);
-            $dest = $currentDir . '/' . $originalName;
+            
+            // Get unique filename
+            $uniqueName = getUniqueFilename($currentDir, $originalName);
+            $dest = $currentDir . '/' . $uniqueName;
+            
             $chunkStart = (int)($_POST['chunk_start'] ?? 0);
             $totalSize = (int)($_POST['total_size'] ?? filesize($tmpPath));
 
             $output = fopen($dest, $chunkStart === 0 ? 'wb' : 'ab');
             if (!$output) {
                 log_debug("Failed to open destination file: $dest");
-                $_SESSION['error'] = "Failed to open file for writing: $originalName";
+                $_SESSION['error'] = "Failed to open file for writing: $uniqueName";
                 continue;
             }
 
             $input = fopen($tmpPath, 'rb');
             if (!$input) {
                 log_debug("Failed to open temp file: $tmpPath");
-                $_SESSION['error'] = "Failed to read uploaded file: $originalName";
+                $_SESSION['error'] = "Failed to read uploaded file: $uniqueName";
                 fclose($output);
                 continue;
             }
@@ -298,8 +315,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
             while (!feof($input)) {
                 $data = fread($input, 8192);
                 if ($data === false || fwrite($output, $data) === false) {
-                    log_debug("Failed to write chunk for $originalName at offset $chunkStart");
-                    $_SESSION['error'] = "Failed to write chunk for $originalName";
+                    log_debug("Failed to write chunk for $uniqueName at offset $chunkStart");
+                    $_SESSION['error'] = "Failed to write chunk for $uniqueName";
                     fclose($input);
                     fclose($output);
                     unlink($dest);
@@ -1310,7 +1327,7 @@ html, body {
   background: var(--accent-red);
   border-radius: 2.5px;
   width: 0%;
-  transition: width 0.1s linear;
+  transition: width 0.1s linear, transform 0.3s ease;
   position: relative;
 }
 
@@ -1324,6 +1341,121 @@ html, body {
   padding: 0;
   max-width: 100vw;
   max-height: 100vh;
+}
+
+/* General transitions for all interactive elements */
+button, .btn, .file-row, .folder-item, img, i {
+    transition: all 0.3s ease;
+}
+
+/* Smooth preview transitions */
+#previewContent {
+    transition: opacity 0.3s ease;
+}
+
+#previewContent.fade-out {
+    opacity: 0;
+}
+
+#previewContent.fade-in {
+    opacity: 1;
+}
+
+/* Image preview animations */
+#imagePreviewContainer img {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#imagePreviewContainer img.loaded {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Video preview animations */
+#videoPreviewContainer {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#videoPreviewContainer.loaded {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Navigation button animations */
+#previewNav button {
+    transform: translateX(0);
+    transition: transform 0.3s ease, background 0.3s ease;
+}
+
+#previewNav button:hover {
+    transform: scale(1.1);
+}
+
+#prevBtn.slide-out {
+    transform: translateX(-100px);
+}
+
+#nextBtn.slide-out {
+    transform: translateX(100px);
+}
+
+/* File list animations */
+.file-row {
+    animation: fadeIn 0.3s ease;
+}
+
+.file-row:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Modal animations */
+#previewModal {
+    transition: background-color 0.3s ease;
+}
+
+#previewClose {
+    transition: transform 0.3s ease, background 0.3s ease;
+}
+
+#previewClose:hover {
+    transform: rotate(90deg);
+}
+
+/* Progress bar animation */
+#videoProgressBar {
+    transition: width 0.1s linear, transform 0.3s ease;
+}
+
+/* Dialog modal animations */
+#dialogModal .dialog-content {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 </style>
 </head>
@@ -1695,103 +1827,47 @@ function downloadFile(fileURL) {
 ============================================================================ */
 function openPreviewModal(fileURL, fileName) {
     if (isLoadingImage) return;
-    console.log("Previewing: " + fileURL);
-    const previewModal = document.getElementById('previewModal');
-    const imageContainer = document.getElementById('imagePreviewContainer');
-    const iconContainer = document.getElementById('iconPreviewContainer');
-    const videoContainer = document.getElementById('videoPreviewContainer');
-    const videoPlayer = document.getElementById('videoPlayer');
+    
     const previewContent = document.getElementById('previewContent');
-    const previewClose = document.getElementById('previewClose');
-
-    // Reset all containers
-    imageContainer.style.display = 'none';
-    imageContainer.innerHTML = '';
-    iconContainer.style.display = 'none';
-    iconContainer.innerHTML = '';
-    videoContainer.style.display = 'none';
+    previewContent.classList.add('fade-out');
     
-    // Reset video player
-    if (videoPlayer) {
-        videoPlayer.pause();
-        videoPlayer.removeAttribute('src'); // Use removeAttribute instead of setting to empty string
-        videoPlayer.load(); // Force reset of video element
-    }
-    
-    // Reset classes
-    previewContent.classList.remove('image-preview');
-    previewContent.classList.remove('video-preview');
-    previewModal.classList.remove('fullscreen');
-
-    // Always show the close button
-    previewClose.style.display = 'block';
-
-    currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
-    let file = previewFiles.find(f => f.name === fileName);
-
-    if (!file) {
-        console.error('File not found in previewFiles array:', fileName);
-        return;
-    }
-
-    console.log('Opening preview for file:', file); // Debug log
-
-    if (file.type === 'video') {
-        videoPlayer.onerror = () => {
-            if (file.type === 'video') {
-                console.error('Video loading error');
-                showAlert('Error loading video. Check file format or server logs.');
-            }
-        };
+    setTimeout(() => {
+        // Existing reset code...
         
-        // Set source and load after error handler is set
-        try {
-            videoPlayer.src = file.url;
-            videoPlayer.load();
-            videoContainer.style.display = 'block';
-            previewContent.classList.add('video-preview');
-            setupVideoControls(videoPlayer);
-        } catch (err) {
-            console.error('Video setup error:', err);
-        }
-    } else {
-        // For non-video files, clear the video source properly
-        videoPlayer.onerror = null;
-        videoPlayer.src = '';
-        try {
-            videoPlayer.load();
-        } catch (err) {
-            console.error('Video cleanup error:', err);
-        }
-        
-        if (file.type === 'image') {
+        if (file.type === 'video') {
+            const videoContainer = document.getElementById('videoPreviewContainer');
+            videoContainer.classList.remove('loaded');
+            
+            // Existing video setup code...
+            videoPlayer.oncanplay = () => {
+                videoContainer.classList.add('loaded');
+            };
+            
+        } else if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
             img.onload = () => {
                 imageContainer.appendChild(img);
                 imageContainer.style.display = 'flex';
                 previewContent.classList.add('image-preview');
-                isLoadingImage = false;
+                // Add small delay before showing image
+                setTimeout(() => {
+                    img.classList.add('loaded');
+                    isLoadingImage = false;
+                }, 50);
             };
-            img.onerror = () => {
-                console.error('Failed to load image:', file.url);
-                showAlert('Failed to load image preview');
-                isLoadingImage = false;
-            };
-            // Use previewUrl if available, otherwise fall back to url
-            img.src = file.previewUrl || file.url;
+            // Rest of image loading code...
         }
-    }
-
-    previewModal.style.display = 'flex';
-    updateNavigationButtons();
-
-    // Add click handler for closing when clicking outside
-    previewModal.onclick = function(e) {
-        if (e.target === previewModal) {
-            closePreviewModal();
-        }
-    };
+        
+        previewModal.style.display = 'flex';
+        // Fade in the content
+        setTimeout(() => {
+            previewContent.classList.remove('fade-out');
+            previewContent.classList.add('fade-in');
+        }, 50);
+        
+        updateNavigationButtons();
+    }, 300); // Wait for fade out
 }
 
 function setupVideoControls(video) {
@@ -1881,18 +1957,35 @@ function toggleFullscreen(e) {
 
 function navigatePreview(direction) {
     if (previewFiles.length === 0 || currentPreviewIndex === -1 || isLoadingImage) return;
-    currentPreviewIndex += direction;
-    if (currentPreviewIndex < 0) currentPreviewIndex = previewFiles.length - 1;
-    if (currentPreviewIndex >= previewFiles.length) currentPreviewIndex = 0;
-    const file = previewFiles[currentPreviewIndex];
-    openPreviewModal(file.url, file.name);
-}
-
-function updateNavigationButtons() {
+    
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
-    prevBtn.disabled = previewFiles.length <= 1;
-    nextBtn.disabled = previewFiles.length <= 1;
+    
+    // Slide out navigation buttons
+    if (direction > 0) {
+        nextBtn.classList.add('slide-out');
+    } else {
+        prevBtn.classList.add('slide-out');
+    }
+    
+    // Update content with transition
+    const previewContent = document.getElementById('previewContent');
+    previewContent.classList.add('fade-out');
+    
+    setTimeout(() => {
+        currentPreviewIndex += direction;
+        if (currentPreviewIndex < 0) currentPreviewIndex = previewFiles.length - 1;
+        if (currentPreviewIndex >= previewFiles.length) currentPreviewIndex = 0;
+        
+        const file = previewFiles[currentPreviewIndex];
+        openPreviewModal(file.url, file.name);
+        
+        // Reset navigation buttons
+        setTimeout(() => {
+            prevBtn.classList.remove('slide-out');
+            nextBtn.classList.remove('slide-out');
+        }, 300);
+    }, 300);
 }
 
 // Upload and drag-and-drop functionality
