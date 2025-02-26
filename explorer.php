@@ -1644,6 +1644,75 @@ button, .btn, .file-row, .folder-item, img, i {
     color: var(--text-color);
     border-radius: 4px;
 }
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+}
+
+.dialog-content {
+    background: var(--bg-color);
+    border-radius: 8px;
+    padding: 25px;
+    min-width: 350px;
+    max-width: 500px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+}
+
+.dialog-content h3 {
+    margin: 0 0 20px 0;
+    color: var(--text-color);
+    font-size: 1.2em;
+}
+
+.dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 25px;
+}
+
+.dialog-buttons .btn {
+    padding: 8px 16px;
+    min-width: 80px;
+    height: auto;
+}
+
+.dialog-input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.dialog-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.gradient-red {
+    background: linear-gradient(45deg, #ff4b4b, #ff6b6b) !important;
+    color: white !important;
+    border: none !important;
+}
+
+.gradient-red:hover {
+    opacity: 0.9;
+}
 </style>
 </head>
 <body>
@@ -1789,7 +1858,7 @@ button, .btn, .file-row, .folder-item, img, i {
     </div>
   </div>
 
-  <div id="dialogModal" class="modal" style="display: none;">
+  <div id="dialogModal" class="modal">
     <div class="dialog-content">
         <h3 id="dialogTitle"></h3>
         <div id="dialogBody"></div>
@@ -2544,31 +2613,30 @@ function showDialog(title, content, confirmText, onConfirm) {
     const dialogTitle = document.getElementById('dialogTitle');
     const dialogBody = document.getElementById('dialogBody');
     const confirmBtn = document.getElementById('dialogConfirm');
+    const cancelBtn = document.getElementById('dialogCancel');
     
     dialogTitle.textContent = title;
     dialogBody.innerHTML = content;
     confirmBtn.textContent = confirmText;
     
-    dialog.style.display = 'flex';
-    
     const handleConfirm = () => {
         dialog.style.display = 'none';
         onConfirm();
-        cleanup();
     };
     
     const handleCancel = () => {
         dialog.style.display = 'none';
-        cleanup();
     };
     
-    const cleanup = () => {
-        confirmBtn.removeEventListener('click', handleConfirm);
-        document.getElementById('dialogCancel').removeEventListener('click', handleCancel);
-    };
+    // Remove existing listeners
+    confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+    cancelBtn.replaceWith(cancelBtn.cloneNode(true));
     
-    confirmBtn.addEventListener('click', handleConfirm);
+    // Add new listeners
+    document.getElementById('dialogConfirm').addEventListener('click', handleConfirm);
     document.getElementById('dialogCancel').addEventListener('click', handleCancel);
+    
+    dialog.style.display = 'flex';
 }
 
 function downloadFile(filename) {
@@ -2602,6 +2670,7 @@ function renameFile(filename) {
             if (newName && newName !== filename) {
                 const form = document.createElement('form');
                 form.method = 'POST';
+                form.action = window.location.href;
                 form.innerHTML = `
                     <input type="hidden" name="rename_file" value="1">
                     <input type="hidden" name="old_file_name" value="${filename}">
@@ -2627,7 +2696,7 @@ function deleteFile(filename) {
         `Are you sure you want to delete "${filename}"?<br>This action cannot be undone.`,
         'Delete',
         () => {
-            fetch(`/selfhostedgdrive/explorer.php?delete=${encodeURIComponent(filename)}`, {
+            fetch(`${window.location.pathname}?delete=${encodeURIComponent(filename)}`, {
                 method: 'POST'
             }).then(() => {
                 location.reload();
@@ -2635,6 +2704,18 @@ function deleteFile(filename) {
         }
     );
 }
+
+// Add keyboard support for dialogs
+document.addEventListener('keydown', (e) => {
+    const dialog = document.getElementById('dialogModal');
+    if (dialog.style.display === 'flex') {
+        if (e.key === 'Enter') {
+            document.getElementById('dialogConfirm').click();
+        } else if (e.key === 'Escape') {
+            document.getElementById('dialogCancel').click();
+        }
+    }
+});
 </script>
 
 </body>
