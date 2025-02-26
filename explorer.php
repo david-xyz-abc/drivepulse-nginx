@@ -64,6 +64,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         'jpeg' => 'image/jpeg',
         'gif' => 'image/gif',
         'heic' => 'image/heic',
+        'mkv' => 'video/x-matroska',
     ];
     $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     $mime = $mime_types[$ext] ?? mime_content_type($filePath) ?? 'application/octet-stream';
@@ -465,7 +466,7 @@ if ($currentDir !== $baseDir) {
  ************************************************/
 function getIconClass($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    if (in_array($ext, ['mp4', 'webm', 'ogg'])) return 'fas fa-file-video';
+    if (in_array($ext, ['mp4', 'webm', 'ogg', 'mkv'])) return 'fas fa-file-video';
     if (in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic'])) return 'fas fa-file-image';
     if ($ext === 'pdf') return 'fas fa-file-pdf';
     if ($ext === 'exe') return 'fas fa-file-exclamation';
@@ -479,12 +480,13 @@ function isImage($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic']);
 }
+
 /************************************************
  * Helper: Check if file is a video
  ************************************************/
 function isVideo($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    return in_array($ext, ['mp4', 'webm', 'ogg']);
+    return in_array($ext, ['mp4', 'webm', 'ogg', 'mkv']);
 }
 ?>
 <!DOCTYPE html>
