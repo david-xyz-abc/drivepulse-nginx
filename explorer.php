@@ -1600,6 +1600,50 @@ button, .btn, .file-row, .folder-item, img, i {
     display: inline-flex;
     margin: 0;
 }
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.dialog-content {
+    background: var(--bg-color);
+    border-radius: 8px;
+    padding: 20px;
+    min-width: 300px;
+    max-width: 500px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.dialog-content h3 {
+    margin: 0 0 15px 0;
+    color: var(--text-color);
+}
+
+.dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.dialog-input {
+    width: 100%;
+    padding: 8px;
+    margin: 10px 0;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 4px;
+}
 </style>
 </head>
 <body>
@@ -1745,12 +1789,17 @@ button, .btn, .file-row, .folder-item, img, i {
     </div>
   </div>
 
-  <div id="dialogModal">
+  <div id="dialogModal" class="modal" style="display: none;">
     <div class="dialog-content">
-      <div class="dialog-message" id="dialogMessage"></div>
-      <div class="dialog-buttons" id="dialogButtons"></div>
+        <h3 id="dialogTitle"></h3>
+        <div id="dialogBody"></div>
+        <div class="dialog-buttons">
+            <button id="dialogCancel" class="btn">Cancel</button>
+            <button id="dialogConfirm" class="btn gradient-red">Confirm</button>
+        </div>
     </div>
-  </div>
+</div>
+
 <script>
 let selectedFolder = null;
 let currentXhr = null;
@@ -2488,6 +2537,103 @@ function deleteFile(filename) {
             location.reload();
         });
     }
+}
+
+function showDialog(title, content, confirmText, onConfirm) {
+    const dialog = document.getElementById('dialogModal');
+    const dialogTitle = document.getElementById('dialogTitle');
+    const dialogBody = document.getElementById('dialogBody');
+    const confirmBtn = document.getElementById('dialogConfirm');
+    
+    dialogTitle.textContent = title;
+    dialogBody.innerHTML = content;
+    confirmBtn.textContent = confirmText;
+    
+    dialog.style.display = 'flex';
+    
+    const handleConfirm = () => {
+        dialog.style.display = 'none';
+        onConfirm();
+        cleanup();
+    };
+    
+    const handleCancel = () => {
+        dialog.style.display = 'none';
+        cleanup();
+    };
+    
+    const cleanup = () => {
+        confirmBtn.removeEventListener('click', handleConfirm);
+        document.getElementById('dialogCancel').removeEventListener('click', handleCancel);
+    };
+    
+    confirmBtn.addEventListener('click', handleConfirm);
+    document.getElementById('dialogCancel').addEventListener('click', handleCancel);
+}
+
+function downloadFile(filename) {
+    showDialog(
+        'Download File',
+        `Do you want to download "${filename}"?`,
+        'Download',
+        () => {
+            const link = document.createElement('a');
+            link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(currentPath + '/' + filename)}`;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    );
+}
+
+function renameFile(filename) {
+    const content = `
+        <p>Enter new name for "${filename}":</p>
+        <input type="text" id="newFileName" class="dialog-input" value="${filename}">
+    `;
+    
+    showDialog(
+        'Rename File',
+        content,
+        'Rename',
+        () => {
+            const newName = document.getElementById('newFileName').value.trim();
+            if (newName && newName !== filename) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.innerHTML = `
+                    <input type="hidden" name="rename_file" value="1">
+                    <input type="hidden" name="old_file_name" value="${filename}">
+                    <input type="hidden" name="new_file_name" value="${newName}">
+                `;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+    );
+    
+    // Focus the input field
+    setTimeout(() => {
+        const input = document.getElementById('newFileName');
+        input.focus();
+        input.select();
+    }, 100);
+}
+
+function deleteFile(filename) {
+    showDialog(
+        'Delete File',
+        `Are you sure you want to delete "${filename}"?<br>This action cannot be undone.`,
+        'Delete',
+        () => {
+            fetch(`/selfhostedgdrive/explorer.php?delete=${encodeURIComponent(filename)}`, {
+                method: 'POST'
+            }).then(() => {
+                location.reload();
+            });
+        }
+    );
 }
 </script>
 
