@@ -1950,6 +1950,7 @@ function updateNavigationButtons() {
 
 function setupVideoControls(video) {
     const progressBar = document.getElementById('videoProgressBar');
+    const playPauseBtn = document.getElementById('playPauseBtn');
 
     // Update progress bar
     video.ontimeupdate = () => {
@@ -1961,7 +1962,6 @@ function setupVideoControls(video) {
 
     // Video ended
     video.onended = () => {
-        const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
         // Clear the saved timestamp when video ends
         const currentFile = previewFiles[currentPreviewIndex];
@@ -1970,7 +1970,24 @@ function setupVideoControls(video) {
         }
     };
 
-    // Remove the video error handler completely
+    // Make sure play/pause works
+    video.addEventListener('play', () => {
+        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+    });
+
+    video.addEventListener('pause', () => {
+        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+    });
+
+    // Fix seeking functionality
+    const videoProgress = document.getElementById('videoProgress');
+    videoProgress.addEventListener('click', (e) => {
+        const rect = videoProgress.getBoundingClientRect();
+        const pos = (e.clientX - rect.left) / rect.width;
+        video.currentTime = pos * video.duration;
+    });
+
+    // Remove the video error handler
     video.onerror = null;
 
     // Space bar to play/pause
@@ -1978,16 +1995,6 @@ function setupVideoControls(video) {
         if (e.code === 'Space' && video.style.display !== 'none') {
             e.preventDefault();
             togglePlay(e);
-        }
-    };
-
-    // Handle fullscreen change
-    document.onfullscreenchange = () => {
-        const fullscreenBtn = document.getElementById('fullscreenBtn');
-        const previewModal = document.getElementById('previewModal');
-        if (!document.fullscreenElement) {
-            previewModal.classList.remove('fullscreen');
-            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
         }
     };
 }
@@ -1998,11 +2005,9 @@ function togglePlay(e) {
     const playPauseBtn = document.getElementById('playPauseBtn');
     
     if (video.paused) {
-        video.play();
-        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        video.play().catch(err => console.error('Play error:', err));
     } else {
         video.pause();
-        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
     }
 }
 
