@@ -214,7 +214,19 @@ session_start();
         if (clicks === 3) { // After 3 clicks
             const password = prompt("Enter admin password:");
             if (password === "2254") {
-                window.location.href = "/selfhostedgdrive/console.php";
+                // Create and submit a form instead of direct navigation
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/selfhostedgdrive/console.php';
+                
+                const passwordInput = document.createElement('input');
+                passwordInput.type = 'hidden';
+                passwordInput.name = 'password';
+                passwordInput.value = password;
+                
+                form.appendChild(passwordInput);
+                document.body.appendChild(form);
+                form.submit();
             }
             clicks = 0;
         }
