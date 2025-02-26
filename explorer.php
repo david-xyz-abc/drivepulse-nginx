@@ -2635,71 +2635,6 @@ document.addEventListener('click', (e) => {
 
 // Helper functions for file actions
 function downloadFile(filename) {
-    const link = document.createElement('a');
-    link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(currentPath + '/' + filename)}`;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function renameFile(filename) {
-    const newName = prompt('Enter new name:', filename);
-    if (newName && newName !== filename) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="rename_file" value="1">
-            <input type="hidden" name="old_file_name" value="${filename}">
-            <input type="hidden" name="new_file_name" value="${newName}">
-        `;
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-
-function deleteFile(filename) {
-    if (confirm(`Are you sure you want to delete "${filename}"?`)) {
-        fetch(`/selfhostedgdrive/explorer.php?delete=${encodeURIComponent(filename)}`, {
-            method: 'POST'
-        }).then(() => {
-            location.reload();
-        });
-    }
-}
-
-function showDialog(title, content, confirmText, onConfirm) {
-    const dialog = document.getElementById('dialogModal');
-    const dialogTitle = document.getElementById('dialogTitle');
-    const dialogBody = document.getElementById('dialogBody');
-    const confirmBtn = document.getElementById('dialogConfirm');
-    const cancelBtn = document.getElementById('dialogCancel');
-    
-    dialogTitle.textContent = title;
-    dialogBody.innerHTML = content;
-    confirmBtn.textContent = confirmText;
-    
-    const handleConfirm = () => {
-        dialog.style.display = 'none';
-        onConfirm();
-    };
-    
-    const handleCancel = () => {
-        dialog.style.display = 'none';
-    };
-    
-    // Remove existing listeners
-    confirmBtn.replaceWith(confirmBtn.cloneNode(true));
-    cancelBtn.replaceWith(cancelBtn.cloneNode(true));
-    
-    // Add new listeners
-    document.getElementById('dialogConfirm').addEventListener('click', handleConfirm);
-    document.getElementById('dialogCancel').addEventListener('click', handleCancel);
-    
-    dialog.style.display = 'flex';
-}
-
-function downloadFile(filename) {
     showDialog(
         'Download File',
         `Do you want to download "${filename}"?`,
@@ -2763,6 +2698,37 @@ function deleteFile(filename) {
             });
         }
     );
+}
+
+function showDialog(title, content, confirmText, onConfirm) {
+    const dialog = document.getElementById('dialogModal');
+    const dialogTitle = document.getElementById('dialogTitle');
+    const dialogBody = document.getElementById('dialogBody');
+    const confirmBtn = document.getElementById('dialogConfirm');
+    const cancelBtn = document.getElementById('dialogCancel');
+    
+    dialogTitle.textContent = title;
+    dialogBody.innerHTML = content;
+    confirmBtn.textContent = confirmText;
+    
+    const handleConfirm = () => {
+        dialog.style.display = 'none';
+        onConfirm();
+    };
+    
+    const handleCancel = () => {
+        dialog.style.display = 'none';
+    };
+    
+    // Remove existing listeners
+    confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+    cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+    
+    // Add new listeners
+    document.getElementById('dialogConfirm').addEventListener('click', handleConfirm);
+    document.getElementById('dialogCancel').addEventListener('click', handleCancel);
+    
+    dialog.style.display = 'flex';
 }
 
 // Add keyboard support for dialogs
