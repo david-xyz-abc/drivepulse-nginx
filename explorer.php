@@ -1665,7 +1665,7 @@ button, .btn, .file-row, .folder-item, img, i {
         <div id="videoPreviewContainer" style="display: none;">
             <video
                 id="videoPlayer"
-                class="video-js vjs-big-play-centered"
+                class="video-js vjs-big-play-centered vjs-theme-forest"
                 controls
                 preload="auto"
                 width="640"
