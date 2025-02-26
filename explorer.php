@@ -1475,6 +1475,35 @@ button, .btn, .file-row, .folder-item, img, i {
     min-width: 100px;
     text-align: center;
 }
+
+/* Add/update these styles */
+#dropZone {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    pointer-events: none;
+}
+
+#dropZone.active {
+    display: flex;
+}
+
+#dropZone::after {
+    content: 'Drop files here to upload';
+    color: white;
+    font-size: 24px;
+    border: 3px dashed white;
+    padding: 2rem 4rem;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.5);
+}
 </style>
 </head>
 <body>
@@ -2257,6 +2286,54 @@ function closePreviewModal() {
     
     // Reset loading state
     isLoadingImage = false;
+}
+
+// Update the drag and drop event handlers
+let dragCounter = 0;
+
+document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    if (dragCounter === 1) {
+        dropZone.classList.add('active');
+    }
+}, false);
+
+document.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter === 0) {
+        dropZone.classList.remove('active');
+    }
+}, false);
+
+document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+}, false);
+
+document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    dropZone.classList.remove('active');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        startUpload(files);
+    }
+}, false);
+
+// Reset counter when leaving window
+window.addEventListener('blur', () => {
+    dragCounter = 0;
+    dropZone.classList.remove('active');
+});
+
+// Update the upload related functions
+function startUpload(fileList) {
+    uploadProgressContainer.style.display = 'block';
+    for (let file of fileList) {
+        let totalUploaded = 0;
+        uploadChunk(file, 0, file.name, totalUploaded);
+    }
 }
 </script>
 
