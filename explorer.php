@@ -264,17 +264,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_folder'])) {
 /************************************************
  * 4. Upload Files
  ************************************************/
-function getUniqueFilename($path, $filename) {
+function getUniqueFilename($path, $filename, $isChunk = false) {
+    // If this is a chunk upload and a file is in progress, use the existing filename
+    if ($isChunk && isset($_POST['file_id']) && !empty($_POST['file_id'])) {
+        $existingFile = $path . '/' . $filename;
+        if (file_exists($existingFile) && filesize($existingFile) < ($_POST['total_size'] ?? 0)) {
+            return $filename;
+        }
+    }
+
     $originalName = pathinfo($filename, PATHINFO_FILENAME);
     $extension = pathinfo($filename, PATHINFO_EXTENSION);
     $counter = 1;
+    $newFilename = $filename;
     
-    while (file_exists($path . '/' . $filename)) {
-        $filename = $originalName . ' (' . $counter . ').' . $extension;
+    while (file_exists($path . '/' . $newFilename)) {
+        $newFilename = $originalName . ' (' . $counter . ').' . $extension;
         $counter++;
     }
     
-    return $filename;
+    return $newFilename;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
@@ -285,14 +294,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
         if ($_FILES['upload_files']['error'][$i] === UPLOAD_ERR_OK) {
             $tmpPath = $_FILES['upload_files']['tmp_name'][$i];
             $originalName = $_POST['file_name'] ?? basename($fname);
-            
-            // Get unique filename
-            $uniqueName = getUniqueFilename($currentDir, $originalName);
-            $dest = $currentDir . '/' . $uniqueName;
-            
             $chunkStart = (int)($_POST['chunk_start'] ?? 0);
             $totalSize = (int)($_POST['total_size'] ?? filesize($tmpPath));
+            
+            // Only get a unique filename for the first chunk
+            $uniqueName = $chunkStart === 0 ? 
+                getUniqueFilename($currentDir, $originalName, true) : 
+                $originalName;
+            
+            $dest = $currentDir . '/' . $uniqueName;
 
+            // For first chunk, create new file. For subsequent chunks, append
             $output = fopen($dest, $chunkStart === 0 ? 'wb' : 'ab');
             if (!$output) {
                 log_debug("Failed to open destination file: $dest");
@@ -308,10 +320,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
                 continue;
             }
 
+            // Seek to the correct position for chunks
             if ($chunkStart > 0) {
                 fseek($output, $chunkStart);
             }
 
+            // Write the chunk
             while (!feof($input)) {
                 $data = fread($input, 8192);
                 if ($data === false || fwrite($output, $data) === false) {
@@ -319,7 +333,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
                     $_SESSION['error'] = "Failed to write chunk for $uniqueName";
                     fclose($input);
                     fclose($output);
-                    unlink($dest);
+                    if ($chunkStart === 0) {
+                        unlink($dest);
+                    }
                     continue 2;
                 }
             }
@@ -327,35 +343,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
             fclose($input);
             fclose($output);
 
-            chown($dest, 'www-data');
-            chgrp($dest, 'www-data');
-            chmod($dest, 0664);
-            log_debug("Uploaded chunk for: $dest at offset $chunkStart");
-
+            // Set permissions only when the file is complete
             if (filesize($dest) >= $totalSize) {
+                chown($dest, 'www-data');
+                chgrp($dest, 'www-data');
+                chmod($dest, 0664);
                 log_debug("Completed upload for: $dest");
                 $uploadedFiles++;
+            } else {
+                log_debug("Chunk uploaded for: $dest at offset $chunkStart");
             }
-        } else {
-            $errorMsg = match ($_FILES['upload_files']['error'][$i]) {
-                UPLOAD_ERR_INI_SIZE => "File too large (exceeds upload_max_filesize)",
-                UPLOAD_ERR_FORM_SIZE => "File too large (exceeds form max size)",
-                UPLOAD_ERR_PARTIAL => "File upload was partial",
-                UPLOAD_ERR_NO_FILE => "No file was uploaded",
-                UPLOAD_ERR_NO_TMP_DIR => "Missing temporary directory",
-                UPLOAD_ERR_CANT_WRITE => "Failed to write file to disk",
-                UPLOAD_ERR_EXTENSION => "File upload stopped by extension",
-                default => "Unknown upload error"
-            };
-            log_debug("Upload error for $fname: $errorMsg");
-            $_SESSION['error'] = "Upload error for $fname: $errorMsg";
         }
     }
 
     if ($uploadedFiles > 0) {
         $_SESSION['success'] = "$uploadedFiles file(s) uploaded successfully.";
-    } else {
-        $_SESSION['error'] = "No files were uploaded.";
     }
 
     header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
