@@ -1905,6 +1905,7 @@ function openPreviewModal(fileURL, fileName) {
     const previewModal = document.getElementById('previewModal');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
+    const videoContainer = document.getElementById('videoPreviewContainer');
     const previewContent = document.getElementById('previewContent');
     
     // Add fade out effect
@@ -1916,6 +1917,7 @@ function openPreviewModal(fileURL, fileName) {
         imageContainer.innerHTML = '';
         iconContainer.style.display = 'none';
         iconContainer.innerHTML = '';
+        videoContainer.style.display = 'none';
         
         // Reset classes
         previewContent.classList.remove('image-preview');
@@ -1929,7 +1931,14 @@ function openPreviewModal(fileURL, fileName) {
             return;
         }
 
-        if (file.type === 'image') {
+        if (file.type === 'video') {
+            videoContainer.style.display = 'block';
+            const videoPlayer = document.getElementById('videoPlayer');
+            const source = videoPlayer.querySelector('source');
+            source.src = file.url;
+            source.type = file.mime || 'video/mp4';
+            videoPlayer.load();
+        } else if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
             img.onload = () => {
