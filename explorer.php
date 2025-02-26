@@ -65,6 +65,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         'gif' => 'image/gif',
         'heic' => 'image/heic',
         'mkv' => 'video/x-matroska',
+        'mp4' => 'video/mp4',
+        'webm' => 'video/webm',
+        'ogg' => 'video/ogg'
     ];
     $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     $mime = $mime_types[$ext] ?? mime_content_type($filePath) ?? 'application/octet-stream';
@@ -466,8 +469,8 @@ if ($currentDir !== $baseDir) {
  ************************************************/
 function getIconClass($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    if (in_array($ext, ['mp4', 'webm', 'ogg', 'mkv'])) return 'fas fa-file-video';
-    if (in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic'])) return 'fas fa-file-image';
+    if (isVideo($fileName)) return 'fas fa-file-video';
+    if (isImage($fileName)) return 'fas fa-file-image';
     if ($ext === 'pdf') return 'fas fa-file-pdf';
     if ($ext === 'exe') return 'fas fa-file-exclamation';
     return 'fas fa-file';
