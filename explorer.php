@@ -60,7 +60,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
     $filePath = realpath($baseDir . '/' . $requestedFile);
 
     if ($filePath === false || strpos($filePath, $baseDir) !== 0 || !file_exists($filePath)) {
-        log_debug("File not found or access denied: " . ($filePath ?: "Invalid path") . " (Requested: " . $_GET['file'] . ")");
+        log_debug("File not found or access denied: " . ($filePath ?: "Invalid path"));
         header("HTTP/1.1 404 Not Found");
         echo "File not found.";
         exit;
@@ -82,10 +82,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         'ogg' => 'video/ogg',
         'txt' => 'text/plain',
     ];
+    
     $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     $mime = $mime_types[$ext] ?? mime_content_type($filePath) ?? 'application/octet-stream';
 
-    // If it's a HEIC file and preview is requested, convert to JPEG
+    // Handle HEIC preview conversion
     if ($ext === 'heic' && isset($_GET['preview'])) {
         header('Content-Type: image/jpeg');
         $output = '/tmp/' . uniqid() . '.jpg';
@@ -95,70 +96,67 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         exit;
     }
 
+    // Set basic headers
+    header("Content-Type: $mime");
+    header("Accept-Ranges: bytes");
+    header("Cache-Control: public, max-age=31536000");
+    header("X-Content-Type-Options: nosniff");
+
     // Add Content-Disposition header for downloads
     if (!isset($_GET['preview'])) {
         header('Content-Disposition: attachment; filename="' . $fileName . '"');
     }
 
-    header("Content-Type: $mime");
-    header("Accept-Ranges: bytes");
-    header("Content-Length: $fileSize");
-    header("Cache-Control: private, max-age=31536000");
-    header("X-Content-Type-Options: nosniff");
+    // Handle range requests
+    $start = 0;
+    $end = $fileSize - 1;
+    $length = $fileSize;
 
+    if (isset($_SERVER['HTTP_RANGE'])) {
+        if (!preg_match('/bytes=(\d*)-(\d*)/', $_SERVER['HTTP_RANGE'], $matches)) {
+            header("HTTP/1.1 416 Range Not Satisfiable");
+            header("Content-Range: bytes */$fileSize");
+            exit;
+        }
+
+        $start = empty($matches[1]) ? 0 : intval($matches[1]);
+        $end = empty($matches[2]) ? $fileSize - 1 : intval($matches[2]);
+
+        if ($start >= $fileSize || $end >= $fileSize) {
+            header("HTTP/1.1 416 Range Not Satisfiable");
+            header("Content-Range: bytes */$fileSize");
+            exit;
+        }
+
+        header("HTTP/1.1 206 Partial Content");
+        header("Content-Range: bytes $start-$end/$fileSize");
+        $length = $end - $start + 1;
+    }
+
+    header("Content-Length: $length");
+    
+    // Stream the file
     $fp = fopen($filePath, 'rb');
     if ($fp === false) {
-        log_debug("Failed to open file: $filePath");
         header("HTTP/1.1 500 Internal Server Error");
-        echo "Unable to serve file.";
         exit;
     }
 
-    ob_clean();
+    if ($start > 0) {
+        fseek($fp, $start);
+    }
 
-    if (isset($_SERVER['HTTP_RANGE'])) {
-        $range = $_SERVER['HTTP_RANGE'];
-        if (preg_match('/bytes=(\d+)-(\d*)?/', $range, $matches)) {
-            $start = (int)$matches[1];
-            $end = isset($matches[2]) && $matches[2] !== '' ? (int)$matches[2] : $fileSize - 1;
+    $buffer = 8192;
+    $sent = 0;
 
-            if ($start >= $fileSize || $end >= $fileSize || $start > $end) {
-                log_debug("Invalid range request: $range for file size $fileSize");
-                header("HTTP/1.1 416 Range Not Satisfiable");
-                header("Content-Range: bytes */$fileSize");
-                fclose($fp);
-                exit;
-            }
-
-            $length = $end - $start + 1;
-            header("HTTP/1.1 206 Partial Content");
-            header("Content-Length: $length");
-            header("Content-Range: bytes $start-$end/$fileSize");
-
-            fseek($fp, $start);
-            $remaining = $length;
-            while ($remaining > 0 && !feof($fp) && !connection_aborted()) {
-                $chunk = min($remaining, 8192);
-                echo fread($fp, $chunk);
-                flush();
-                $remaining -= $chunk;
-            }
-        } else {
-            log_debug("Malformed range header: $range");
-            header("HTTP/1.1 416 Range Not Satisfiable");
-            header("Content-Range: bytes */$fileSize");
-            fclose($fp);
-            exit;
-        }
-    } else {
-        while (!feof($fp) && !connection_aborted()) {
-            echo fread($fp, 8192);
-            flush();
-        }
+    while (!feof($fp) && $sent < $length && !connection_aborted()) {
+        $read = min($buffer, $length - $sent);
+        echo fread($fp, $read);
+        $sent += $read;
+        flush();
     }
 
     fclose($fp);
-    log_debug("Successfully served file: $filePath");
     exit;
 }
 
