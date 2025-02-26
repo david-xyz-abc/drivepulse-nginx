@@ -402,6 +402,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['rename_file'])) {
  ************************************************/
 $folders = [];
 $files = [];
+$previewableFiles = [];
 if (is_dir($currentDir)) {
     $all = scandir($currentDir);
     if ($all !== false) {
@@ -412,6 +413,33 @@ if (is_dir($currentDir)) {
                 $folders[] = $one;
             } else {
                 $files[] = $one;
+                // Generate previewable files array
+                $relativePath = $currentRel . '/' . $one;
+                $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
+                $ext = strtolower(pathinfo($one, PATHINFO_EXTENSION));
+                
+                if (isImage($one)) {
+                    $previewableFiles[] = [
+                        'name' => $one,
+                        'url' => $fileURL,
+                        'type' => 'image',
+                        'icon' => getIconClass($one)
+                    ];
+                } elseif (isVideo($one)) {
+                    $previewableFiles[] = [
+                        'name' => $one,
+                        'url' => $fileURL,
+                        'type' => 'video',
+                        'icon' => getIconClass($one)
+                    ];
+                } else {
+                    $previewableFiles[] = [
+                        'name' => $one,
+                        'url' => $fileURL,
+                        'type' => 'other',
+                        'icon' => getIconClass($one)
+                    ];
+                }
             }
         }
     }
