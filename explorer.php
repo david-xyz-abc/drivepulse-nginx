@@ -1561,6 +1561,45 @@ button, .btn, .file-row, .folder-item, img, i {
 .file-row.selected {
     background: rgba(255, 255, 255, 0.1);
 }
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+}
+
+#selectedFileActions {
+    display: none;
+    gap: 5px;
+}
+
+#selectedFileActions.visible {
+    display: flex;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    background: var(--hover-color);
+}
+
+#uploadForm {
+    display: inline-flex;
+    margin: 0;
+}
 </style>
 </head>
 <body>
@@ -1629,17 +1668,17 @@ button, .btn, .file-row, .folder-item, img, i {
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
-            <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
-              <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
-              <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
-                <i class="fas fa-cloud-upload-alt"></i>
-              </button>
+            <form id="uploadForm" method="POST" enctype="multipart/form-data" style="display: inline;">
+                <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
+                <button type="button" class="btn" id="uploadBtn" title="Upload Files">
+                    <i class="fas fa-upload"></i>
+                </button>
             </form>
-            <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" style="width:36px; height:36px;">
-              <i class="fas fa-th"></i>
+            <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View">
+                <i class="fas fa-th"></i>
             </button>
-            <button type="button" class="btn theme-toggle-btn" id="themeToggleBtn" title="Toggle Theme" style="width:36px; height:36px;">
-              <i class="fas fa-moon"></i>
+            <button type="button" class="btn" id="themeToggleBtn" title="Toggle Theme">
+                <i class="fas fa-moon"></i>
             </button>
             <div id="uploadProgressContainer">
               <div style="background:var(--border-color); width:100%; height:20px; border-radius:4px; overflow:hidden;">
@@ -2395,14 +2434,24 @@ document.getElementById('deleteSelectedBtn').addEventListener('click', () => {
     if (selectedFileName) deleteFile(selectedFileName);
 });
 
-// Add click handler for clearing selection when clicking outside
+// Update the show/hide logic in your click handler
+function updateSelectedUI() {
+    const selectedActions = document.getElementById('selectedFileActions');
+    if (selectedFileName) {
+        selectedActions.classList.add('visible');
+    } else {
+        selectedActions.classList.remove('visible');
+    }
+}
+
+// Update the click handler for clearing selection
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.file-row') && !e.target.closest('#selectedFileActions')) {
         document.querySelectorAll('.file-row').forEach(r => {
             r.classList.remove('selected');
         });
         selectedFileName = null;
-        document.getElementById('selectedFileActions').style.display = 'none';
+        updateSelectedUI();
     }
 });
 
