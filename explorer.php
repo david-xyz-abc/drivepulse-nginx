@@ -1696,33 +1696,49 @@ function openPreviewModal(fileURL, fileName) {
     console.log('Opening preview for file:', file); // Debug log
 
     if (file.type === 'video') {
-        // Remove any existing error handler before setting new source
-        videoPlayer.onerror = null;
-        videoPlayer.src = file.url;
-        videoPlayer.load();
-        videoContainer.style.display = 'block';
-        previewContent.classList.add('video-preview');
-        setupVideoControls(videoPlayer);
-    } else if (file.type === 'image') {
-        isLoadingImage = true;
-        const img = new Image();
-        img.onload = () => {
-            imageContainer.appendChild(img);
-            imageContainer.style.display = 'flex';
-            previewContent.classList.add('image-preview');
-            isLoadingImage = false;
+        videoPlayer.onerror = () => {
+            if (file.type === 'video') {
+                console.error('Video loading error');
+                showAlert('Error loading video. Check file format or server logs.');
+            }
         };
-        img.onerror = () => {
-            console.error('Failed to load image:', file.url);
-            showAlert('Failed to load image preview');
-            isLoadingImage = false;
-        };
-        img.src = file.url;
+        
+        // Set source and load after error handler is set
+        try {
+            videoPlayer.src = file.url;
+            videoPlayer.load();
+            videoContainer.style.display = 'block';
+            previewContent.classList.add('video-preview');
+            setupVideoControls(videoPlayer);
+        } catch (err) {
+            console.error('Video setup error:', err);
+        }
     } else {
-        const icon = document.createElement('i');
-        icon.className = file.icon;
-        iconContainer.appendChild(icon);
-        iconContainer.style.display = 'flex';
+        // For non-video files, clear the video source properly
+        videoPlayer.onerror = null;
+        videoPlayer.src = '';
+        try {
+            videoPlayer.load();
+        } catch (err) {
+            console.error('Video cleanup error:', err);
+        }
+        
+        if (file.type === 'image') {
+            isLoadingImage = true;
+            const img = new Image();
+            img.onload = () => {
+                imageContainer.appendChild(img);
+                imageContainer.style.display = 'flex';
+                previewContent.classList.add('image-preview');
+                isLoadingImage = false;
+            };
+            img.onerror = () => {
+                console.error('Failed to load image:', file.url);
+                showAlert('Failed to load image preview');
+                isLoadingImage = false;
+            };
+            img.src = file.url;
+        }
     }
 
     previewModal.style.display = 'flex';
@@ -1985,12 +2001,16 @@ function closePreviewModal() {
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
     
-    // Remove error handler before resetting video
-    if (videoPlayer) {
-        videoPlayer.onerror = null;
-        videoPlayer.pause();
-        videoPlayer.removeAttribute('src');
-        videoPlayer.load();
+    // Clear video properly
+    try {
+        if (videoPlayer) {
+            videoPlayer.onerror = null;
+            videoPlayer.pause();
+            videoPlayer.src = '';
+            videoPlayer.load();
+        }
+    } catch (err) {
+        console.error('Video cleanup error:', err);
     }
     
     // Clear containers
