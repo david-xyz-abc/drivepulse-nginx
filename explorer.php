@@ -1058,6 +1058,18 @@ html, body {
   font-size: 30px;
   color: #fff;
   z-index: 9999;
+  background: rgba(0, 0, 0, 0.5);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s;
+}
+
+#previewClose:hover {
+  background: rgba(0, 0, 0, 0.8);
 }
 
 #iconPreviewContainer {
@@ -1372,26 +1384,26 @@ html, body {
   </div>
 
   <div id="previewModal">
-  <div id="previewContent">
-    <div id="previewNav">
-      <button id="prevBtn" onclick="navigatePreview(-1)"><i class="fas fa-arrow-left"></i></button>
-      <button id="nextBtn" onclick="navigatePreview(1)"><i class="fas fa-arrow-right"></i></button>
-    </div>
     <span id="previewClose" onclick="closePreviewModal()"><i class="fas fa-times"></i></span>
-    <div id="imagePreviewContainer" style="display: none;"></div>
-    <div id="iconPreviewContainer" style="display: none;"></div>
-    <div id="videoPreviewContainer" style="display: none;">
-      <video id="videoPlayer" preload="auto"></video>
-      <div class="video-controls">
-        <button id="playPauseBtn"><i class="fas fa-play"></i></button>
-        <div id="videoProgress" onclick="seekVideo(event)">
-          <div id="videoProgressBar"></div>
+    <div id="previewContent">
+        <div id="previewNav">
+            <button id="prevBtn" onclick="navigatePreview(-1)"><i class="fas fa-arrow-left"></i></button>
+            <button id="nextBtn" onclick="navigatePreview(1)"><i class="fas fa-arrow-right"></i></button>
         </div>
-        <button id="fullscreenBtn"><i class="fas fa-expand"></i></button>
-      </div>
+        <div id="imagePreviewContainer" style="display: none;"></div>
+        <div id="iconPreviewContainer" style="display: none;"></div>
+        <div id="videoPreviewContainer" style="display: none;">
+            <video id="videoPlayer" preload="auto"></video>
+            <div class="video-controls">
+                <button id="playPauseBtn"><i class="fas fa-play"></i></button>
+                <div id="videoProgress" onclick="seekVideo(event)">
+                    <div id="videoProgressBar"></div>
+                </div>
+                <button id="fullscreenBtn"><i class="fas fa-expand"></i></button>
+            </div>
+        </div>
     </div>
   </div>
-</div>
 
   <div id="dialogModal">
     <div class="dialog-content">
@@ -1643,6 +1655,9 @@ function openPreviewModal(fileURL, fileName) {
     previewContent.classList.remove('image-preview');
     previewModal.classList.remove('fullscreen');
 
+    // Always show the close button
+    previewClose.style.display = 'block';
+
     currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
     let file = previewFiles.find(f => f.name === fileName);
 
@@ -1657,15 +1672,12 @@ function openPreviewModal(fileURL, fileName) {
         videoPlayer.src = file.url;
         videoPlayer.load();
         videoContainer.style.display = 'block';
-        previewClose.style.display = 'block';
-        setupVideoControls(videoPlayer);
     } else if (file.type === 'image') {
         isLoadingImage = true;
         const img = new Image();
         img.onload = () => {
             imageContainer.appendChild(img);
             imageContainer.style.display = 'flex';
-            previewClose.style.display = 'none';
             previewContent.classList.add('image-preview');
             isLoadingImage = false;
         };
@@ -1680,14 +1692,14 @@ function openPreviewModal(fileURL, fileName) {
         icon.className = file.icon;
         iconContainer.appendChild(icon);
         iconContainer.style.display = 'flex';
-        previewClose.style.display = 'block';
     }
 
     previewModal.style.display = 'flex';
     updateNavigationButtons();
 
+    // Add click handler for closing when clicking outside
     previewModal.onclick = function(e) {
-        if (e.target === previewModal && file.type === 'image') {
+        if (e.target === previewModal) {
             closePreviewModal();
         }
     };
