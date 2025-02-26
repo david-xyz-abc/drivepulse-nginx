@@ -1371,7 +1371,6 @@ html, body {
       <div class="dialog-buttons" id="dialogButtons"></div>
     </div>
   </div>
-
 <script>
 let selectedFolder = null;
 let currentXhr = null;
@@ -1587,326 +1586,13 @@ function downloadFile(fileURL) {
   a.remove();
 }
 
-<?php
-$previewableFiles = [];
-foreach ($files as $fileName) {
-    $relativePath = $currentRel . '/' . $fileName;
-    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
-    $iconClass = getIconClass($fileName);
-    $type = isVideo($fileName) ? 'video' : (isImage($fileName) ? 'image' : 'other');
-    $previewableFiles[] = ['name' => $fileName, 'url' => $fileURL, 'type' => $type, 'icon' => $iconClass];
-}
-?>
-function openPreviewModal(fileURL, fileName) {
-  if (isLoadingImage) return;
-  console.log("Previewing: " + fileURL);
-  const previewModal = document.getElementById('previewModal');
-  const imageContainer = document.getElementById('imagePreviewContainer');
-  const iconContainer = document.getElementById('iconPreviewContainer');
-  const previewContent = document.getElementById('previewContent');
-  const previewClose = document.getElementById('previewClose');
-
-  imageContainer.style.display = 'none';
-  imageContainer.innerHTML = '';
-  iconContainer.style.display = 'none';
-  iconContainer.innerHTML = '';
-  previewContent.classList.remove('image-preview');
-
-  previewFiles = <?php echo json_encode($previewableFiles); ?>;
-  currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
-
-  let file = previewFiles.find(f => f.name === fileName);
-  if (file.type === 'image') {
-    isLoadingImage = true;
-    fetch(file.url)
-      .then(response => {
-        if (!response.ok) throw new Error('Preview failed: ' + response.status);
-        return response.blob();
-      })
-      .then(blob => {
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(blob);
-        imageContainer.appendChild(img);
-        imageContainer.style.display = 'flex';
-        previewClose.style.display = 'none';
-        previewContent.classList.add('image-preview');
-      })
-      .catch(error => showAlert('Preview error: ' + error.message))
-      .finally(() => {
-        isLoadingImage = false;
-      });
-  } else {
-    const icon = document.createElement('i');
-    icon.className = file.icon;
-    iconContainer.appendChild(icon);
-    iconContainer.style.display = 'flex';
-    previewClose.style.display = 'block';
-  }
-
-  previewModal.style.display = 'flex';
-  updateNavigationButtons();
-
-  previewModal.onclick = function(e) {
-    if (e.target === previewModal && file.type === 'image') {
-      closePreviewModal();
-    }
-  };
-}
-window.openPreviewModal = openPreviewModal;
-
-function closePreviewModal() {
-  document.getElementById('previewModal').style.display = 'none';
-  document.getElementById('previewClose').style.display = 'block';
-  document.getElementById('previewContent').classList.remove('image-preview');
-  isLoadingImage = false;
-  previewFiles = [];
-  currentPreviewIndex = -1;
-}
-window.closePreviewModal = closePreviewModal;
-
-function navigatePreview(direction) {
-  if (previewFiles.length === 0 || currentPreviewIndex === -1 || isLoadingImage) return;
-  currentPreviewIndex += direction;
-  if (currentPreviewIndex < 0) currentPreviewIndex = previewFiles.length - 1;
-  if (currentPreviewIndex >= previewFiles.length) currentPreviewIndex = 0;
-  const file = previewFiles[currentPreviewIndex];
-  openPreviewModal(file.url, file.name);
-}
-
-function updateNavigationButtons() {
-  const prevBtn = document.getElementById('prevBtn');
-  const nextBtn = document.getElementById('nextBtn');
-  prevBtn.disabled = previewFiles.length <= 1;
-  nextBtn.disabled = previewFiles.length <= 1;
-}
-
-const uploadForm = document.getElementById('uploadForm');
-const fileInput = document.getElementById('fil<script>
-let selectedFolder = null;
-let currentXhr = null;
-let previewFiles = [];
-let currentPreviewIndex = -1;
-let isLoadingImage = false;
-
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
-  sb.classList.toggle('open');
-  overlay.classList.toggle('show');
-}
-document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
-
-function selectFolder(element, folderName) {
-  document.querySelectorAll('.folder-item.selected').forEach(item => item.classList.remove('selected'));
-  element.classList.add('selected');
-  selectedFolder = folderName;
-  document.getElementById('btnDeleteFolder').style.display = 'flex';
-  document.getElementById('btnRenameFolder').style.display = 'flex';
-}
-
-function openFolder(folderPath) {
-  console.log("Opening folder: " + folderPath);
-  window.location.href = '/selfhostedgdrive/explorer.php?folder=' + folderPath;
-}
-
-function showPrompt(message, defaultValue, callback) {
-  const dialogModal = document.getElementById('dialogModal');
-  const dialogMessage = document.getElementById('dialogMessage');
-  const dialogButtons = document.getElementById('dialogButtons');
-  dialogMessage.innerHTML = '';
-  dialogButtons.innerHTML = '';
-  const msgEl = document.createElement('div');
-  msgEl.textContent = message;
-  msgEl.style.marginBottom = '10px';
-  dialogMessage.appendChild(msgEl);
-  const inputField = document.createElement('input');
-  inputField.type = 'text';
-  inputField.value = defaultValue || '';
-  inputField.style.width = '100%';
-  inputField.style.padding = '8px';
-  inputField.style.border = '1px solid #555';
-  inputField.style.borderRadius = '4px';
-  inputField.style.background = '#2a2a2a';
-  inputField.style.color = '#fff';
-  inputField.style.marginBottom = '15px';
-  dialogMessage.appendChild(inputField);
-  const okBtn = document.createElement('button');
-  okBtn.className = 'dialog-button';
-  okBtn.textContent = 'OK';
-  okBtn.onclick = () => { closeDialog(); if (callback) callback(inputField.value); };
-  dialogButtons.appendChild(okBtn);
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'dialog-button';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.onclick = () => { closeDialog(); if (callback) callback(null); };
-  dialogButtons.appendChild(cancelBtn);
-  dialogModal.classList.add('show');
-}
-
-function closeDialog() {
-  document.getElementById('dialogModal').classList.remove('show');
-}
-
-function showAlert(message, callback) {
-  const dialogModal = document.getElementById('dialogModal');
-  const dialogMessage = document.getElementById('dialogMessage');
-  const dialogButtons = document.getElementById('dialogButtons');
-  dialogMessage.textContent = message;
-  dialogButtons.innerHTML = '';
-  const okBtn = document.createElement('button');
-  okBtn.className = 'dialog-button';
-  okBtn.textContent = 'OK';
-  okBtn.onclick = () => { closeDialog(); if (callback) callback(); };
-  dialogButtons.appendChild(okBtn);
-  dialogModal.classList.add('show');
-}
-
-function showConfirm(message, onYes, onNo) {
-  const dialogModal = document.getElementById('dialogModal');
-  const dialogMessage = document.getElementById('dialogMessage');
-  const dialogButtons = document.getElementById('dialogButtons');
-  dialogMessage.textContent = message;
-  dialogButtons.innerHTML = '';
-  const yesBtn = document.createElement('button');
-  yesBtn.className = 'dialog-button';
-  yesBtn.textContent = 'Yes';
-  yesBtn.onclick = () => { closeDialog(); if (onYes) onYes(); };
-  dialogButtons.appendChild(yesBtn);
-  const noBtn = document.createElement('button');
-  noBtn.className = 'dialog-button';
-  noBtn.textContent = 'No';
-  noBtn.onclick = () => { closeDialog(); if (onNo) onNo(); };
-  dialogButtons.appendChild(noBtn);
-  dialogModal.classList.add('show');
-}
-
-function createFolder() {
-  showPrompt("Enter new folder name:", "", function(folderName) {
-    if (folderName && folderName.trim() !== "") {
-      let form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
-      let inputCreate = document.createElement('input');
-      inputCreate.type = 'hidden';
-      inputCreate.name = 'create_folder';
-      inputCreate.value = '1';
-      form.appendChild(inputCreate);
-      let inputName = document.createElement('input');
-      inputName.type = 'hidden';
-      inputName.name = 'folder_name';
-      inputName.value = folderName.trim();
-      form.appendChild(inputName);
-      document.body.appendChild(form);
-      form.submit();
-    }
-  });
-}
-
-document.getElementById('btnRenameFolder').addEventListener('click', function() {
-  if (!selectedFolder) return;
-  showPrompt("Enter new folder name:", selectedFolder, function(newName) {
-    if (newName && newName.trim() !== "" && newName !== selectedFolder) {
-      let form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
-      let inputAction = document.createElement('input');
-      inputAction.type = 'hidden';
-      inputAction.name = 'rename_folder';
-      inputAction.value = '1';
-      form.appendChild(inputAction);
-      let inputOld = document.createElement('input');
-      inputOld.type = 'hidden';
-      inputOld.name = 'old_folder_name';
-      inputOld.value = selectedFolder;
-      form.appendChild(inputOld);
-      let inputNew = document.createElement('input');
-      inputNew.type = 'hidden';
-      inputNew.name = 'new_folder_name';
-      inputNew.value = newName.trim();
-      form.appendChild(inputNew);
-      document.body.appendChild(form);
-      form.submit();
-    }
-  });
-});
-
-document.getElementById('btnDeleteFolder').addEventListener('click', function() {
-  if (!selectedFolder) return;
-  showConfirm(`Delete folder "${selectedFolder}"?`, () => {
-    let form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>&delete=' + encodeURIComponent(selectedFolder);
-    document.body.appendChild(form);
-    form.submit();
-  });
-});
-
-function renameFilePrompt(fileName) {
-  let dotIndex = fileName.lastIndexOf(".");
-  let baseName = fileName;
-  let ext = "";
-  if (dotIndex > 0) {
-    baseName = fileName.substring(0, dotIndex);
-    ext = fileName.substring(dotIndex);
-  }
-  showPrompt("Enter new file name:", baseName, function(newBase) {
-    if (newBase && newBase.trim() !== "" && newBase.trim() !== baseName) {
-      let finalName = newBase.trim() + ext;
-      let form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
-      let inputAction = document.createElement('input');
-      inputAction.type = 'hidden';
-      inputAction.name = 'rename_file';
-      inputAction.value = '1';
-      form.appendChild(inputAction);
-      let inputOld = document.createElement('input');
-      inputOld.type = 'hidden';
-      inputOld.name = 'old_file_name';
-      inputOld.value = fileName;
-      form.appendChild(inputOld);
-      let inputNew = document.createElement('input');
-      inputNew.type = 'hidden';
-      inputNew.name = 'new_file_name';
-      inputNew.value = finalName;
-      form.appendChild(inputNew);
-      document.body.appendChild(form);
-      form.submit();
-    }
-  });
-}
-
-function confirmFileDelete(fileName) {
-  showConfirm(`Delete file "${fileName}"?`, () => {
-    let form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>&delete=' + encodeURIComponent(fileName);
-    document.body.appendChild(form);
-    form.submit();
-  });
-}
-
-function downloadFile(fileURL) {
-  console.log("Downloading: " + fileURL);
-  const a = document.createElement('a');
-  a.href = fileURL;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
-
-<?php
-$previewableFiles = [];
-foreach ($files as $fileName) {
-    $relativePath = $currentRel . '/' . $fileName;
-    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
-    $iconClass = getIconClass($fileName);
-    $type = isVideo($fileName) ? 'video' : (isImage($fileName) ? 'image' : 'other');
-    $previewableFiles[] = ['name' => $fileName, 'url' => $fileURL, 'type' => $type, 'icon' => $iconClass];
-}
-?>
-
+/* ============================================================================
+   Modified Preview Functions with Video Support
+   ----------------------------------------------------------------------------
+   openPreviewModal now handles both image and video previews. For videos,
+   it sets the video source, displays the video container, and initializes
+   custom video controls via setupVideoControls().
+============================================================================ */
 function openPreviewModal(fileURL, fileName) {
   if (isLoadingImage) return;
   console.log("Previewing: " + fileURL);
@@ -1972,36 +1658,6 @@ function openPreviewModal(fileURL, fileName) {
     }
   };
 }
-window.openPreviewModal = openPreviewModal;
-
-function closePreviewModal() {
-  document.getElementById('previewModal').style.display = 'none';
-  document.getElementById('previewClose').style.display = 'block';
-  document.getElementById('previewContent').classList.remove('image-preview');
-  const videoPlayer = document.getElementById('videoPlayer');
-  videoPlayer.pause();
-  videoPlayer.src = '';
-  isLoadingImage = false;
-  previewFiles = [];
-  currentPreviewIndex = -1;
-}
-window.closePreviewModal = closePreviewModal;
-
-function navigatePreview(direction) {
-  if (previewFiles.length === 0 || currentPreviewIndex === -1 || isLoadingImage) return;
-  currentPreviewIndex += direction;
-  if (currentPreviewIndex < 0) currentPreviewIndex = previewFiles.length - 1;
-  if (currentPreviewIndex >= previewFiles.length) currentPreviewIndex = 0;
-  const file = previewFiles[currentPreviewIndex];
-  openPreviewModal(file.url, file.name);
-}
-
-function updateNavigationButtons() {
-  const prevBtn = document.getElementById('prevBtn');
-  const nextBtn = document.getElementById('nextBtn');
-  prevBtn.disabled = previewFiles.length <= 1;
-  nextBtn.disabled = previewFiles.length <= 1;
-}
 
 function setupVideoControls(video) {
   const playPauseBtn = document.getElementById('playPauseBtn');
@@ -2055,6 +1711,23 @@ function seekVideo(event) {
   video.currentTime = pos * video.duration;
 }
 
+function navigatePreview(direction) {
+  if (previewFiles.length === 0 || currentPreviewIndex === -1 || isLoadingImage) return;
+  currentPreviewIndex += direction;
+  if (currentPreviewIndex < 0) currentPreviewIndex = previewFiles.length - 1;
+  if (currentPreviewIndex >= previewFiles.length) currentPreviewIndex = 0;
+  const file = previewFiles[currentPreviewIndex];
+  openPreviewModal(file.url, file.name);
+}
+
+function updateNavigationButtons() {
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  prevBtn.disabled = previewFiles.length <= 1;
+  nextBtn.disabled = previewFiles.length <= 1;
+}
+
+// Upload and drag-and-drop functionality
 const uploadForm = document.getElementById('uploadForm');
 const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
@@ -2162,6 +1835,7 @@ cancelUploadBtn.addEventListener('click', () => {
   }
 });
 
+// Theme toggling
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const body = document.body;
 const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -2180,6 +1854,7 @@ themeToggleBtn.addEventListener('click', () => {
   localStorage.setItem('theme', isLightMode ? 'light' : 'dark');
 });
 
+// Grid view toggle
 let isGridView = localStorage.getItem('gridView') === 'true';
 function updateGridView() {
   fileList.classList.toggle('grid-view', isGridView);
@@ -2194,5 +1869,6 @@ gridToggleBtn.addEventListener('click', () => {
   updateGridView();
 });
 </script>
+
 </body>
 </html>
