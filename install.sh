@@ -52,7 +52,7 @@ for file in "${FILES[@]}"; do
 done
 
 # Set the base URL where your PHP files are hosted
-BASE_URL="https://raw.githubusercontent.com/david-xyz-abc/drivedavfinal/main"
+BASE_URL="https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main"
 
 # Download PHP files from GitHub into the application directory
 echo "Downloading PHP files from GitHub..."
