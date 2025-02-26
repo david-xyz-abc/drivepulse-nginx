@@ -1528,6 +1528,10 @@ button, .btn, .file-row, .folder-item, img, i {
 <!-- Add these in the <head> section after your other CSS/JS links: -->
 <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
 <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+
+<!-- First, add these links in the <head> section: -->
+<link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -1653,19 +1657,8 @@ button, .btn, .file-row, .folder-item, img, i {
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
         <div id="videoPreviewContainer" style="display: none;">
-            <video
-                id="videoPlayer"
-                class="video-js vjs-big-play-centered vjs-theme-forest"
-                controls
-                preload="auto"
-                width="640"
-                height="360"
-                data-setup="{}"
-            >
-                <p class="vjs-no-js">
-                    To view this video please enable JavaScript, and consider upgrading to a
-                    web browser that supports HTML5 video
-                </p>
+            <video id="videoPlayer" playsinline controls>
+                <source src="" type="" />
             </video>
         </div>
     </div>
@@ -1949,24 +1942,33 @@ function openPreviewModal(fileURL, fileName) {
             videoContainer.style.display = 'block';
             previewContent.classList.add('video-preview');
             
-            // Initialize or reset video.js player
-            if (window.videojs) {
-                if (window.videoPlayer) {
-                    window.videoPlayer.dispose();
-                }
-                window.videoPlayer = videojs('videoPlayer', {
-                    controls: true,
-                    autoplay: false,
-                    preload: 'auto',
-                    fluid: true,
-                    playbackRates: [0.5, 1, 1.5, 2]
-                });
-                
-                window.videoPlayer.src({
-                    type: file.mime || 'video/mp4',
-                    src: file.url
+            const videoPlayer = document.getElementById('videoPlayer');
+            const source = videoPlayer.querySelector('source');
+            
+            // Reset video
+            videoPlayer.pause();
+            
+            // Update source
+            source.src = file.url;
+            source.type = file.mime || 'video/mp4';
+            
+            // Initialize or update Plyr
+            if (window.player) {
+                window.player.source = {
+                    type: 'video',
+                    sources: [{
+                        src: file.url,
+                        type: file.mime || 'video/mp4'
+                    }]
+                };
+            } else {
+                window.player = new Plyr('#videoPlayer', {
+                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
+                    loadSprite: false
                 });
             }
+            
+            videoPlayer.load();
         } else if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
@@ -2309,8 +2311,8 @@ function closePreviewModal() {
     isLoadingImage = false;
 
     // Add this to closePreviewModal:
-    if (window.videoPlayer) {
-        window.videoPlayer.pause();
+    if (window.player) {
+        window.player.pause();
     }
 }
 
