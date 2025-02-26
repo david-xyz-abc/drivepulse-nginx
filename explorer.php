@@ -76,9 +76,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         'jpeg' => 'image/jpeg',
         'gif' => 'image/gif',
         'heic' => 'image/heic',
-        'mp4' => 'video/mp4',
-        'webm' => 'video/webm',
-        'mkv' => 'video/x-matroska',
         'txt' => 'text/plain',
     ];
     
@@ -503,15 +500,6 @@ if (is_dir($currentDir)) {
                         'type' => 'image',
                         'icon' => getIconClass($one)
                     ];
-                } elseif (isVideo($one)) {
-                    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
-                    $previewableFiles[] = [
-                        'name' => $one,
-                        'url' => $fileURL,
-                        'type' => 'video',
-                        'mime' => mime_content_type($path),
-                        'icon' => getIconClass($one)
-                    ];
                 } else {
                     $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
                     $previewableFiles[] = [
@@ -546,7 +534,6 @@ if ($currentDir !== $baseDir) {
  ************************************************/
 function getIconClass($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    if (isVideo($fileName)) return 'fas fa-file-video';
     if (isImage($fileName)) return 'fas fa-file-image';
     if ($ext === 'pdf') return 'fas fa-file-pdf';
     return 'fas fa-file';
@@ -558,12 +545,6 @@ function getIconClass($fileName) {
 function isImage($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic']);
-}
-
-// Add back isVideo function
-function isVideo($fileName) {
-    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    return in_array($ext, ['mp4', 'webm', 'mkv']);
 }
 ?>
 <!DOCTYPE html>
@@ -1662,23 +1643,6 @@ button, .btn, .file-row, .folder-item, img, i {
         </div>
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
-        <div id="videoPreviewContainer" style="display: none;">
-            <video
-                id="videoPlayer"
-                class="video-js vjs-big-play-centered vjs-theme-forest"
-                controls
-                preload="auto"
-                width="640"
-                height="264"
-                data-setup="{}"
-            >
-                <source src="" type="" />
-                <p class="vjs-no-js">
-                    To view this video please enable JavaScript, and consider upgrading to a
-                    web browser that supports HTML5 video
-                </p>
-            </video>
-        </div>
     </div>
   </div>
 
@@ -1917,7 +1881,6 @@ function openPreviewModal(fileURL, fileName) {
     const previewModal = document.getElementById('previewModal');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
-    const videoContainer = document.getElementById('videoPreviewContainer');
     const previewContent = document.getElementById('previewContent');
     
     // Add fade out effect
@@ -1929,7 +1892,6 @@ function openPreviewModal(fileURL, fileName) {
         imageContainer.innerHTML = '';
         iconContainer.style.display = 'none';
         iconContainer.innerHTML = '';
-        videoContainer.style.display = 'none';
         
         // Reset classes
         previewContent.classList.remove('image-preview');
@@ -1943,43 +1905,7 @@ function openPreviewModal(fileURL, fileName) {
             return;
         }
 
-        if (file.type === 'video') {
-            videoContainer.style.display = 'block';
-            
-            // Initialize video.js
-            if (window.videoPlayer) {
-                window.videoPlayer.dispose();
-            }
-            
-            // Create new video element
-            const videoElement = document.createElement('video');
-            videoElement.id = 'videoPlayer';
-            videoElement.className = 'video-js vjs-big-play-centered';
-            videoContainer.innerHTML = '';
-            videoContainer.appendChild(videoElement);
-            
-            window.videoPlayer = videojs('videoPlayer', {
-                controls: true,
-                autoplay: false,
-                preload: 'auto',
-                fluid: true,
-                responsive: true,
-                playbackRates: [0.5, 1, 1.5, 2],
-                html5: {
-                    nativeTextTracks: false,
-                    nativeAudioTracks: false,
-                    nativeVideoTracks: false
-                }
-            });
-            
-            window.videoPlayer.src({
-                type: file.mime || 'video/mp4',
-                src: file.url
-            });
-            
-            // Force player to fit container
-            window.videoPlayer.dimensions('auto', 'auto');
-        } else if (file.type === 'image') {
+        if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
             img.onload = () => {
@@ -2295,7 +2221,6 @@ function closePreviewModal() {
     const previewModal = document.getElementById('previewModal');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
-    const videoContainer = document.getElementById('videoPreviewContainer');
     
     // Dispose of video.js player if it exists
     if (window.videoPlayer) {
@@ -2306,7 +2231,6 @@ function closePreviewModal() {
     // Clear containers
     imageContainer.innerHTML = '';
     iconContainer.innerHTML = '';
-    videoContainer.style.display = 'none';
     
     // Hide the modal
     previewModal.style.display = 'none';
