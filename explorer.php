@@ -1551,6 +1551,16 @@ button, .btn, .file-row, .folder-item, img, i {
     width: 20px;
     margin-right: 8px;
 }
+
+#selectedFileActions {
+    display: none;
+    gap: 5px;
+    margin-right: 10px;
+}
+
+.file-row.selected {
+    background: rgba(255, 255, 255, 0.1);
+}
 </style>
 </head>
 <body>
@@ -1607,24 +1617,37 @@ button, .btn, .file-row, .folder-item, img, i {
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
         </div>
         <div style="display: flex; gap: 10px;">
-          <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
-            <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
-            <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
-              <i class="fas fa-cloud-upload-alt"></i>
-            </button>
-          </form>
-          <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" style="width:36px; height:36px;">
-            <i class="fas fa-th"></i>
-          </button>
-          <button type="button" class="btn theme-toggle-btn" id="themeToggleBtn" title="Toggle Theme" style="width:36px; height:36px;">
-            <i class="fas fa-moon"></i>
-          </button>
-          <div id="uploadProgressContainer">
-            <div style="background:var(--border-color); width:100%; height:20px; border-radius:4px; overflow:hidden;">
-              <div id="uploadProgressBar"></div>
+          <div class="toolbar">
+            <div id="selectedFileActions" style="display: none;">
+                <button type="button" class="btn" id="downloadSelectedBtn" title="Download">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button type="button" class="btn" id="renameSelectedBtn" title="Rename">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button type="button" class="btn" id="deleteSelectedBtn" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
             </div>
-            <div id="uploadProgressPercent">0.0%</div>
-            <button class="cancel-upload-btn" id="cancelUploadBtn">Cancel</button>
+            <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
+              <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
+              <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
+                <i class="fas fa-cloud-upload-alt"></i>
+              </button>
+            </form>
+            <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" style="width:36px; height:36px;">
+              <i class="fas fa-th"></i>
+            </button>
+            <button type="button" class="btn theme-toggle-btn" id="themeToggleBtn" title="Toggle Theme" style="width:36px; height:36px;">
+              <i class="fas fa-moon"></i>
+            </button>
+            <div id="uploadProgressContainer">
+              <div style="background:var(--border-color); width:100%; height:20px; border-radius:4px; overflow:hidden;">
+                <div id="uploadProgressBar"></div>
+              </div>
+              <div id="uploadProgressPercent">0.0%</div>
+              <button class="cancel-upload-btn" id="cancelUploadBtn">Cancel</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1648,11 +1671,6 @@ button, .btn, .file-row, .folder-item, img, i {
                 <?php endif; ?>
                 <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
                     <?php echo htmlspecialchars($fileName); ?>
-                </div>
-                <div class="file-actions">
-                    <button class="three-dots-btn" title="More actions">
-                        <i class="fas fa-ellipsis-v"></i>
-                    </button>
                 </div>
             </div>
           <?php endforeach; ?>
@@ -1700,6 +1718,7 @@ let currentXhr = null;
 let previewFiles = <?php echo json_encode($previewableFiles); ?>;
 let currentPreviewIndex = -1;
 let isLoadingImage = false;
+let selectedFileName = null;
 
 function toggleSidebar() {
   const sb = document.getElementById('sidebar');
@@ -2330,14 +2349,12 @@ function closePreviewModal() {
 }
 
 document.querySelectorAll('.file-row').forEach(row => {
-    // Remove any existing click handler
     row.removeAttribute('onclick');
     
     let clickTimeout;
     
     row.addEventListener('click', (e) => {
-        // Don't handle clicks on checkboxes or buttons
-        if (e.target.closest('.file-checkbox') || e.target.closest('button')) {
+        if (e.target.closest('.file-checkbox')) {
             return;
         }
 
@@ -2349,53 +2366,44 @@ document.querySelectorAll('.file-row').forEach(row => {
             const filename = row.dataset.filename;
             openPreviewModal(url, filename);
         } else {
-            // Single click - select row
+            // Single click - select row and show actions
             clickTimeout = setTimeout(() => {
                 clickTimeout = null;
                 document.querySelectorAll('.file-row').forEach(r => {
                     r.classList.remove('selected');
                 });
                 row.classList.add('selected');
+                
+                // Update selected file and show actions
+                selectedFileName = row.dataset.filename;
+                document.getElementById('selectedFileActions').style.display = 'flex';
             }, 200);
         }
     });
 });
 
-// Add event handler for three-dots button
-document.querySelectorAll('.three-dots-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const fileRow = btn.closest('.file-row');
-        const filename = fileRow.dataset.filename;
-        
-        // Remove any existing menus
-        document.querySelectorAll('.actions-menu').forEach(menu => menu.remove());
-        
-        const menu = document.createElement('div');
-        menu.className = 'actions-menu';
-        menu.innerHTML = `
-            <button onclick="downloadFile('${filename}')">
-                <i class="fas fa-download"></i> Download
-            </button>
-            <button onclick="renameFile('${filename}')">
-                <i class="fas fa-edit"></i> Rename
-            </button>
-            <button onclick="deleteFile('${filename}')">
-                <i class="fas fa-trash"></i> Delete
-            </button>
-        `;
-        
-        btn.parentElement.appendChild(menu);
-        menu.classList.add('active');
-        
-        // Close menu when clicking outside
-        document.addEventListener('click', function closeMenu(e) {
-            if (!menu.contains(e.target) && e.target !== btn) {
-                menu.remove();
-                document.removeEventListener('click', closeMenu);
-            }
+// Add click handlers for the action buttons
+document.getElementById('downloadSelectedBtn').addEventListener('click', () => {
+    if (selectedFileName) downloadFile(selectedFileName);
+});
+
+document.getElementById('renameSelectedBtn').addEventListener('click', () => {
+    if (selectedFileName) renameFile(selectedFileName);
+});
+
+document.getElementById('deleteSelectedBtn').addEventListener('click', () => {
+    if (selectedFileName) deleteFile(selectedFileName);
+});
+
+// Add click handler for clearing selection when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.file-row') && !e.target.closest('#selectedFileActions')) {
+        document.querySelectorAll('.file-row').forEach(r => {
+            r.classList.remove('selected');
         });
-    });
+        selectedFileName = null;
+        document.getElementById('selectedFileActions').style.display = 'none';
+    }
 });
 
 // Helper functions for file actions
