@@ -215,7 +215,7 @@ if ($currentDir === false || strpos($currentDir, $baseDir) !== 0) {
 }
 
 /************************************************
- * Calculate Global Storage Usage
+ * Calculate Storage Usage
  ************************************************/
 function getDirSize($dir) {
     static $cache = [];
@@ -233,12 +233,8 @@ function getDirSize($dir) {
     return $size;
 }
 
-// Get total server storage
-$totalStorage = disk_total_space("/var/www/html/webdav"); // Gets total disk space
-$freeStorage = disk_free_space("/var/www/html/webdav");   // Gets free disk space
-$usedStorage = $totalStorage - $freeStorage;              // Calculate used space
-
-// Convert to GB for display
+$totalStorage = 10 * 1024 * 1024 * 1024; // 10 GB in bytes
+$usedStorage = getDirSize($baseDir);
 $usedStorageGB = round($usedStorage / (1024 * 1024 * 1024), 2);
 $totalStorageGB = round($totalStorage / (1024 * 1024 * 1024), 2);
 $storagePercentage = round(($usedStorage / $totalStorage) * 100, 2);
@@ -1885,13 +1881,8 @@ function openPreviewModal(fileURL, fileName) {
             previewContent.classList.add('video-preview');
             setupVideoControls(videoPlayer);
             
-            // Add this: Set the saved timestamp when video is ready
             videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
-                const savedTime = getSavedTimestamp(file.name);
-                if (savedTime > 0) {
-                    videoPlayer.currentTime = savedTime;
-                }
             };
         } else if (file.type === 'image') {
             isLoadingImage = true;
@@ -1961,11 +1952,6 @@ function setupVideoControls(video) {
     video.onended = () => {
         const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-        // Clear the saved timestamp when video ends
-        const currentFile = previewFiles[currentPreviewIndex];
-        if (currentFile) {
-            saveVideoTimestamp(currentFile.name, 0);
-        }
     };
 
     // Remove the video error handler completely
@@ -2217,14 +2203,6 @@ function closePreviewModal() {
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
     
-    // Save video timestamp before cleanup
-    if (videoPlayer && videoPlayer.src && !videoPlayer.ended) {
-        const currentFile = previewFiles[currentPreviewIndex];
-        if (currentFile && currentFile.type === 'video') {
-            saveVideoTimestamp(currentFile.name, videoPlayer.currentTime);
-        }
-    }
-    
     // Clear video properly
     try {
         if (videoPlayer) {
@@ -2279,19 +2257,6 @@ document.querySelectorAll('.file-row').forEach(row => {
         lastTap = currentTime;
     });
 });
-
-// Function to save video timestamp
-function saveVideoTimestamp(videoName, timestamp) {
-    const timestamps = JSON.parse(localStorage.getItem('videoTimestamps') || '{}');
-    timestamps[videoName] = timestamp;
-    localStorage.setItem('videoTimestamps', JSON.stringify(timestamps));
-}
-
-// Function to get saved timestamp
-function getSavedTimestamp(videoName) {
-    const timestamps = JSON.parse(localStorage.getItem('videoTimestamps') || '{}');
-    return timestamps[videoName] || 0;
-}
 </script>
 
 </body>
