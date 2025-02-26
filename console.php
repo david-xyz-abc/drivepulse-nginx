@@ -115,3 +115,4 @@ if (!isset($_SESSION['admin']) && (!isset($_POST['password']) || $_POST['passwor
     </div>
 </body>
 </html> 
+BLUD
