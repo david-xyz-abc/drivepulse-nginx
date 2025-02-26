@@ -1696,6 +1696,8 @@ function openPreviewModal(fileURL, fileName) {
     console.log('Opening preview for file:', file); // Debug log
 
     if (file.type === 'video') {
+        // Remove any existing error handler before setting new source
+        videoPlayer.onerror = null;
         videoPlayer.src = file.url;
         videoPlayer.load();
         videoContainer.style.display = 'block';
@@ -1751,13 +1753,8 @@ function setupVideoControls(video) {
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
     };
 
-    // Error handling - only show error for video files
-    video.onerror = () => {
-        const currentFile = previewFiles[currentPreviewIndex];
-        if (currentFile && currentFile.type === 'video') {
-            showAlert('Error loading video. Check file format or server logs.');
-        }
-    };
+    // Remove the video error handler completely
+    video.onerror = null;
 
     // Space bar to play/pause
     document.onkeydown = (e) => {
@@ -1988,9 +1985,13 @@ function closePreviewModal() {
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
     
-    // Reset video if it exists
-    videoPlayer.pause();
-    videoPlayer.src = '';
+    // Remove error handler before resetting video
+    if (videoPlayer) {
+        videoPlayer.onerror = null;
+        videoPlayer.pause();
+        videoPlayer.removeAttribute('src');
+        videoPlayer.load();
+    }
     
     // Clear containers
     imageContainer.innerHTML = '';
