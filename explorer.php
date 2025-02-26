@@ -146,14 +146,33 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         fseek($fp, $start);
     }
 
-    $buffer = 8192;
+    // Increase buffer size for better streaming
+    $buffer = 262144; // 256KB chunks
     $sent = 0;
+
+    // Disable time limit and ignore user abort
+    set_time_limit(0);
+    ignore_user_abort(true);
+
+    // Disable output buffering
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
 
     while (!feof($fp) && $sent < $length && !connection_aborted()) {
         $read = min($buffer, $length - $sent);
-        echo fread($fp, $read);
-        $sent += $read;
+        $data = fread($fp, $read);
+        if ($data === false) {
+            break;
+        }
+        echo $data;
+        $sent += strlen($data);
         flush();
+
+        // Free up memory
+        if ($sent % ($buffer * 4) === 0) {
+            gc_collect_cycles();
+        }
     }
 
     fclose($fp);
