@@ -503,15 +503,6 @@ if (is_dir($currentDir)) {
                         'type' => 'image',
                         'icon' => getIconClass($one)
                     ];
-                } elseif (isVideo($one)) {
-                    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
-                    $previewableFiles[] = [
-                        'name' => $one,
-                        'url' => $fileURL,
-                        'type' => 'video',
-                        'mime' => mime_content_type($path),
-                        'icon' => getIconClass($one)
-                    ];
                 } else {
                     $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
                     $previewableFiles[] = [
@@ -560,7 +551,7 @@ function isImage($fileName) {
     return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic']);
 }
 
-// Add back video detection
+// Add video detection function
 function isVideo($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     return in_array($ext, ['mp4', 'webm', 'mkv']);
@@ -1508,56 +1499,17 @@ button, .btn, .file-row, .folder-item, img, i {
 }
 
 /* Remove any custom video control styles */
-
-// Add to your CSS section
-#videoPreviewContainer {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #000;
-}
-
-.video-js {
-    width: 100% !important;
-    height: 100% !important;
-    max-height: 90vh;
-}
-
-.vjs-big-play-centered .vjs-big-play-button {
-    margin-left: -1.5em;
-    margin-top: -1em;
-}
-
-// Add these styles to your CSS
-#videoPreviewContainer {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #000;
-}
-
-media-controller {
-  width: 100%;
-  height: 100%;
-  max-height: 90vh;
-  --media-primary-color: #d32f2f;
-  --media-secondary-color: #ffffff;
-}
 </style>
 
 <!-- Add these in the <head> section after your other CSS/JS links: -->
-<link href="https://vjs.zencdn.net/8.16.1/video-js.css" rel="stylesheet" />
-<script src="https://vjs.zencdn.net/8.16.1/video.min.js"></script>
+<link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+<script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 
 <!-- First, add these links in the <head> section: -->
 <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
 <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
 
-// Add this in the <head> section
+<!-- Add in the <head> section -->
 <script type="module" src="https://cdn.jsdelivr.net/npm/media-chrome@1/+esm"></script>
 </head>
 <body>
@@ -1675,7 +1627,7 @@ media-controller {
   </div>
 
   <div id="previewModal">
-    <span id="previewClose" onclick="closePreviewModal(event)"><i class="fas fa-times"></i></span>
+    <span id="previewClose" onclick="closePreviewModal()"><i class="fas fa-times"></i></span>
     <div id="previewContent">
         <div id="previewNav">
             <button id="prevBtn" onclick="navigatePreview(-1)"><i class="fas fa-arrow-left"></i></button>
@@ -1683,25 +1635,6 @@ media-controller {
         </div>
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
-        <div id="videoPreviewContainer" style="display: none;">
-            <media-controller>
-              <video 
-                id="videoPlayer"
-                slot="media" 
-                crossorigin
-              >
-                <source src="" type="">
-              </video>
-              <media-control-bar>
-                <media-play-button></media-play-button>
-                <media-mute-button></media-mute-button>
-                <media-volume-range></media-volume-range>
-                <media-time-range></media-time-range>
-                <media-pip-button></media-pip-button>
-                <media-fullscreen-button></media-fullscreen-button>
-              </media-control-bar>
-            </media-controller>
-        </div>
     </div>
   </div>
 
@@ -1940,9 +1873,9 @@ function openPreviewModal(fileURL, fileName) {
     const previewModal = document.getElementById('previewModal');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
-    const videoContainer = document.getElementById('videoPreviewContainer');
     const previewContent = document.getElementById('previewContent');
-    
+    const previewClose = document.getElementById('previewClose');
+
     // Add fade out effect
     previewContent.classList.add('fade-out');
     
@@ -1952,7 +1885,6 @@ function openPreviewModal(fileURL, fileName) {
         imageContainer.innerHTML = '';
         iconContainer.style.display = 'none';
         iconContainer.innerHTML = '';
-        videoContainer.style.display = 'none';
         
         // Reset classes
         previewContent.classList.remove('image-preview');
@@ -1966,14 +1898,7 @@ function openPreviewModal(fileURL, fileName) {
             return;
         }
 
-        if (file.type === 'video') {
-            videoContainer.style.display = 'block';
-            const videoPlayer = document.getElementById('videoPlayer');
-            const source = videoPlayer.querySelector('source');
-            source.src = file.url;
-            source.type = file.mime || 'video/mp4';
-            videoPlayer.load();
-        } else if (file.type === 'image') {
+        if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
             img.onload = () => {
@@ -2014,7 +1939,7 @@ function openPreviewModal(fileURL, fileName) {
                 closePreviewModal();
             }
         };
-    }, 300);
+    }, 300); // Wait for fade out
 }
 
 // Add this function back if it's missing
@@ -2285,30 +2210,20 @@ gridToggleBtn.addEventListener('click', () => {
   updateGridView();
 });
 
-function closePreviewModal(event) {
-    if (event) {
-        event.stopPropagation();
-    }
-    
+function closePreviewModal() {
     const previewModal = document.getElementById('previewModal');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
-    const videoContainer = document.getElementById('videoPreviewContainer');
     
     // Clear containers
     imageContainer.innerHTML = '';
     iconContainer.innerHTML = '';
-    videoContainer.style.display = 'none';
     
     // Hide the modal
     previewModal.style.display = 'none';
     
     // Reset loading state
     isLoadingImage = false;
-    
-    // Remove fade classes
-    const previewContent = document.getElementById('previewContent');
-    previewContent.classList.remove('fade-in', 'fade-out', 'image-preview');
 }
 
 // Add these new functions and event listeners
