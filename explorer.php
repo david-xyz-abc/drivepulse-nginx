@@ -1508,6 +1508,28 @@ button, .btn, .file-row, .folder-item, img, i {
 }
 
 /* Remove any custom video control styles */
+
+#videoPreviewContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+media-controller {
+  width: 100%;
+  height: 100%;
+  --media-background: transparent;
+  --media-control-background: transparent;
+  --media-control-hover-background: rgba(255, 255, 255, 0.2);
+}
+
+video {
+  max-width: 100%;
+  max-height: 90vh;
+}
 </style>
 
 <!-- Add these in the <head> section after your other CSS/JS links: -->
