@@ -1567,6 +1567,146 @@ button, .btn, .file-row, .folder-item, img, i {
 .selected-actions-menu button:hover {
     background: var(--hover-color);
 }
+
+/* Add these styles */
+<style>
+.file-row {
+    position: relative;
+}
+
+.file-actions {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+}
+
+.file-row.selected-row .file-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.three-dots-btn {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 5px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.three-dots-btn:hover {
+    opacity: 1;
+}
+
+.actions-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 5px 0;
+    min-width: 150px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    display: none;
+}
+
+.actions-menu.active {
+    display: block;
+}
+
+.actions-menu button {
+    display: block;
+    width: 100%;
+    padding: 8px 16px;
+    text-align: left;
+    border: none;
+    background: none;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.actions-menu button:hover {
+    background: var(--hover-color);
+}
+
+.actions-menu i {
+    width: 20px;
+    margin-right: 8px;
+}
+</style>
+
+<style>
+.gradient-red {
+    background: linear-gradient(45deg, #ff4b4b, #ff6b6b) !important;
+    color: white !important;
+    border: none !important;
+    transition: opacity 0.3s ease !important;
+}
+
+.gradient-red:hover {
+    opacity: 0.9;
+}
+
+#selectedActionsBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#selectedCount {
+    font-size: 0.9em;
+}
+
+.selected-actions-menu {
+    position: absolute;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 8px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    display: none;
+}
+
+.selected-actions-menu.active {
+    display: block;
+}
+
+.selected-actions-menu button {
+    display: block;
+    width: 100%;
+    padding: 8px 16px;
+    text-align: left;
+    border: none;
+    background: none;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.selected-actions-menu button:hover {
+    background: var(--hover-color);
+}
+
+.selected-actions-menu button i {
+    width: 20px;
+    margin-right: 8px;
+    color: #ff4b4b;
+}
+
+.file-row.selected {
+    background: rgba(255, 75, 75, 0.1);
+}
+
+.file-checkbox {
+    accent-color: #ff4b4b;
+}
 </style>
 </head>
 <body>
@@ -1623,12 +1763,23 @@ button, .btn, .file-row, .folder-item, img, i {
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
         </div>
         <div style="display: flex; gap: 10px;">
-          <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
-            <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
-            <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
-              <i class="fas fa-cloud-upload-alt"></i>
+          <div class="toolbar">
+            <!-- Add this before the upload button -->
+            <button id="selectAllBtn" class="btn gradient-red" title="Select All">
+                <i class="fas fa-check-square"></i>
             </button>
-          </form>
+            <button id="selectedActionsBtn" class="btn gradient-red" style="display: none;" title="Actions">
+                <i class="fas fa-tasks"></i>
+                <span id="selectedCount">0 selected</span>
+            </button>
+            <!-- Your existing upload button -->
+            <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
+              <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
+              <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
+                <i class="fas fa-cloud-upload-alt"></i>
+              </button>
+            </form>
+          </div>
           <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" style="width:36px; height:36px;">
             <i class="fas fa-th"></i>
           </button>
@@ -1655,28 +1806,20 @@ button, .btn, .file-row, .folder-item, img, i {
                 $isImageFile = isImage($fileName);
                 log_debug("File URL for $fileName: $fileURL");
             ?>
-            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
+            <div class="file-row" 
+                 data-filename="<?= htmlspecialchars($fileName) ?>"
+                 data-url="<?= htmlspecialchars($fileURL) ?>">
                 <div class="checkbox-wrapper">
                     <input type="checkbox" class="file-checkbox" data-name="<?= htmlspecialchars($fileName) ?>">
                 </div>
                 <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
                 <?php if ($isImageFile): ?>
-                    <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
-                <?php else: ?>
-                    <i class="<?php echo $iconClass; ?> file-icon-large"></i>
+                    <img class="thumbnail" src="<?php echo $fileURL; ?>&preview=1" loading="lazy" alt="">
                 <?php endif; ?>
-                <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
-                    <?php echo htmlspecialchars($fileName); ?>
-                </div>
+                <span class="file-name"><?php echo htmlspecialchars($fileName); ?></span>
                 <div class="file-actions">
-                    <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
-                        <i class="fas fa-trash"></i>
+                    <button class="three-dots-btn" title="More actions">
+                        <i class="fas fa-ellipsis-v"></i>
                     </button>
                 </div>
             </div>
@@ -2465,8 +2608,12 @@ function showSelectedActions(e) {
     const menu = document.createElement('div');
     menu.className = 'selected-actions-menu';
     menu.innerHTML = `
-        <button onclick="downloadSelected()"><i class="fas fa-download"></i> Download</button>
-        <button onclick="deleteSelected()"><i class="fas fa-trash"></i> Delete</button>
+        <button onclick="downloadSelected()">
+            <i class="fas fa-download"></i> Download Selected
+        </button>
+        <button onclick="deleteSelected()">
+            <i class="fas fa-trash"></i> Delete Selected
+        </button>
     `;
     
     // Position the menu below the button
@@ -2512,6 +2659,113 @@ function deleteSelected() {
     Promise.all(promises).then(() => {
         location.reload();
     });
+}
+
+// Remove the old click handler from file-row
+document.querySelectorAll('.file-row').forEach(row => {
+    row.removeAttribute('onclick');
+    
+    let clickTimeout;
+    let activeMenu = null;
+
+    // Handle single and double clicks
+    row.addEventListener('click', (e) => {
+        if (e.target.closest('.file-checkbox') || 
+            e.target.closest('.three-dots-btn') || 
+            e.target.closest('.actions-menu')) {
+            return;
+        }
+
+        if (clickTimeout) {
+            // Double click - open file
+            clearTimeout(clickTimeout);
+            clickTimeout = null;
+            const url = row.dataset.url;
+            const filename = row.dataset.filename;
+            openPreviewModal(url, filename);
+        } else {
+            // Single click - show actions
+            clickTimeout = setTimeout(() => {
+                clickTimeout = null;
+                document.querySelectorAll('.file-row').forEach(r => {
+                    r.classList.remove('selected-row');
+                });
+                row.classList.add('selected-row');
+            }, 200);
+        }
+    });
+
+    // Handle three-dots button click
+    const threeDots = row.querySelector('.three-dots-btn');
+    threeDots.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const filename = row.dataset.filename;
+        
+        // Remove any existing menus
+        document.querySelectorAll('.actions-menu').forEach(menu => menu.remove());
+        
+        const menu = document.createElement('div');
+        menu.className = 'actions-menu';
+        menu.innerHTML = `
+            <button onclick="downloadFile('${filename}')">
+                <i class="fas fa-download"></i> Download
+            </button>
+            <button onclick="renameFile('${filename}')">
+                <i class="fas fa-edit"></i> Rename
+            </button>
+            <button onclick="deleteFile('${filename}')">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        `;
+        
+        row.querySelector('.file-actions').appendChild(menu);
+        menu.classList.add('active');
+        activeMenu = menu;
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function closeMenu(e) {
+            if (!menu.contains(e.target) && e.target !== threeDots) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        });
+    });
+});
+
+// Helper functions for file actions
+function downloadFile(filename) {
+    const link = document.createElement('a');
+    link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(currentPath + '/' + filename)}`;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function renameFile(filename) {
+    // Your existing rename file logic
+    const newName = prompt('Enter new name:', filename);
+    if (newName && newName !== filename) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="rename_file" value="1">
+            <input type="hidden" name="old_file_name" value="${filename}">
+            <input type="hidden" name="new_file_name" value="${newName}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function deleteFile(filename) {
+    if (confirm(`Are you sure you want to delete "${filename}"?`)) {
+        fetch(`/selfhostedgdrive/explorer.php?delete=${encodeURIComponent(filename)}`, {
+            method: 'POST'
+        }).then(() => {
+            location.reload();
+        });
+    }
 }
 </script>
 
