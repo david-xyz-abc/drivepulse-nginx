@@ -1665,38 +1665,41 @@ html, body {
       <div class="content-inner">
         <div id="dropZone">Drop files here to upload</div>
         <div class="file-list" id="fileList">
-          <?php foreach ($files as $fileName): ?>
-            <?php 
-                $relativePath = $currentRel . '/' . $fileName;
-                $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
-                $iconClass = getIconClass($fileName);
-                $isImageFile = isImage($fileName);
-                log_debug("File URL for $fileName: $fileURL");
-            ?>
-            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
-                <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
-                <?php if ($isImageFile): ?>
-                    <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
-                <?php else: ?>
-                    <i class="<?php echo $iconClass; ?> file-icon-large"></i>
-                <?php endif; ?>
-                <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
-                    <?php echo htmlspecialchars($fileName); ?>
-                </div>
-                <div class="file-actions">
-                    <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-          <?php endforeach; ?>
+  <?php foreach ($files as $fileName): ?>
+    <?php 
+        $relativePath = $currentRel . '/' . $fileName;
+        $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
+        $iconClass = getIconClass($fileName);
+        $isImageFile = isImage($fileName);
+        $isVideoFile = isVideo($fileName);
+        log_debug("File URL for $fileName: $fileURL");
+    ?>
+    <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
+        <i class="<?php echo $iconClass; ?> file-icon<?php echo ($isImageFile || $isVideoFile) ? '' : ' no-preview'; ?>"></i>
+        <?php if ($isImageFile): ?>
+            <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
+        <?php elseif ($isVideoFile): ?>
+            <i class="<?php echo $iconClass; ?> file-icon-large"></i> <!-- Video placeholder -->
+        <?php else: ?>
+            <i class="<?php echo $iconClass; ?> file-icon-large"></i>
+        <?php endif; ?>
+        <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
+            <?php echo htmlspecialchars($fileName); ?>
         </div>
+        <div class="file-actions">
+            <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
+                <i class="fas fa-download"></i>
+            </button>
+            <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    </div>
+  <?php endforeach; ?>
+</div>
       </div>
     </div>
   </div>
