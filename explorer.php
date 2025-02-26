@@ -1525,6 +1525,61 @@ button, .btn, .file-row, .folder-item, img, i {
     width: 100%;
   }
 }
+
+/* Search functionality styles */
+.search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 10px;
+  display: none;
+  animation: slideIn 0.3s ease;
+}
+
+.search-box.active {
+  display: block;
+}
+
+#searchInput {
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 8px 12px;
+  border-radius: 4px;
+  width: 200px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+#searchInput:focus {
+  border-color: var(--accent-red);
+  box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.2);
+}
+
+@media (max-width: 768px) {
+  .search-box {
+    position: fixed;
+    top: 70px;
+    left: 20px;
+    right: 20px;
+    transform: none;
+    margin: 0;
+    z-index: 1000;
+  }
+
+  #searchInput {
+    width: 100%;
+  }
+}
 </style>
 </head>
 <body>
@@ -2336,72 +2391,6 @@ document.querySelectorAll('.file-row').forEach(row => {
         lastTap = currentTime;
     });
 });
-
-// Add this CSS in the style section:
-.search-container {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-box {
-  position: absolute;
-  right: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  margin-right: 10px;
-  display: none;
-  animation: slideIn 0.3s ease;
-}
-
-.search-box.active {
-  display: block;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-50%) translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-50%) translateX(0);
-  }
-}
-
-#searchInput {
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  color: var(--text-color);
-  padding: 8px 12px;
-  border-radius: 4px;
-  width: 200px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 14px;
-  outline: none;
-  transition: all 0.3s ease;
-}
-
-#searchInput:focus {
-  border-color: var(--accent-red);
-  box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.2);
-}
-
-@media (max-width: 768px) {
-  .search-box {
-    position: fixed;
-    top: 70px;
-    left: 20px;
-    right: 20px;
-    transform: none;
-    margin: 0;
-    z-index: 1000;
-  }
-
-  #searchInput {
-    width: 100%;
-  }
-}
 
 // Add this JavaScript at the end of your script section, before the closing </script> tag:
 // Search functionality
