@@ -1277,15 +1277,25 @@ html, body {
   #previewClose { top: 10px; right: 10px; font-size: 25px; }
 }
 #videoPreviewContainer {
-  display: none;
   width: 100%;
   height: 100%;
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #000;
 }
+
+.video-js {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 90vh;
+}
+
+.vjs-theme-forest {
+  --vjs-theme-forest--primary: var(--accent-red);
+}
+
+/* Remove all the old video player styles */
 
 #videoPlayer {
   width: 100%;
@@ -1514,6 +1524,10 @@ button, .btn, .file-row, .folder-item, img, i {
 
 /* Remove any custom video control styles */
 </style>
+
+<!-- Add these in the <head> section after your other CSS/JS links: -->
+<link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+<script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -1639,16 +1653,20 @@ button, .btn, .file-row, .folder-item, img, i {
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
         <div id="videoPreviewContainer" style="display: none;">
-            <video id="videoPlayer" preload="auto" onclick="togglePlay(event)"></video>
-            <div class="video-controls">
-                <div class="video-controls-inner">
-                    <button id="playPauseBtn" onclick="togglePlay(event)"><i class="fas fa-play"></i></button>
-                    <div id="videoProgress" onclick="seekVideo(event)">
-                        <div id="videoProgressBar"></div>
-                    </div>
-                    <button id="fullscreenBtn" onclick="toggleFullscreen(event)"><i class="fas fa-expand"></i></button>
-                </div>
-            </div>
+            <video
+                id="videoPlayer"
+                class="video-js vjs-big-play-centered vjs-theme-forest"
+                controls
+                preload="auto"
+                width="640"
+                height="360"
+                data-setup="{}"
+            >
+                <p class="vjs-no-js">
+                    To view this video please enable JavaScript, and consider upgrading to a
+                    web browser that supports HTML5 video
+                </p>
+            </video>
         </div>
     </div>
   </div>
@@ -1928,48 +1946,27 @@ function openPreviewModal(fileURL, fileName) {
         }
 
         if (file.type === 'video') {
-            videoContainer.classList.remove('loaded');
-            
-            // Reset video player completely
-            videoPlayer.pause();
-            videoPlayer.removeAttribute('src');
-            videoPlayer.load();
-            
-            // Set up container first
             videoContainer.style.display = 'block';
             previewContent.classList.add('video-preview');
             
-            // Add loading indicator
-            const loadingIndicator = document.createElement('div');
-            loadingIndicator.className = 'video-loading';
-            loadingIndicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading video...';
-            videoContainer.appendChild(loadingIndicator);
-            
-            // Use native video controls
-            videoPlayer.controls = true;
-            videoPlayer.preload = 'auto';
-            videoPlayer.playsInline = true;
-            
-            // Set source
-            videoPlayer.src = file.url;
-            
-            // Handle metadata loaded
-            videoPlayer.onloadedmetadata = () => {
-                const loadingIndicator = videoContainer.querySelector('.video-loading');
-                if (loadingIndicator) {
-                    loadingIndicator.remove();
+            // Initialize or reset video.js player
+            if (window.videojs) {
+                if (window.videoPlayer) {
+                    window.videoPlayer.dispose();
                 }
-                videoContainer.classList.add('loaded');
-            };
-            
-            // Handle errors
-            videoPlayer.onerror = (e) => {
-                console.error('Video error:', videoPlayer.error);
-                const loadingIndicator = videoContainer.querySelector('.video-loading');
-                if (loadingIndicator) {
-                    loadingIndicator.innerHTML = '<i class="fas fa-exclamation-circle"></i> Error loading video';
-                }
-            };
+                window.videoPlayer = videojs('videoPlayer', {
+                    controls: true,
+                    autoplay: false,
+                    preload: 'auto',
+                    fluid: true,
+                    playbackRates: [0.5, 1, 1.5, 2]
+                });
+                
+                window.videoPlayer.src({
+                    type: file.mime || 'video/mp4',
+                    src: file.url
+                });
+            }
         } else if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
@@ -2310,6 +2307,11 @@ function closePreviewModal() {
     
     // Reset loading state
     isLoadingImage = false;
+
+    // Add this to closePreviewModal:
+    if (window.videoPlayer) {
+        window.videoPlayer.pause();
+    }
 }
 
 // Add these new functions and event listeners
