@@ -76,10 +76,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         'jpeg' => 'image/jpeg',
         'gif' => 'image/gif',
         'heic' => 'image/heic',
-        'mkv' => 'video/x-matroska',
-        'mp4' => 'video/mp4',
-        'webm' => 'video/webm',
-        'ogg' => 'video/ogg',
         'txt' => 'text/plain',
     ];
     
@@ -502,14 +498,6 @@ if (is_dir($currentDir)) {
                         'url' => $fileURL,
                         'previewUrl' => $previewUrl,
                         'type' => 'image',
-                        'icon' => getIconClass($one)
-                    ];
-                } elseif (isVideo($one)) {
-                    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
-                    $previewableFiles[] = [
-                        'name' => $one,
-                        'url' => $fileURL,
-                        'type' => 'video',
                         'icon' => getIconClass($one)
                     ];
                 } else {
@@ -1656,11 +1644,6 @@ button, .btn, .file-row, .folder-item, img, i {
         </div>
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
-        <div id="videoPreviewContainer" style="display: none;">
-            <video id="videoPlayer" playsinline controls>
-                <source src="" type="" />
-            </video>
-        </div>
     </div>
   </div>
 
@@ -1899,8 +1882,6 @@ function openPreviewModal(fileURL, fileName) {
     const previewModal = document.getElementById('previewModal');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
-    const videoContainer = document.getElementById('videoPreviewContainer');
-    const videoPlayer = document.getElementById('videoPlayer');
     const previewContent = document.getElementById('previewContent');
     const previewClose = document.getElementById('previewClose');
 
@@ -1913,22 +1894,10 @@ function openPreviewModal(fileURL, fileName) {
         imageContainer.innerHTML = '';
         iconContainer.style.display = 'none';
         iconContainer.innerHTML = '';
-        videoContainer.style.display = 'none';
-        
-        // Reset video player
-        if (videoPlayer) {
-            videoPlayer.pause();
-            videoPlayer.src = '';
-            videoPlayer.load();
-        }
         
         // Reset classes
         previewContent.classList.remove('image-preview');
-        previewContent.classList.remove('video-preview');
         previewModal.classList.remove('fullscreen');
-
-        // Always show the close button
-        previewClose.style.display = 'block';
 
         currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
         let file = previewFiles.find(f => f.name === fileName);
@@ -1938,45 +1907,13 @@ function openPreviewModal(fileURL, fileName) {
             return;
         }
 
-        if (file.type === 'video') {
-            videoContainer.style.display = 'block';
-            previewContent.classList.add('video-preview');
-            
-            const videoPlayer = document.getElementById('videoPlayer');
-            const source = videoPlayer.querySelector('source');
-            
-            // Reset video
-            videoPlayer.pause();
-            
-            // Update source
-            source.src = file.url;
-            source.type = file.mime || 'video/mp4';
-            
-            // Initialize or update Plyr
-            if (window.player) {
-                window.player.source = {
-                    type: 'video',
-                    sources: [{
-                        src: file.url,
-                        type: file.mime || 'video/mp4'
-                    }]
-                };
-            } else {
-                window.player = new Plyr('#videoPlayer', {
-                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
-                    loadSprite: false
-                });
-            }
-            
-            videoPlayer.load();
-        } else if (file.type === 'image') {
+        if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
             img.onload = () => {
                 imageContainer.appendChild(img);
                 imageContainer.style.display = 'flex';
                 previewContent.classList.add('image-preview');
-                // Add small delay before showing image
                 setTimeout(() => {
                     img.classList.add('loaded');
                     isLoadingImage = false;
@@ -2284,21 +2221,8 @@ gridToggleBtn.addEventListener('click', () => {
 
 function closePreviewModal() {
     const previewModal = document.getElementById('previewModal');
-    const videoPlayer = document.getElementById('videoPlayer');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
-    
-    // Clear video properly
-    try {
-        if (videoPlayer) {
-            videoPlayer.onerror = null;
-            videoPlayer.pause();
-            videoPlayer.src = '';
-            videoPlayer.load();
-        }
-    } catch (err) {
-        console.error('Video cleanup error:', err);
-    }
     
     // Clear containers
     imageContainer.innerHTML = '';
@@ -2309,11 +2233,6 @@ function closePreviewModal() {
     
     // Reset loading state
     isLoadingImage = false;
-
-    // Add this to closePreviewModal:
-    if (window.player) {
-        window.player.pause();
-    }
 }
 
 // Add these new functions and event listeners
