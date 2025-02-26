@@ -1475,238 +1475,6 @@ button, .btn, .file-row, .folder-item, img, i {
     min-width: 100px;
     text-align: center;
 }
-
-/* Add/update these styles */
-#dropZone {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    pointer-events: none;
-}
-
-#dropZone.active {
-    display: flex;
-}
-
-#dropZone::after {
-    content: 'Drop files here to upload';
-    color: white;
-    font-size: 24px;
-    border: 3px dashed white;
-    padding: 2rem 4rem;
-    border-radius: 10px;
-    background: rgba(0, 0, 0, 0.5);
-}
-
-.file-row .checkbox-wrapper {
-    display: flex;
-    align-items: center;
-    padding: 0 10px;
-}
-
-.file-checkbox {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    margin: 0;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.file-checkbox:hover {
-    opacity: 1;
-}
-
-.file-row.selected {
-    background: var(--accent-color-transparent);
-}
-
-#selectedActionsBtn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#selectedCount {
-    font-size: 0.9em;
-}
-
-.selected-actions-menu {
-    position: absolute;
-    background: var(--bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 8px 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    display: none;
-}
-
-.selected-actions-menu.active {
-    display: block;
-}
-
-.selected-actions-menu button {
-    display: block;
-    width: 100%;
-    padding: 8px 16px;
-    text-align: left;
-    border: none;
-    background: none;
-    color: var(--text-color);
-    cursor: pointer;
-}
-
-.selected-actions-menu button:hover {
-    background: var(--hover-color);
-}
-
-/* Add these styles */
-<style>
-.file-row {
-    position: relative;
-}
-
-.file-actions {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: none;
-}
-
-.file-row.selected-row .file-actions {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.three-dots-btn {
-    background: none;
-    border: none;
-    color: var(--text-color);
-    cursor: pointer;
-    padding: 5px;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.three-dots-btn:hover {
-    opacity: 1;
-}
-
-.actions-menu {
-    position: absolute;
-    right: 0;
-    top: 100%;
-    background: var(--bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 5px 0;
-    min-width: 150px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    display: none;
-}
-
-.actions-menu.active {
-    display: block;
-}
-
-.actions-menu button {
-    display: block;
-    width: 100%;
-    padding: 8px 16px;
-    text-align: left;
-    border: none;
-    background: none;
-    color: var(--text-color);
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.actions-menu button:hover {
-    background: var(--hover-color);
-}
-
-.actions-menu i {
-    width: 20px;
-    margin-right: 8px;
-}
-</style>
-
-<style>
-.gradient-red {
-    background: linear-gradient(45deg, #ff4b4b, #ff6b6b) !important;
-    color: white !important;
-    border: none !important;
-    transition: opacity 0.3s ease !important;
-}
-
-.gradient-red:hover {
-    opacity: 0.9;
-}
-
-#selectedActionsBtn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#selectedCount {
-    font-size: 0.9em;
-}
-
-.selected-actions-menu {
-    position: absolute;
-    background: var(--bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 8px 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    display: none;
-}
-
-.selected-actions-menu.active {
-    display: block;
-}
-
-.selected-actions-menu button {
-    display: block;
-    width: 100%;
-    padding: 8px 16px;
-    text-align: left;
-    border: none;
-    background: none;
-    color: var(--text-color);
-    cursor: pointer;
-}
-
-.selected-actions-menu button:hover {
-    background: var(--hover-color);
-}
-
-.selected-actions-menu button i {
-    width: 20px;
-    margin-right: 8px;
-    color: #ff4b4b;
-}
-
-.file-row.selected {
-    background: rgba(255, 75, 75, 0.1);
-}
-
-.file-checkbox {
-    accent-color: #ff4b4b;
-}
 </style>
 </head>
 <body>
@@ -1763,23 +1531,12 @@ button, .btn, .file-row, .folder-item, img, i {
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
         </div>
         <div style="display: flex; gap: 10px;">
-          <div class="toolbar">
-            <!-- Add these new buttons -->
-            <button id="selectAllBtn" class="btn gradient-red" title="Select All">
-                <i class="fas fa-check-square"></i>
+          <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
+            <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
+            <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
+              <i class="fas fa-cloud-upload-alt"></i>
             </button>
-            <button id="selectedActionsBtn" class="btn gradient-red" style="display: none;" title="Actions">
-                <i class="fas fa-tasks"></i>
-                <span id="selectedCount">0 selected</span>
-            </button>
-            <!-- Your existing upload button -->
-            <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
-              <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
-              <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
-                <i class="fas fa-cloud-upload-alt"></i>
-              </button>
-            </form>
-          </div>
+          </form>
           <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" style="width:36px; height:36px;">
             <i class="fas fa-th"></i>
           </button>
@@ -1806,20 +1563,25 @@ button, .btn, .file-row, .folder-item, img, i {
                 $isImageFile = isImage($fileName);
                 log_debug("File URL for $fileName: $fileURL");
             ?>
-            <div class="file-row" 
-                 data-filename="<?= htmlspecialchars($fileName) ?>"
-                 data-url="<?= htmlspecialchars($fileURL) ?>">
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" class="file-checkbox" data-name="<?= htmlspecialchars($fileName) ?>">
-                </div>
+            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
                 <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
                 <?php if ($isImageFile): ?>
-                    <img class="thumbnail" src="<?php echo $fileURL; ?>&preview=1" loading="lazy" alt="">
+                    <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
+                <?php else: ?>
+                    <i class="<?php echo $iconClass; ?> file-icon-large"></i>
                 <?php endif; ?>
-                <span class="file-name"><?php echo htmlspecialchars($fileName); ?></span>
+                <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
+                    <?php echo htmlspecialchars($fileName); ?>
+                </div>
                 <div class="file-actions">
-                    <button class="three-dots-btn" title="More actions">
-                        <i class="fas fa-ellipsis-v"></i>
+                    <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
@@ -2359,84 +2121,70 @@ mainContent.addEventListener('drop', (e) => {
   if (files.length > 0) startUpload(files);
 });
 
-// Update the startUpload function and add upload queue handling
-let uploadQueue = [];
-let isUploading = false;
-
 function startUpload(fileList) {
-    // Add files to queue
-    uploadQueue.push(...Array.from(fileList));
-    
-    // If not already uploading, start the process
-    if (!isUploading) {
-        processUploadQueue();
-    }
+  for (let file of fileList) {
+    let totalUploaded = 0;
+    uploadChunk(file, 0, file.name, totalUploaded);
+  }
 }
 
-function processUploadQueue() {
-    if (uploadQueue.length === 0) {
-        isUploading = false;
-        uploadProgressContainer.style.display = 'none';
-        return;
-    }
-
-    isUploading = true;
-    uploadProgressContainer.style.display = 'block';
-    
-    const file = uploadQueue[0];
-    uploadChunk(file, 0, file.name, 0, () => {
-        // Remove the completed file from queue
-        uploadQueue.shift();
-        // Process next file
-        processUploadQueue();
-    });
-}
-
-function uploadChunk(file, start, fileName, totalUploaded, onComplete) {
-    const chunkSize = 1024 * 1024; // 1MB chunks
-    const chunk = file.slice(start, start + chunkSize);
-    const formData = new FormData();
-    
-    formData.append('upload_files[]', chunk);
-    formData.append('file_name', fileName);
-    formData.append('chunk_start', start);
-    formData.append('total_size', file.size);
-    formData.append('file_id', fileName + '_' + file.size); // Add unique file identifier
-
+function uploadChunk(file, startByte, fileName, totalUploaded) {
+  const chunkSize = 10 * 1024 * 1024; // 10 MB
+  const endByte = Math.min(startByte + chunkSize, file.size);
+  const chunk = file.slice(startByte, endByte);
+  const formData = new FormData();
+  formData.append('upload_files[]', chunk, file.name);
+  formData.append('file_name', file.name);
+  formData.append('chunk_start', startByte);
+  formData.append('chunk_end', endByte - 1);
+  formData.append('total_size', file.size);
+  uploadProgressContainer.style.display = 'block';
+  uploadProgressPercent.textContent = `0.0% - Uploading ${fileName}`;
+  let attempts = 0;
+  const maxAttempts = 3;
+  function attemptUpload() {
     const xhr = new XMLHttpRequest();
-    
+    currentXhr = xhr;
+    xhr.open('POST', uploadForm.action, true);
+    xhr.timeout = 3600000;
     xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-            const percentComplete = ((totalUploaded + e.loaded) / file.size) * 100;
-            uploadProgressBar.style.width = percentComplete + '%';
-            uploadProgressPercent.textContent = Math.round(percentComplete) + '%';
-        }
+      if (e.lengthComputable) {
+        const chunkUploaded = e.loaded;
+        const totalBytesUploaded = totalUploaded + chunkUploaded;
+        const totalPercent = Math.round((totalBytesUploaded / file.size) * 1000) / 10;
+        uploadProgressBar.style.width = totalPercent + '%';
+        uploadProgressPercent.textContent = `${totalPercent}% - Uploading ${fileName}`;
+      }
     };
-
     xhr.onload = () => {
-        if (xhr.status === 200) {
-            totalUploaded += chunk.size;
-            
-            if (totalUploaded < file.size) {
-                // Upload next chunk
-                uploadChunk(file, totalUploaded, fileName, totalUploaded, onComplete);
-            } else {
-                // File complete
-                if (onComplete) onComplete();
-            }
+      if (xhr.status === 200) {
+        totalUploaded += (endByte - startByte);
+        if (endByte < file.size) {
+          uploadChunk(file, endByte, fileName, totalUploaded);
         } else {
-            console.error('Upload failed:', xhr.statusText);
-            if (onComplete) onComplete();
+          showAlert('Upload completed successfully.');
+          uploadProgressContainer.style.display = 'none';
+          location.reload();
         }
+      } else {
+        handleUploadError(xhr, attempts, maxAttempts);
+      }
     };
-
-    xhr.onerror = () => {
-        console.error('Upload error');
-        if (onComplete) onComplete();
-    };
-
-    xhr.open('POST', window.location.href, true);
+    xhr.onerror = () => handleUploadError(xhr, attempts, maxAttempts);
+    xhr.ontimeout = () => handleUploadError(xhr, attempts, maxAttempts);
     xhr.send(formData);
+  }
+  function handleUploadError(xhr, attempts, maxAttempts) {
+    attempts++;
+    if (attempts < maxAttempts) {
+      showAlert(`Upload failed for ${fileName} (Attempt ${attempts}). Retrying in 5 seconds... Status: ${xhr.status} - ${xhr.statusText}`);
+      setTimeout(attemptUpload, 5000);
+    } else {
+      showAlert(`Upload failed for ${fileName} after ${maxAttempts} attempts. Status: ${xhr.status} - ${xhr.statusText}. Please check server logs or network connection.`);
+      uploadProgressContainer.style.display = 'none';
+    }
+  }
+  attemptUpload();
 }
 
 cancelUploadBtn.addEventListener('click', () => {
@@ -2509,263 +2257,6 @@ function closePreviewModal() {
     
     // Reset loading state
     isLoadingImage = false;
-}
-
-// Update the drag and drop event handlers
-let dragCounter = 0;
-
-document.addEventListener('dragenter', (e) => {
-    e.preventDefault();
-    dragCounter++;
-    if (dragCounter === 1) {
-        dropZone.classList.add('active');
-    }
-}, false);
-
-document.addEventListener('dragleave', (e) => {
-    e.preventDefault();
-    dragCounter--;
-    if (dragCounter === 0) {
-        dropZone.classList.remove('active');
-    }
-}, false);
-
-document.addEventListener('dragover', (e) => {
-    e.preventDefault();
-}, false);
-
-document.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dragCounter = 0;
-    dropZone.classList.remove('active');
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        startUpload(files);
-    }
-}, false);
-
-// Reset counter when leaving window
-window.addEventListener('blur', () => {
-    dragCounter = 0;
-    dropZone.classList.remove('active');
-});
-
-// Update the upload related functions
-function startUpload(fileList) {
-    uploadProgressContainer.style.display = 'block';
-    for (let file of fileList) {
-        let totalUploaded = 0;
-        uploadChunk(file, 0, file.name, totalUploaded);
-    }
-}
-
-// Add these variables at the top with your other variables
-const selectAllBtn = document.getElementById('selectAllBtn');
-const selectedActionsBtn = document.getElementById('selectedActionsBtn');
-let selectedFiles = new Set();
-
-// Add event listeners for selection
-document.querySelectorAll('.file-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', handleSelection);
-});
-
-selectAllBtn.addEventListener('click', toggleSelectAll);
-selectedActionsBtn.addEventListener('click', showSelectedActions);
-
-function handleSelection(e) {
-    const checkbox = e.target;
-    const fileName = checkbox.dataset.name;
-    const fileRow = checkbox.closest('.file-row');
-    
-    if (checkbox.checked) {
-        selectedFiles.add(fileName);
-        fileRow.classList.add('selected');
-    } else {
-        selectedFiles.delete(fileName);
-        fileRow.classList.remove('selected');
-    }
-    
-    updateSelectedUI();
-}
-
-function toggleSelectAll() {
-    const checkboxes = document.querySelectorAll('.file-checkbox');
-    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-    
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = !allChecked;
-        checkbox.dispatchEvent(new Event('change'));
-    });
-}
-
-function updateSelectedUI() {
-    const count = selectedFiles.size;
-    selectedActionsBtn.style.display = count > 0 ? 'flex' : 'none';
-    document.getElementById('selectedCount').textContent = `${count} selected`;
-}
-
-function showSelectedActions(e) {
-    const menu = document.createElement('div');
-    menu.className = 'selected-actions-menu';
-    menu.innerHTML = `
-        <button onclick="downloadSelected()">
-            <i class="fas fa-download"></i> Download Selected
-        </button>
-        <button onclick="deleteSelected()">
-            <i class="fas fa-trash"></i> Delete Selected
-        </button>
-    `;
-    
-    // Position the menu below the button
-    const rect = selectedActionsBtn.getBoundingClientRect();
-    menu.style.top = rect.bottom + 5 + 'px';
-    menu.style.left = rect.left + 'px';
-    
-    // Remove existing menu if any
-    document.querySelector('.selected-actions-menu')?.remove();
-    
-    document.body.appendChild(menu);
-    menu.classList.add('active');
-    
-    // Close menu when clicking outside
-    document.addEventListener('click', function closeMenu(e) {
-        if (!menu.contains(e.target) && e.target !== selectedActionsBtn) {
-            menu.remove();
-            document.removeEventListener('click', closeMenu);
-        }
-    });
-}
-
-function downloadSelected() {
-    selectedFiles.forEach(fileName => {
-        const link = document.createElement('a');
-        link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(currentPath + '/' + fileName)}`;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    });
-}
-
-function deleteSelected() {
-    if (!confirm(`Are you sure you want to delete ${selectedFiles.size} item(s)?`)) return;
-    
-    const promises = Array.from(selectedFiles).map(fileName => 
-        fetch(`/selfhostedgdrive/explorer.php?delete=${encodeURIComponent(fileName)}`, {
-            method: 'POST'
-        })
-    );
-    
-    Promise.all(promises).then(() => {
-        location.reload();
-    });
-}
-
-// Remove the old click handler from file-row
-document.querySelectorAll('.file-row').forEach(row => {
-    row.removeAttribute('onclick');
-    
-    let clickTimeout;
-    let activeMenu = null;
-
-    // Handle single and double clicks
-    row.addEventListener('click', (e) => {
-        if (e.target.closest('.file-checkbox') || 
-            e.target.closest('.three-dots-btn') || 
-            e.target.closest('.actions-menu')) {
-            return;
-        }
-
-        if (clickTimeout) {
-            // Double click - open file
-            clearTimeout(clickTimeout);
-            clickTimeout = null;
-            const url = row.dataset.url;
-            const filename = row.dataset.filename;
-            openPreviewModal(url, filename);
-        } else {
-            // Single click - show actions
-            clickTimeout = setTimeout(() => {
-                clickTimeout = null;
-                document.querySelectorAll('.file-row').forEach(r => {
-                    r.classList.remove('selected-row');
-                });
-                row.classList.add('selected-row');
-            }, 200);
-        }
-    });
-
-    // Handle three-dots button click
-    const threeDots = row.querySelector('.three-dots-btn');
-    threeDots.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const filename = row.dataset.filename;
-        
-        // Remove any existing menus
-        document.querySelectorAll('.actions-menu').forEach(menu => menu.remove());
-        
-        const menu = document.createElement('div');
-        menu.className = 'actions-menu';
-        menu.innerHTML = `
-            <button onclick="downloadFile('${filename}')">
-                <i class="fas fa-download"></i> Download
-            </button>
-            <button onclick="renameFile('${filename}')">
-                <i class="fas fa-edit"></i> Rename
-            </button>
-            <button onclick="deleteFile('${filename}')">
-                <i class="fas fa-trash"></i> Delete
-            </button>
-        `;
-        
-        row.querySelector('.file-actions').appendChild(menu);
-        menu.classList.add('active');
-        activeMenu = menu;
-
-        // Close menu when clicking outside
-        document.addEventListener('click', function closeMenu(e) {
-            if (!menu.contains(e.target) && e.target !== threeDots) {
-                menu.remove();
-                document.removeEventListener('click', closeMenu);
-            }
-        });
-    });
-});
-
-// Helper functions for file actions
-function downloadFile(filename) {
-    const link = document.createElement('a');
-    link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(currentPath + '/' + filename)}`;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function renameFile(filename) {
-    // Your existing rename file logic
-    const newName = prompt('Enter new name:', filename);
-    if (newName && newName !== filename) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="rename_file" value="1">
-            <input type="hidden" name="old_file_name" value="${filename}">
-            <input type="hidden" name="new_file_name" value="${newName}">
-        `;
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-
-function deleteFile(filename) {
-    if (confirm(`Are you sure you want to delete "${filename}"?`)) {
-        fetch(`/selfhostedgdrive/explorer.php?delete=${encodeURIComponent(filename)}`, {
-            method: 'POST'
-        }).then(() => {
-            location.reload();
-        });
-    }
 }
 </script>
 
