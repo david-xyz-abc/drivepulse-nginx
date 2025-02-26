@@ -78,7 +78,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         'heic' => 'image/heic',
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
-        'mkv' => 'video/x-matroska',
         'txt' => 'text/plain',
     ];
     
@@ -563,7 +562,7 @@ function isImage($fileName) {
 // Add video detection function
 function isVideo($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    return in_array($ext, ['mp4', 'webm', 'mkv']);
+    return in_array($ext, ['mp4', 'webm']); // Only support well-supported formats
 }
 ?>
 <!DOCTYPE html>
@@ -1530,6 +1529,40 @@ video {
   max-width: 100%;
   max-height: 90vh;
 }
+
+#videoPreviewContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+media-controller {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 90vh;
+  --media-primary-color: #d32f2f;
+  --media-secondary-color: #ffffff;
+}
+
+#videoPreviewContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+media-controller {
+  width: 100%;
+  max-width: 1280px;
+  aspect-ratio: 16 / 9;
+  --media-primary-color: #d32f2f;
+  --media-secondary-color: #ffffff;
+}
 </style>
 
 <!-- Add these in the <head> section after your other CSS/JS links: -->
@@ -1671,7 +1704,7 @@ video {
                 <video 
                     id="videoPlayer"
                     slot="media" 
-                    crossorigin
+                    preload="auto"
                 >
                     <source src="" type="">
                 </video>
@@ -1680,7 +1713,6 @@ video {
                     <media-mute-button></media-mute-button>
                     <media-volume-range></media-volume-range>
                     <media-time-range></media-time-range>
-                    <media-pip-button></media-pip-button>
                     <media-fullscreen-button></media-fullscreen-button>
                 </media-control-bar>
             </media-controller>
