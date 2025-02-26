@@ -1827,22 +1827,61 @@ function downloadFile(fileURL) {
 ============================================================================ */
 function openPreviewModal(fileURL, fileName) {
     if (isLoadingImage) return;
+    console.log("Previewing: " + fileURL);
     
+    const previewModal = document.getElementById('previewModal');
+    const imageContainer = document.getElementById('imagePreviewContainer');
+    const iconContainer = document.getElementById('iconPreviewContainer');
+    const videoContainer = document.getElementById('videoPreviewContainer');
+    const videoPlayer = document.getElementById('videoPlayer');
     const previewContent = document.getElementById('previewContent');
+    const previewClose = document.getElementById('previewClose');
+
+    // Add fade out effect
     previewContent.classList.add('fade-out');
     
     setTimeout(() => {
-        // Existing reset code...
+        // Reset all containers
+        imageContainer.style.display = 'none';
+        imageContainer.innerHTML = '';
+        iconContainer.style.display = 'none';
+        iconContainer.innerHTML = '';
+        videoContainer.style.display = 'none';
         
+        // Reset video player
+        if (videoPlayer) {
+            videoPlayer.pause();
+            videoPlayer.src = '';
+            videoPlayer.load();
+        }
+        
+        // Reset classes
+        previewContent.classList.remove('image-preview');
+        previewContent.classList.remove('video-preview');
+        previewModal.classList.remove('fullscreen');
+
+        // Always show the close button
+        previewClose.style.display = 'block';
+
+        currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
+        let file = previewFiles.find(f => f.name === fileName);
+
+        if (!file) {
+            console.error('File not found in previewFiles array:', fileName);
+            return;
+        }
+
         if (file.type === 'video') {
-            const videoContainer = document.getElementById('videoPreviewContainer');
             videoContainer.classList.remove('loaded');
+            videoPlayer.src = file.url;
+            videoPlayer.load();
+            videoContainer.style.display = 'block';
+            previewContent.classList.add('video-preview');
+            setupVideoControls(videoPlayer);
             
-            // Existing video setup code...
             videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
             };
-            
         } else if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
@@ -1856,18 +1895,44 @@ function openPreviewModal(fileURL, fileName) {
                     isLoadingImage = false;
                 }, 50);
             };
-            // Rest of image loading code...
+            img.onerror = () => {
+                console.error('Failed to load image:', file.url);
+                showAlert('Failed to load image preview');
+                isLoadingImage = false;
+            };
+            img.src = file.previewUrl || file.url;
+        } else {
+            const icon = document.createElement('i');
+            icon.className = file.icon;
+            iconContainer.appendChild(icon);
+            iconContainer.style.display = 'flex';
         }
-        
+
         previewModal.style.display = 'flex';
+        
         // Fade in the content
         setTimeout(() => {
             previewContent.classList.remove('fade-out');
             previewContent.classList.add('fade-in');
         }, 50);
-        
+
         updateNavigationButtons();
+
+        // Add click handler for closing when clicking outside
+        previewModal.onclick = function(e) {
+            if (e.target === previewModal) {
+                closePreviewModal();
+            }
+        };
     }, 300); // Wait for fade out
+}
+
+// Add this function back if it's missing
+function updateNavigationButtons() {
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    prevBtn.disabled = previewFiles.length <= 1;
+    nextBtn.disabled = previewFiles.length <= 1;
 }
 
 function setupVideoControls(video) {
