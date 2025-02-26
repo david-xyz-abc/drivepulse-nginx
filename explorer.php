@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-// Debug log setup with toggle
+// Debug log setup with toggledd
 define('DEBUG', false);
 $debug_log = '/var/www/html/selfhostedgdrive/debug.log';
 function log_debug($message) {
