@@ -2641,7 +2641,7 @@ document.addEventListener('click', (e) => {
 // Helper functions for file actions
 function downloadFile(filename) {
     const link = document.createElement('a');
-    link.href = `?action=serve&file=${encodeURIComponent(filename)}`;
+    link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(filename)}`;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
@@ -2649,7 +2649,7 @@ function downloadFile(filename) {
 }
 
 function renameFile(filename) {
-    const newName = document.getElementById('newFileName').value.trim();
+    const newName = prompt('Enter new name:', filename);
     if (newName && newName !== filename) {
         const form = document.createElement('form');
         form.method = 'POST';
@@ -2664,11 +2664,13 @@ function renameFile(filename) {
 }
 
 function deleteFile(filename) {
-    fetch(`?delete=${encodeURIComponent(filename)}`, {
-        method: 'POST'
-    }).then(() => {
-        location.reload();
-    });
+    if (confirm(`Are you sure you want to delete "${filename}"?`)) {
+        fetch(`/selfhostedgdrive/explorer.php?delete=${encodeURIComponent(filename)}`, {
+            method: 'POST'
+        }).then(() => {
+            location.reload();
+        });
+    }
 }
 
 function showDialog(title, content, confirmText, onConfirm) {
