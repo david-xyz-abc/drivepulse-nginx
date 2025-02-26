@@ -1877,6 +1877,11 @@ let currentPreviewIndex = -1;
 let isLoadingImage = false;
 let selectedFileName = null;
 
+// First, add this near the top of your HTML, after the PHP variables are set
+<script>
+    const currentPath = '<?php echo addslashes($currentRel); ?>';
+</script>
+
 function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
