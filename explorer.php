@@ -1295,7 +1295,6 @@ html, body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 10px;
-  width: 100%;
 }
 
 .video-controls button {
@@ -1460,259 +1459,6 @@ button, .btn, .file-row, .folder-item, img, i {
         transform: translateY(0);
     }
 }
-
-.video-progress-wrapper {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0 10px;
-}
-
-#videoTime {
-    color: #fff;
-    font-size: 14px;
-    min-width: 100px;
-    text-align: center;
-}
-
-/* Add these styles in your <style> section */
-.file-row {
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.file-row.selected {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.file-actions {
-    display: none;
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.file-row:hover .file-actions,
-.file-row.selected .file-actions {
-    display: block;
-}
-
-.three-dots-btn {
-    background: none;
-    border: none;
-    color: var(--text-color);
-    padding: 5px 10px;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.three-dots-btn:hover {
-    opacity: 1;
-}
-
-.actions-menu {
-    position: absolute;
-    right: 0;
-    top: 100%;
-    background: var(--bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 5px 0;
-    min-width: 150px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    display: none;
-}
-
-.actions-menu.active {
-    display: block;
-}
-
-.actions-menu button {
-    display: block;
-    width: 100%;
-    padding: 8px 16px;
-    text-align: left;
-    border: none;
-    background: none;
-    color: var(--text-color);
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.actions-menu button:hover {
-    background: var(--hover-color);
-}
-
-.actions-menu i {
-    width: 20px;
-    margin-right: 8px;
-}
-
-#selectedFileActions {
-    display: none;
-    gap: 5px;
-    margin-right: 10px;
-}
-
-.file-row.selected {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-}
-
-#selectedFileActions {
-    display: none;
-    gap: 5px;
-}
-
-#selectedFileActions.visible {
-    display: flex;
-}
-
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 4px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-color);
-    color: var(--text-color);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.btn:hover {
-    background: var(--hover-color);
-}
-
-#uploadForm {
-    display: inline-flex;
-    margin: 0;
-}
-
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.dialog-content {
-    background: var(--bg-color);
-    border-radius: 8px;
-    padding: 20px;
-    min-width: 300px;
-    max-width: 500px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-}
-
-.dialog-content h3 {
-    margin: 0 0 15px 0;
-    color: var(--text-color);
-}
-
-.dialog-buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 20px;
-}
-
-.dialog-input {
-    width: 100%;
-    padding: 8px;
-    margin: 10px 0;
-    border: 1px solid var(--border-color);
-    background: var(--bg-color);
-    color: var(--text-color);
-    border-radius: 4px;
-}
-
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    backdrop-filter: blur(5px);
-}
-
-.dialog-content {
-    background: var(--bg-color);
-    border-radius: 8px;
-    padding: 25px;
-    min-width: 350px;
-    max-width: 500px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border-color);
-}
-
-.dialog-content h3 {
-    margin: 0 0 20px 0;
-    color: var(--text-color);
-    font-size: 1.2em;
-}
-
-.dialog-buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 25px;
-}
-
-.dialog-buttons .btn {
-    padding: 8px 16px;
-    min-width: 80px;
-    height: auto;
-}
-
-.dialog-input {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    border: 1px solid var(--border-color);
-    background: var(--bg-color);
-    color: var(--text-color);
-    border-radius: 4px;
-    font-size: 14px;
-}
-
-.dialog-input:focus {
-    outline: none;
-    border-color: var(--accent-color);
-}
-
-.gradient-red {
-    background: linear-gradient(45deg, #ff4b4b, #ff6b6b) !important;
-    color: white !important;
-    border: none !important;
-}
-
-.gradient-red:hover {
-    opacity: 0.9;
-}
 </style>
 </head>
 <body>
@@ -1769,37 +1515,24 @@ button, .btn, .file-row, .folder-item, img, i {
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
         </div>
         <div style="display: flex; gap: 10px;">
-          <div class="toolbar">
-            <div id="selectedFileActions" style="display: none;">
-                <button type="button" class="btn" id="downloadSelectedBtn" title="Download">
-                    <i class="fas fa-download"></i>
-                </button>
-                <button type="button" class="btn" id="renameSelectedBtn" title="Rename">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button type="button" class="btn" id="deleteSelectedBtn" title="Delete">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-            <form id="uploadForm" method="POST" enctype="multipart/form-data" style="display: inline;">
-                <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
-                <button type="button" class="btn" id="uploadBtn" title="Upload Files">
-                    <i class="fas fa-upload"></i>
-                </button>
-            </form>
-            <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View">
-                <i class="fas fa-th"></i>
+          <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
+            <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
+            <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
+              <i class="fas fa-cloud-upload-alt"></i>
             </button>
-            <button type="button" class="btn" id="themeToggleBtn" title="Toggle Theme">
-                <i class="fas fa-moon"></i>
-            </button>
-            <div id="uploadProgressContainer">
-              <div style="background:var(--border-color); width:100%; height:20px; border-radius:4px; overflow:hidden;">
-                <div id="uploadProgressBar"></div>
-              </div>
-              <div id="uploadProgressPercent">0.0%</div>
-              <button class="cancel-upload-btn" id="cancelUploadBtn">Cancel</button>
+          </form>
+          <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" style="width:36px; height:36px;">
+            <i class="fas fa-th"></i>
+          </button>
+          <button type="button" class="btn theme-toggle-btn" id="themeToggleBtn" title="Toggle Theme" style="width:36px; height:36px;">
+            <i class="fas fa-moon"></i>
+          </button>
+          <div id="uploadProgressContainer">
+            <div style="background:var(--border-color); width:100%; height:20px; border-radius:4px; overflow:hidden;">
+              <div id="uploadProgressBar"></div>
             </div>
+            <div id="uploadProgressPercent">0.0%</div>
+            <button class="cancel-upload-btn" id="cancelUploadBtn">Cancel</button>
           </div>
         </div>
       </div>
@@ -1814,7 +1547,7 @@ button, .btn, .file-row, .folder-item, img, i {
                 $isImageFile = isImage($fileName);
                 log_debug("File URL for $fileName: $fileURL");
             ?>
-            <div class="file-row" data-url="<?php echo htmlspecialchars($fileURL); ?>" data-filename="<?php echo htmlspecialchars($fileName); ?>">
+            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
                 <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
                 <?php if ($isImageFile): ?>
                     <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
@@ -1823,6 +1556,17 @@ button, .btn, .file-row, .folder-item, img, i {
                 <?php endif; ?>
                 <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
                     <?php echo htmlspecialchars($fileName); ?>
+                </div>
+                <div class="file-actions">
+                    <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             </div>
           <?php endforeach; ?>
@@ -1845,11 +1589,8 @@ button, .btn, .file-row, .folder-item, img, i {
             <div class="video-controls">
                 <div class="video-controls-inner">
                     <button id="playPauseBtn" onclick="togglePlay(event)"><i class="fas fa-play"></i></button>
-                    <div class="video-progress-wrapper">
-                        <div id="videoProgress" onclick="seekVideo(event)">
-                            <div id="videoProgressBar"></div>
-                        </div>
-                        <div id="videoTime">0:00 / 0:00</div>
+                    <div id="videoProgress" onclick="seekVideo(event)">
+                        <div id="videoProgressBar"></div>
                     </div>
                     <button id="fullscreenBtn" onclick="toggleFullscreen(event)"><i class="fas fa-expand"></i></button>
                 </div>
@@ -1858,29 +1599,18 @@ button, .btn, .file-row, .folder-item, img, i {
     </div>
   </div>
 
-  <div id="dialogModal" class="modal">
+  <div id="dialogModal">
     <div class="dialog-content">
-        <h3 id="dialogTitle"></h3>
-        <div id="dialogBody"></div>
-        <div class="dialog-buttons">
-            <button id="dialogCancel" class="btn">Cancel</button>
-            <button id="dialogConfirm" class="btn gradient-red">Confirm</button>
-        </div>
+      <div class="dialog-message" id="dialogMessage"></div>
+      <div class="dialog-buttons" id="dialogButtons"></div>
     </div>
-</div>
-
+  </div>
 <script>
 let selectedFolder = null;
 let currentXhr = null;
 let previewFiles = <?php echo json_encode($previewableFiles); ?>;
 let currentPreviewIndex = -1;
 let isLoadingImage = false;
-let selectedFileName = null;
-
-// First, add this near the top of your HTML, after the PHP variables are set
-<script>
-    const currentPath = '<?php echo addslashes($currentRel); ?>';
-</script>
 
 function toggleSidebar() {
   const sb = document.getElementById('sidebar');
@@ -2209,27 +1939,13 @@ function updateNavigationButtons() {
 
 function setupVideoControls(video) {
     const progressBar = document.getElementById('videoProgressBar');
-    const timeDisplay = document.getElementById('videoTime');
 
-    // Format time function
-    function formatTime(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        seconds = Math.floor(seconds % 60);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
-
-    // Update progress bar and time
+    // Update progress bar
     video.ontimeupdate = () => {
         if (video.duration) {
             const percent = (video.currentTime / video.duration) * 100;
             progressBar.style.width = percent + '%';
-            timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
         }
-    };
-
-    // Update time display when metadata is loaded
-    video.onloadedmetadata = () => {
-        timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
     };
 
     // Video ended
@@ -2509,212 +2225,6 @@ function closePreviewModal() {
     // Reset loading state
     isLoadingImage = false;
 }
-
-document.querySelectorAll('.file-row').forEach(row => {
-    row.removeAttribute('onclick');
-    
-    let clickTimeout;
-    
-    row.addEventListener('click', (e) => {
-        if (e.target.closest('.file-checkbox')) {
-            return;
-        }
-
-        if (clickTimeout) {
-            // Double click - open file
-            clearTimeout(clickTimeout);
-            clickTimeout = null;
-            const url = row.dataset.url;
-            const filename = row.dataset.filename;
-            openPreviewModal(url, filename);
-        } else {
-            // Single click - select row and show actions
-            clickTimeout = setTimeout(() => {
-                clickTimeout = null;
-                document.querySelectorAll('.file-row').forEach(r => {
-                    r.classList.remove('selected');
-                });
-                row.classList.add('selected');
-                
-                // Update selected file and show actions
-                selectedFileName = row.dataset.filename;
-                document.getElementById('selectedFileActions').style.display = 'flex';
-            }, 200);
-        }
-    });
-});
-
-// Add click handlers for the action buttons
-document.getElementById('downloadSelectedBtn').addEventListener('click', () => {
-    if (selectedFileName) {
-        showDialog(
-            'Download File',
-            `Do you want to download "${selectedFileName}"?`,
-            'Download',
-            () => {
-                const link = document.createElement('a');
-                link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(currentPath + '/' + selectedFileName)}`;
-                link.download = selectedFileName;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-        );
-    }
-});
-
-document.getElementById('renameSelectedBtn').addEventListener('click', () => {
-    if (selectedFileName) {
-        const content = `
-            <p>Enter new name for "${selectedFileName}":</p>
-            <input type="text" id="newFileName" class="dialog-input" value="${selectedFileName}">
-        `;
-        
-        showDialog(
-            'Rename File',
-            content,
-            'Rename',
-            () => {
-                const newName = document.getElementById('newFileName').value.trim();
-                if (newName && newName !== selectedFileName) {
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = window.location.href;
-                    form.innerHTML = `
-                        <input type="hidden" name="rename_file" value="1">
-                        <input type="hidden" name="old_file_name" value="${selectedFileName}">
-                        <input type="hidden" name="new_file_name" value="${newName}">
-                    `;
-                    document.body.appendChild(form);
-                    form.submit();
-                }
-            }
-        );
-        
-        // Focus the input field
-        setTimeout(() => {
-            const input = document.getElementById('newFileName');
-            input.focus();
-            input.select();
-        }, 100);
-    }
-});
-
-document.getElementById('deleteSelectedBtn').addEventListener('click', () => {
-    if (selectedFileName) {
-        showDialog(
-            'Delete File',
-            `Are you sure you want to delete "${selectedFileName}"?<br>This action cannot be undone.`,
-            'Delete',
-            () => {
-                fetch(`${window.location.pathname}?delete=${encodeURIComponent(selectedFileName)}`, {
-                    method: 'POST'
-                }).then(() => {
-                    location.reload();
-                });
-            }
-        );
-    }
-});
-
-// Update the show/hide logic in your click handler
-function updateSelectedUI() {
-    const selectedActions = document.getElementById('selectedFileActions');
-    if (selectedFileName) {
-        selectedActions.classList.add('visible');
-    } else {
-        selectedActions.classList.remove('visible');
-    }
-}
-
-// Update the click handler for clearing selection
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.file-row') && !e.target.closest('#selectedFileActions')) {
-        document.querySelectorAll('.file-row').forEach(r => {
-            r.classList.remove('selected');
-        });
-        selectedFileName = null;
-        updateSelectedUI();
-    }
-});
-
-// Helper functions for file actions
-function downloadFile(filename) {
-    const link = document.createElement('a');
-    link.href = `/selfhostedgdrive/explorer.php?action=serve&file=${encodeURIComponent(filename)}`;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function renameFile(filename) {
-    const newName = prompt('Enter new name:', filename);
-    if (newName && newName !== filename) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="rename_file" value="1">
-            <input type="hidden" name="old_file_name" value="${filename}">
-            <input type="hidden" name="new_file_name" value="${newName}">
-        `;
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-
-function deleteFile(filename) {
-    if (confirm(`Are you sure you want to delete "${filename}"?`)) {
-        fetch(`/selfhostedgdrive/explorer.php?delete=${encodeURIComponent(filename)}`, {
-            method: 'POST'
-        }).then(() => {
-            location.reload();
-        });
-    }
-}
-
-function showDialog(title, content, confirmText, onConfirm) {
-    const dialog = document.getElementById('dialogModal');
-    const dialogTitle = document.getElementById('dialogTitle');
-    const dialogBody = document.getElementById('dialogBody');
-    const confirmBtn = document.getElementById('dialogConfirm');
-    const cancelBtn = document.getElementById('dialogCancel');
-    
-    dialogTitle.textContent = title;
-    dialogBody.innerHTML = content;
-    confirmBtn.textContent = confirmText;
-    
-    const handleConfirm = () => {
-        dialog.style.display = 'none';
-        onConfirm();
-    };
-    
-    const handleCancel = () => {
-        dialog.style.display = 'none';
-    };
-    
-    // Remove existing listeners
-    confirmBtn.replaceWith(confirmBtn.cloneNode(true));
-    cancelBtn.replaceWith(cancelBtn.cloneNode(true));
-    
-    // Add new listeners
-    document.getElementById('dialogConfirm').addEventListener('click', handleConfirm);
-    document.getElementById('dialogCancel').addEventListener('click', handleCancel);
-    
-    dialog.style.display = 'flex';
-}
-
-// Add keyboard support for dialogs
-document.addEventListener('keydown', (e) => {
-    const dialog = document.getElementById('dialogModal');
-    if (dialog.style.display === 'flex') {
-        if (e.key === 'Enter') {
-            document.getElementById('dialogConfirm').click();
-        } else if (e.key === 'Escape') {
-            document.getElementById('dialogCancel').click();
-        }
-    }
-});
 </script>
 
 </body>
