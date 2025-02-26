@@ -1295,6 +1295,7 @@ html, body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 10px;
+  width: 100%;
 }
 
 .video-controls button {
@@ -1459,6 +1460,21 @@ button, .btn, .file-row, .folder-item, img, i {
         transform: translateY(0);
     }
 }
+
+.video-progress-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 10px;
+}
+
+#videoTime {
+    color: #fff;
+    font-size: 14px;
+    min-width: 100px;
+    text-align: center;
+}
 </style>
 </head>
 <body>
@@ -1589,8 +1605,11 @@ button, .btn, .file-row, .folder-item, img, i {
             <div class="video-controls">
                 <div class="video-controls-inner">
                     <button id="playPauseBtn" onclick="togglePlay(event)"><i class="fas fa-play"></i></button>
-                    <div id="videoProgress" onclick="seekVideo(event)">
-                        <div id="videoProgressBar"></div>
+                    <div class="video-progress-wrapper">
+                        <div id="videoProgress" onclick="seekVideo(event)">
+                            <div id="videoProgressBar"></div>
+                        </div>
+                        <div id="videoTime">0:00 / 0:00</div>
                     </div>
                     <button id="fullscreenBtn" onclick="toggleFullscreen(event)"><i class="fas fa-expand"></i></button>
                 </div>
@@ -1939,13 +1958,27 @@ function updateNavigationButtons() {
 
 function setupVideoControls(video) {
     const progressBar = document.getElementById('videoProgressBar');
+    const timeDisplay = document.getElementById('videoTime');
 
-    // Update progress bar
+    // Format time function
+    function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        seconds = Math.floor(seconds % 60);
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // Update progress bar and time
     video.ontimeupdate = () => {
         if (video.duration) {
             const percent = (video.currentTime / video.duration) * 100;
             progressBar.style.width = percent + '%';
+            timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
         }
+    };
+
+    // Update time display when metadata is loaded
+    video.onloadedmetadata = () => {
+        timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
     };
 
     // Video ended
