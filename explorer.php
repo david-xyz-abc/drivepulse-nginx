@@ -1946,17 +1946,30 @@ function openPreviewModal(fileURL, fileName) {
         if (file.type === 'video') {
             videoContainer.style.display = 'block';
             
-            // Initialize video.js if not already initialized
+            // Initialize video.js
             if (window.videoPlayer) {
                 window.videoPlayer.dispose();
             }
+            
+            // Create new video element
+            const videoElement = document.createElement('video');
+            videoElement.id = 'videoPlayer';
+            videoElement.className = 'video-js vjs-big-play-centered';
+            videoContainer.innerHTML = '';
+            videoContainer.appendChild(videoElement);
             
             window.videoPlayer = videojs('videoPlayer', {
                 controls: true,
                 autoplay: false,
                 preload: 'auto',
                 fluid: true,
-                playbackRates: [0.5, 1, 1.5, 2]
+                responsive: true,
+                playbackRates: [0.5, 1, 1.5, 2],
+                html5: {
+                    nativeTextTracks: false,
+                    nativeAudioTracks: false,
+                    nativeVideoTracks: false
+                }
             });
             
             window.videoPlayer.src({
@@ -1964,6 +1977,8 @@ function openPreviewModal(fileURL, fileName) {
                 src: file.url
             });
             
+            // Force player to fit container
+            window.videoPlayer.dimensions('auto', 'auto');
         } else if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
@@ -2280,6 +2295,7 @@ function closePreviewModal() {
     const previewModal = document.getElementById('previewModal');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
+    const videoContainer = document.getElementById('videoPreviewContainer');
     
     // Dispose of video.js player if it exists
     if (window.videoPlayer) {
@@ -2290,12 +2306,16 @@ function closePreviewModal() {
     // Clear containers
     imageContainer.innerHTML = '';
     iconContainer.innerHTML = '';
+    videoContainer.style.display = 'none';
     
     // Hide the modal
     previewModal.style.display = 'none';
     
     // Reset loading state
     isLoadingImage = false;
+    // Remove fade classes
+    const previewContent = document.getElementById('previewContent');
+    previewContent.classList.remove('fade-in', 'fade-out', 'image-preview');
 }
 
 // Add these new functions and event listeners
