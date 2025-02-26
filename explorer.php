@@ -1654,7 +1654,7 @@ button, .btn, .file-row, .folder-item, img, i {
   </div>
 
   <div id="previewModal">
-    <span id="previewClose" onclick="closePreviewModal()"><i class="fas fa-times"></i></span>
+    <span id="previewClose" onclick="closePreviewModal(event)"><i class="fas fa-times"></i></span>
     <div id="previewContent">
         <div id="previewNav">
             <button id="prevBtn" onclick="navigatePreview(-1)"><i class="fas fa-arrow-left"></i></button>
@@ -2250,26 +2250,27 @@ gridToggleBtn.addEventListener('click', () => {
   updateGridView();
 });
 
-function closePreviewModal() {
+function closePreviewModal(event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    
     const previewModal = document.getElementById('previewModal');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
-    
-    // Dispose of video.js player if it exists
-    if (window.videoPlayer) {
-        window.videoPlayer.dispose();
-        window.videoPlayer = null;
-    }
+    const videoContainer = document.getElementById('videoPreviewContainer');
     
     // Clear containers
     imageContainer.innerHTML = '';
     iconContainer.innerHTML = '';
+    videoContainer.style.display = 'none';
     
     // Hide the modal
     previewModal.style.display = 'none';
     
     // Reset loading state
     isLoadingImage = false;
+    
     // Remove fade classes
     const previewContent = document.getElementById('previewContent');
     previewContent.classList.remove('fade-in', 'fade-out', 'image-preview');
