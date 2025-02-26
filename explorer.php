@@ -1463,6 +1463,26 @@ button, .btn, .file-row, .folder-item, img, i {
         transform: translateY(0);
     }
 }
+
+#videoPreviewContainer {
+    background: #000;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#videoPlayer {
+    max-width: 100%;
+    max-height: 100vh;
+    width: auto;
+    height: auto;
+    display: block;
+    -webkit-transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    -webkit-perspective: 1000;
+}
 </style>
 </head>
 <body>
@@ -1878,38 +1898,43 @@ function openPreviewModal(fileURL, fileName) {
         }
 
         if (file.type === 'video') {
+            // Reset everything first
             videoContainer.classList.remove('loaded');
-            const savedTime = getSavedTimestamp(file.name);
-            
-            // Reset video player completely
             videoPlayer.pause();
             videoPlayer.removeAttribute('src');
             videoPlayer.load();
             
-            // Set display before setting source
-            videoContainer.style.display = 'block';
+            // Clear any existing event listeners
+            videoPlayer.onloadedmetadata = null;
+            videoPlayer.oncanplay = null;
+            
+            // Get saved timestamp
+            const savedTime = getSavedTimestamp(file.name);
+            
+            // Set up container and player
+            videoContainer.style.display = 'flex';
             previewContent.classList.add('video-preview');
             
-            // Add these styles directly to ensure proper rendering
-            videoPlayer.style.width = '100%';
-            videoPlayer.style.height = '100%';
-            videoPlayer.style.backgroundColor = '#000';
-            
-            // Set source and load
+            // Set source
             videoPlayer.src = file.url;
-            videoPlayer.load();
             
+            // Set up controls after source
             setupVideoControls(videoPlayer);
             
-            // Use both loadedmetadata and canplay events
+            // Handle metadata loaded
             videoPlayer.onloadedmetadata = () => {
-                if (savedTime > 0) {
+                if (savedTime > 0 && savedTime < videoPlayer.duration) {
                     videoPlayer.currentTime = savedTime;
                 }
             };
             
+            // Handle when video is ready
             videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
+                // Force a repaint
+                videoPlayer.style.display = 'none';
+                videoPlayer.offsetHeight; // Force a repaint
+                videoPlayer.style.display = 'block';
             };
         } else if (file.type === 'image') {
             isLoadingImage = true;
