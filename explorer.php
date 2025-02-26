@@ -1857,7 +1857,7 @@ function openPreviewModal(fileURL, fileName) {
         // Reset video player
         if (videoPlayer) {
             videoPlayer.pause();
-            videoPlayer.src = '';
+            videoPlayer.removeAttribute('src');
             videoPlayer.load();
         }
         
@@ -1881,19 +1881,35 @@ function openPreviewModal(fileURL, fileName) {
             videoContainer.classList.remove('loaded');
             const savedTime = getSavedTimestamp(file.name);
             
-            // Set up the video player
-            videoPlayer.src = file.url;
+            // Reset video player completely
+            videoPlayer.pause();
+            videoPlayer.removeAttribute('src');
             videoPlayer.load();
+            
+            // Set display before setting source
             videoContainer.style.display = 'block';
             previewContent.classList.add('video-preview');
+            
+            // Add these styles directly to ensure proper rendering
+            videoPlayer.style.width = '100%';
+            videoPlayer.style.height = '100%';
+            videoPlayer.style.backgroundColor = '#000';
+            
+            // Set source and load
+            videoPlayer.src = file.url;
+            videoPlayer.load();
+            
             setupVideoControls(videoPlayer);
             
-            // Use loadedmetadata instead of canplay
+            // Use both loadedmetadata and canplay events
             videoPlayer.onloadedmetadata = () => {
-                videoContainer.classList.add('loaded');
                 if (savedTime > 0) {
                     videoPlayer.currentTime = savedTime;
                 }
+            };
+            
+            videoPlayer.oncanplay = () => {
+                videoContainer.classList.add('loaded');
             };
         } else if (file.type === 'image') {
             isLoadingImage = true;
@@ -2223,6 +2239,7 @@ function closePreviewModal() {
     const videoPlayer = document.getElementById('videoPlayer');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
+    const videoContainer = document.getElementById('videoPreviewContainer');
     
     // Save video timestamp before cleanup
     if (videoPlayer && videoPlayer.src && !videoPlayer.ended) {
@@ -2235,10 +2252,10 @@ function closePreviewModal() {
     // Clear video properly
     try {
         if (videoPlayer) {
-            videoPlayer.onerror = null;
             videoPlayer.pause();
-            videoPlayer.src = '';
+            videoPlayer.removeAttribute('src');
             videoPlayer.load();
+            videoContainer.classList.remove('loaded');
         }
     } catch (err) {
         console.error('Video cleanup error:', err);
@@ -2247,6 +2264,7 @@ function closePreviewModal() {
     // Clear containers
     imageContainer.innerHTML = '';
     iconContainer.innerHTML = '';
+    videoContainer.style.display = 'none';
     
     // Hide the modal
     previewModal.style.display = 'none';
