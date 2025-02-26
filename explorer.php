@@ -1402,7 +1402,7 @@ html, body {
 <script>
 let selectedFolder = null;
 let currentXhr = null;
-let previewFiles = [];
+let previewFiles = <?php echo json_encode($previewableFiles); ?>;
 let currentPreviewIndex = -1;
 let isLoadingImage = false;
 
@@ -1622,139 +1622,143 @@ function downloadFile(fileURL) {
    custom video controls via setupVideoControls().
 ============================================================================ */
 function openPreviewModal(fileURL, fileName) {
-  if (isLoadingImage) return;
-  console.log("Previewing: " + fileURL);
-  const previewModal = document.getElementById('previewModal');
-  const imageContainer = document.getElementById('imagePreviewContainer');
-  const iconContainer = document.getElementById('iconPreviewContainer');
-  const videoContainer = document.getElementById('videoPreviewContainer');
-  const videoPlayer = document.getElementById('videoPlayer');
-  const previewContent = document.getElementById('previewContent');
-  const previewClose = document.getElementById('previewClose');
+    if (isLoadingImage) return;
+    console.log("Previewing: " + fileURL);
+    const previewModal = document.getElementById('previewModal');
+    const imageContainer = document.getElementById('imagePreviewContainer');
+    const iconContainer = document.getElementById('iconPreviewContainer');
+    const videoContainer = document.getElementById('videoPreviewContainer');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const previewContent = document.getElementById('previewContent');
+    const previewClose = document.getElementById('previewClose');
 
-  // Reset all containers
-  imageContainer.style.display = 'none';
-  imageContainer.innerHTML = '';
-  iconContainer.style.display = 'none';
-  iconContainer.innerHTML = '';
-  videoContainer.style.display = 'none';
-  videoPlayer.pause();
-  videoPlayer.src = '';
-  previewContent.classList.remove('image-preview');
-  previewModal.classList.remove('fullscreen');
+    // Reset all containers
+    imageContainer.style.display = 'none';
+    imageContainer.innerHTML = '';
+    iconContainer.style.display = 'none';
+    iconContainer.innerHTML = '';
+    videoContainer.style.display = 'none';
+    videoPlayer.pause();
+    videoPlayer.src = '';
+    previewContent.classList.remove('image-preview');
+    previewModal.classList.remove('fullscreen');
 
-  previewFiles = <?php echo json_encode($previewableFiles); ?>;
-  currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
-  let file = previewFiles.find(f => f.name === fileName);
+    currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
+    let file = previewFiles.find(f => f.name === fileName);
 
-  if (file.type === 'video') {
-    videoPlayer.src = file.url;
-    videoPlayer.load(); // Force reload of the video source
-    videoContainer.style.display = 'block';
-    previewClose.style.display = 'block';
-    setupVideoControls(videoPlayer);
-  } else if (file.type === 'image') {
-    isLoadingImage = true;
-    fetch(file.url)
-      .then(response => {
-        if (!response.ok) throw new Error('Preview failed: ' + response.status);
-        return response.blob();
-      })
-      .then(blob => {
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(blob);
-        imageContainer.appendChild(img);
-        imageContainer.style.display = 'flex';
-        previewClose.style.display = 'none';
-        previewContent.classList.add('image-preview');
-      })
-      .catch(error => showAlert('Preview error: ' + error.message))
-      .finally(() => isLoadingImage = false);
-  } else {
-    const icon = document.createElement('i');
-    icon.className = file.icon;
-    iconContainer.appendChild(icon);
-    iconContainer.style.display = 'flex';
-    previewClose.style.display = 'block';
-  }
-
-  previewModal.style.display = 'flex';
-  updateNavigationButtons();
-
-  previewModal.onclick = function(e) {
-    if (e.target === previewModal && file.type === 'image') {
-      closePreviewModal();
+    if (!file) {
+        console.error('File not found in previewFiles array:', fileName);
+        return;
     }
-  };
+
+    console.log('Opening preview for file:', file); // Debug log
+
+    if (file.type === 'video') {
+        videoPlayer.src = file.url;
+        videoPlayer.load();
+        videoContainer.style.display = 'block';
+        previewClose.style.display = 'block';
+        setupVideoControls(videoPlayer);
+    } else if (file.type === 'image') {
+        isLoadingImage = true;
+        const img = new Image();
+        img.onload = () => {
+            imageContainer.appendChild(img);
+            imageContainer.style.display = 'flex';
+            previewClose.style.display = 'none';
+            previewContent.classList.add('image-preview');
+            isLoadingImage = false;
+        };
+        img.onerror = () => {
+            console.error('Failed to load image:', file.url);
+            showAlert('Failed to load image preview');
+            isLoadingImage = false;
+        };
+        img.src = file.url;
+    } else {
+        const icon = document.createElement('i');
+        icon.className = file.icon;
+        iconContainer.appendChild(icon);
+        iconContainer.style.display = 'flex';
+        previewClose.style.display = 'block';
+    }
+
+    previewModal.style.display = 'flex';
+    updateNavigationButtons();
+
+    previewModal.onclick = function(e) {
+        if (e.target === previewModal && file.type === 'image') {
+            closePreviewModal();
+        }
+    };
 }
 
-
 function setupVideoControls(video) {
-  const playPauseBtn = document.getElementById('playPauseBtn');
-  const progressBar = document.getElementById('videoProgressBar');
-  const fullscreenBtn = document.getElementById('fullscreenBtn');
-  const previewModal = document.getElementById('previewModal');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const progressBar = document.getElementById('videoProgressBar');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const previewModal = document.getElementById('previewModal');
 
-  playPauseBtn.onclick = () => {
-    if (video.paused) {
-      video.play();
-      playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-    } else {
-      video.pause();
-      playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-    }
-  };
+    playPauseBtn.onclick = () => {
+        if (video.paused) {
+            video.play();
+            playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        } else {
+            video.pause();
+            playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+        }
+    };
 
-  video.ontimeupdate = () => {
-    const percent = (video.currentTime / video.duration) * 100;
-    progressBar.style.width = percent + '%';
-  };
+    video.ontimeupdate = () => {
+        const percent = (video.currentTime / video.duration) * 100;
+        progressBar.style.width = percent + '%';
+    };
 
-  video.onended = () => {
-    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-  };
+    video.onended = () => {
+        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+    };
 
-  fullscreenBtn.onclick = () => {
-    if (!document.fullscreenElement) {
-      previewModal.requestFullscreen().then(() => {
-        previewModal.classList.add('fullscreen');
-        fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
-      });
-    } else {
-      document.exitFullscreen().then(() => {
-        previewModal.classList.remove('fullscreen');
-        fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-      });
-    }
-  };
+    fullscreenBtn.onclick = () => {
+        if (!document.fullscreenElement) {
+            previewModal.requestFullscreen().then(() => {
+                previewModal.classList.add('fullscreen');
+                fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+            });
+        } else {
+            document.exitFullscreen().then(() => {
+                previewModal.classList.remove('fullscreen');
+                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            });
+        }
+    };
 
-  video.onerror = () => {
-    showAlert('Error loading video. Check file format or server logs.');
-  };
+    video.onerror = () => {
+        showAlert('Error loading video. Check file format or server logs.');
+    };
 }
 
 function seekVideo(event) {
-  const video = document.getElementById('videoPlayer');
-  const progress = document.getElementById('videoProgress');
-  const rect = progress.getBoundingClientRect();
-  const pos = (event.clientX - rect.left) / rect.width;
-  video.currentTime = pos * video.duration;
+    const video = document.getElementById('videoPlayer');
+    const progress = document.getElementById('videoProgress');
+    const rect = progress.getBoundingClientRect();
+    const pos = (event.clientX - rect.left) / rect.width;
+    video.currentTime = pos * video.duration;
 }
 
 function navigatePreview(direction) {
-  if (previewFiles.length === 0 || currentPreviewIndex === -1 || isLoadingImage) return;
-  currentPreviewIndex += direction;
-  if (currentPreviewIndex < 0) currentPreviewIndex = previewFiles.length - 1;
-  if (currentPreviewIndex >= previewFiles.length) currentPreviewIndex = 0;
-  const file = previewFiles[currentPreviewIndex];
-  openPreviewModal(file.url, file.name);
+    if (previewFiles.length === 0 || currentPreviewIndex === -1 || isLoadingImage) return;
+    currentPreviewIndex += direction;
+    if (currentPreviewIndex < 0) currentPreviewIndex = previewFiles.length - 1;
+    if (currentPreviewIndex >= previewFiles.length) currentPreviewIndex = 0;
+    const file = previewFiles[currentPreviewIndex];
+    openPreviewModal(file.url, file.name);
 }
 
 function updateNavigationButtons() {
-  const prevBtn = document.getElementById('prevBtn');
-  const nextBtn = document.getElementById('nextBtn');
-  prevBtn.disabled = previewFiles.length <= 1;
-  nextBtn.disabled = previewFiles.length <= 1;
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    prevBtn.disabled = previewFiles.length <= 1;
+    nextBtn.disabled = previewFiles.length <= 1;
 }
 
 // Upload and drag-and-drop functionality
