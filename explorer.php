@@ -1730,10 +1730,14 @@ function openPreviewModal(fileURL, fileName) {
 function setupVideoControls(video) {
     const playPauseBtn = document.getElementById('playPauseBtn');
     const progressBar = document.getElementById('videoProgressBar');
+    const progress = document.getElementById('videoProgress');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     const previewModal = document.getElementById('previewModal');
+    const videoContainer = document.getElementById('videoPreviewContainer');
 
-    playPauseBtn.onclick = () => {
+    // Play/Pause button
+    playPauseBtn.onclick = (e) => {
+        e.stopPropagation();
         if (video.paused) {
             video.play();
             playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
@@ -1743,40 +1747,78 @@ function setupVideoControls(video) {
         }
     };
 
-    video.ontimeupdate = () => {
-        const percent = (video.currentTime / video.duration) * 100;
-        progressBar.style.width = percent + '%';
+    // Progress bar click
+    progress.onclick = (e) => {
+        e.stopPropagation();
+        const rect = progress.getBoundingClientRect();
+        const pos = (e.clientX - rect.left) / rect.width;
+        video.currentTime = pos * video.duration;
     };
 
+    // Time update
+    video.ontimeupdate = () => {
+        if (video.duration) {
+            const percent = (video.currentTime / video.duration) * 100;
+            progressBar.style.width = percent + '%';
+        }
+    };
+
+    // Video ended
     video.onended = () => {
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
     };
 
-    fullscreenBtn.onclick = () => {
+    // Fullscreen button
+    fullscreenBtn.onclick = (e) => {
+        e.stopPropagation();
         if (!document.fullscreenElement) {
-            previewModal.requestFullscreen().then(() => {
+            videoContainer.requestFullscreen().then(() => {
                 previewModal.classList.add('fullscreen');
                 fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+            }).catch(err => {
+                console.error('Fullscreen error:', err);
             });
         } else {
             document.exitFullscreen().then(() => {
                 previewModal.classList.remove('fullscreen');
                 fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            }).catch(err => {
+                console.error('Exit fullscreen error:', err);
             });
         }
     };
 
+    // Handle fullscreen change
+    document.onfullscreenchange = () => {
+        if (!document.fullscreenElement) {
+            previewModal.classList.remove('fullscreen');
+            fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+        }
+    };
+
+    // Error handling
     video.onerror = () => {
         showAlert('Error loading video. Check file format or server logs.');
     };
-}
 
-function seekVideo(event) {
-    const video = document.getElementById('videoPlayer');
-    const progress = document.getElementById('videoProgress');
-    const rect = progress.getBoundingClientRect();
-    const pos = (event.clientX - rect.left) / rect.width;
-    video.currentTime = pos * video.duration;
+    // Prevent video click from closing modal
+    videoContainer.onclick = (e) => {
+        e.stopPropagation();
+    };
+
+    // Space bar to play/pause
+    document.onkeydown = (e) => {
+        if (e.code === 'Space' && video.style.display !== 'none') {
+            e.preventDefault();
+            if (video.paused) {
+                video.play();
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            } else {
+                video.pause();
+                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+            }
+        }
+    };
 }
 
 function navigatePreview(direction) {
