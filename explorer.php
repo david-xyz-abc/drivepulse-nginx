@@ -59,7 +59,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
     }
 
     $username = $_SESSION['username'];
-    $baseDir = realpath("/var/www/html/webdav/users/$username/Home");
+    $filePathBase = urldecode($_GET['file']);
+    
+    // Determine which directory to look in based on the file path
+    if (strpos($filePathBase, 'Trash/') === 0) {
+        $baseDir = realpath("/var/www/html/webdav/users/$username/Trash");
+        $requestedFile = substr($filePathBase, 6); // Remove "Trash/" prefix
+    } else {
+        $baseDir = realpath("/var/www/html/webdav/users/$username/Home");
+        if (strpos($filePathBase, 'Home/') === 0) {
+            $requestedFile = substr($filePathBase, 5); // Remove "Home/" prefix
+        } else {
+            $requestedFile = $filePathBase;
+        }
+    }
+    
     if ($baseDir === false) {
         log_debug("Base directory not found for user: $username");
         header("HTTP/1.1 500 Internal Server Error");
@@ -67,10 +81,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         exit;
     }
 
-    $requestedFile = urldecode($_GET['file']);
-    if (strpos($requestedFile, 'Home/') === 0) {
-        $requestedFile = substr($requestedFile, 5);
-    }
     $filePath = realpath($baseDir . '/' . $requestedFile);
 
     if ($filePath === false || strpos($filePath, $baseDir) !== 0 || !file_exists($filePath)) {
@@ -453,11 +463,22 @@ if (isset($_GET['delete']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $itemToDelete = $_GET['delete'];
     $targetPath = realpath($currentDir . '/' . $itemToDelete);
     $username = $_SESSION['username'];
-    $trashDir = realpath("/var/www/html/webdav/users/$username/Trash");
+    $trashDir = "/var/www/html/webdav/users/$username/Trash";
+    
+    // Create trash directory if it doesn't exist
+    if (!is_dir($trashDir)) {
+        mkdir($trashDir, 0777, true);
+        chown($trashDir, 'www-data');
+        chgrp($trashDir, 'www-data');
+        log_debug("Created trash directory: $trashDir");
+    }
+    
+    $trashDir = realpath($trashDir);
 
     // Only move to trash if not already in trash
     if ($targetPath && strpos($targetPath, $currentDir) === 0) {
-        if (strpos($currentDir, $trashDir) === 0) {
+        // Check if we're in the trash folder by comparing with currentRel
+        if ($currentRel === 'Trash' || strpos($currentRel, 'Trash/') === 0) {
             // If we're already in the trash, permanently delete
             if (is_dir($targetPath)) {
                 deleteRecursive($targetPath);
@@ -822,13 +843,15 @@ html, body {
 }
 
 .storage-indicator {
-  margin-top: auto;
   padding: 10px;
   background: var(--content-bg);
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
   font-size: 12px;
   color: var(--text-color);
+  margin-top: 0;
+  border-top: none;
 }
 
 .storage-indicator p {
@@ -1615,18 +1638,26 @@ button, .btn, .file-row, .folder-item, img, i {
 }
 
 /* Add trash bin styles */
-.trash-bin {
+.storage-section {
   margin-top: auto;
-  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trash-bin {
   padding: 10px;
   background: var(--content-bg);
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  border-bottom: none;
   display: flex;
   align-items: center;
   gap: 10px;
   transition: background 0.3s ease;
   cursor: pointer;
+  margin-bottom: 0;
 }
 
 .trash-bin:hover {
@@ -1711,10 +1742,20 @@ button, .btn, .file-row, .folder-item, img, i {
           <?php endforeach; ?>
         </ul>
         
-        <!-- Add Trash Bin above Storage Indicator -->
-        <div class="trash-bin" onclick="openFolder('Trash')">
-          <i class="fas fa-trash-alt"></i>
-          <div class="trash-bin-text">Trash Bin</div>
+        <!-- Group trash bin and storage indicator in a section -->
+        <div class="storage-section">
+          <!-- Trash Bin above Storage Indicator -->
+          <div class="trash-bin" onclick="openFolder('Trash')">
+            <i class="fas fa-trash-alt"></i>
+            <div class="trash-bin-text">Trash Bin</div>
+          </div>
+          
+          <div class="storage-indicator">
+            <p><?php echo "$usedStorageGB GB used of $totalStorageGB GB"; ?></p>
+            <div class="storage-bar">
+              <div class="storage-progress" style="width: <?php echo $storagePercentage; ?>%;"></div>
+            </div>
+          </div>
         </div>
         
         <!-- If we're in the trash folder, show empty trash button -->
@@ -1727,13 +1768,6 @@ button, .btn, .file-row, .folder-item, img, i {
           </form>
         </div>
         <?php endif; ?>
-        
-        <div class="storage-indicator">
-          <p><?php echo "$usedStorageGB GB used of $totalStorageGB GB"; ?></p>
-          <div class="storage-bar">
-            <div class="storage-progress" style="width: <?php echo $storagePercentage; ?>%;"></div>
-          </div>
-        </div>
       </div>
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
