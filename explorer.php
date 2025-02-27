@@ -36,6 +36,20 @@ if (!function_exists('imagecreatefromheic')) {
     }
 }
 
+// Ensure trash directory exists for the user
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true && isset($_SESSION['username'])) {
+    $trashDir = "/var/www/html/webdav/users/{$_SESSION['username']}/Trash";
+    if (!is_dir($trashDir)) {
+        if (!mkdir($trashDir, 0777, true)) {
+            log_debug("Failed to create trash directory: $trashDir");
+        } else {
+            chown($trashDir, 'www-data');
+            chgrp($trashDir, 'www-data');
+            log_debug("Created trash directory: $trashDir");
+        }
+    }
+}
+
 // Optimized file serving with range support (no video-specific handling)
 if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file'])) {
     if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) {
@@ -159,6 +173,74 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
 
     fclose($fp);
     log_debug("Successfully served file: $filePath");
+    exit;
+}
+
+// Add restore from trash functionality
+if (isset($_GET['action']) && $_GET['action'] === 'restore' && isset($_GET['file'])) {
+    if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) {
+        log_debug("Unauthorized restore request, redirecting to index.php");
+        header("Location: /selfhostedgdrive/index.php", true, 302);
+        exit;
+    }
+
+    $username = $_SESSION['username'];
+    $trashDir = realpath("/var/www/html/webdav/users/$username/Trash");
+    $baseDir = realpath("/var/www/html/webdav/users/$username/Home");
+    $fileName = urldecode($_GET['file']);
+    $sourceFile = realpath("$trashDir/$fileName");
+    
+    if ($sourceFile && strpos($sourceFile, $trashDir) === 0) {
+        $destFile = "$baseDir/$fileName";
+        $destDir = dirname($destFile);
+        
+        // Create nested folders if needed
+        if (!is_dir($destDir)) {
+            mkdir($destDir, 0777, true);
+            chown($destDir, 'www-data');
+            chgrp($destDir, 'www-data');
+        }
+        
+        // Handle file name conflicts
+        $finalDestFile = $destFile;
+        $counter = 1;
+        $fileInfo = pathinfo($destFile);
+        while (file_exists($finalDestFile)) {
+            $finalDestFile = $fileInfo['dirname'] . '/' . $fileInfo['filename'] . ' (restored ' . $counter . ')' . (isset($fileInfo['extension']) ? '.' . $fileInfo['extension'] : '');
+            $counter++;
+        }
+        
+        if (rename($sourceFile, $finalDestFile)) {
+            log_debug("Restored file from trash: $sourceFile to $finalDestFile");
+            $_SESSION['success'] = "File restored successfully.";
+        } else {
+            log_debug("Failed to restore file: $sourceFile to $finalDestFile");
+            $_SESSION['error'] = "Failed to restore file.";
+        }
+    }
+    
+    header("Location: /selfhostedgdrive/explorer.php?folder=Trash", true, 302);
+    exit;
+}
+
+// Add empty trash functionality
+if (isset($_GET['action']) && $_GET['action'] === 'empty_trash' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) {
+        log_debug("Unauthorized empty trash request, redirecting to index.php");
+        header("Location: /selfhostedgdrive/index.php", true, 302);
+        exit;
+    }
+
+    $username = $_SESSION['username'];
+    $trashDir = realpath("/var/www/html/webdav/users/$username/Trash");
+    
+    if ($trashDir) {
+        deleteRecursiveContents($trashDir);
+        log_debug("Emptied trash for user: $username");
+        $_SESSION['success'] = "Trash emptied successfully.";
+    }
+    
+    header("Location: /selfhostedgdrive/explorer.php?folder=Trash", true, 302);
     exit;
 }
 
@@ -370,19 +452,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
 if (isset($_GET['delete']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $itemToDelete = $_GET['delete'];
     $targetPath = realpath($currentDir . '/' . $itemToDelete);
+    $username = $_SESSION['username'];
+    $trashDir = realpath("/var/www/html/webdav/users/$username/Trash");
 
+    // Only move to trash if not already in trash
     if ($targetPath && strpos($targetPath, $currentDir) === 0) {
-        if (is_dir($targetPath)) {
-            deleteRecursive($targetPath);
-            log_debug("Deleted folder: $targetPath");
-        } elseif (unlink($targetPath)) {
-            log_debug("Deleted file: $targetPath");
+        if (strpos($currentDir, $trashDir) === 0) {
+            // If we're already in the trash, permanently delete
+            if (is_dir($targetPath)) {
+                deleteRecursive($targetPath);
+                log_debug("Permanently deleted folder from trash: $targetPath");
+            } elseif (unlink($targetPath)) {
+                log_debug("Permanently deleted file from trash: $targetPath");
+            } else {
+                log_debug("Failed to delete item from trash: $targetPath");
+            }
         } else {
-            log_debug("Failed to delete item: $targetPath");
+            // Move to trash
+            $destPath = $trashDir . '/' . $itemToDelete;
+            
+            // Handle filename conflicts in trash
+            $counter = 1;
+            $baseName = pathinfo($itemToDelete, PATHINFO_FILENAME);
+            $ext = pathinfo($itemToDelete, PATHINFO_EXTENSION);
+            $ext = $ext ? '.' . $ext : '';
+            
+            while (file_exists($destPath)) {
+                $destPath = $trashDir . '/' . $baseName . ' (' . $counter . ')' . $ext;
+                $counter++;
+            }
+            
+            if (is_dir($targetPath)) {
+                // Create destination directory
+                if (mkdir($destPath, 0777, true)) {
+                    // Copy contents recursively then delete original
+                    copyRecursive($targetPath, $destPath);
+                    deleteRecursive($targetPath);
+                    log_debug("Moved folder to trash: $targetPath to $destPath");
+                }
+            } elseif (rename($targetPath, $destPath)) {
+                log_debug("Moved file to trash: $targetPath to $destPath");
+            } else {
+                log_debug("Failed to move item to trash: $targetPath");
+            }
         }
     }
     header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
     exit;
+}
+
+// Helper function to copy directory contents recursively
+function copyRecursive($source, $dest) {
+    $dir = opendir($source);
+    while (($file = readdir($dir)) !== false) {
+        if ($file != '.' && $file != '..') {
+            $sourcePath = $source . '/' . $file;
+            $destPath = $dest . '/' . $file;
+            if (is_dir($sourcePath)) {
+                if (!is_dir($destPath)) {
+                    mkdir($destPath, 0777, true);
+                    chown($destPath, 'www-data');
+                    chgrp($destPath, 'www-data');
+                }
+                copyRecursive($sourcePath, $destPath);
+            } else {
+                copy($sourcePath, $destPath);
+                chown($destPath, 'www-data');
+                chgrp($destPath, 'www-data');
+            }
+        }
+    }
+    closedir($dir);
+}
+
+// Modified to delete folder contents but keep the folder
+function deleteRecursiveContents($dirPath) {
+    $items = scandir($dirPath);
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') continue;
+        $full = $dirPath . '/' . $item;
+        if (is_dir($full)) {
+            deleteRecursive($full);
+        } else {
+            unlink($full);
+        }
+    }
 }
 
 /************************************************
@@ -1459,6 +1613,66 @@ button, .btn, .file-row, .folder-item, img, i {
         transform: translateY(0);
     }
 }
+
+/* Add trash bin styles */
+.trash-bin {
+  margin-top: auto;
+  margin-bottom: 10px;
+  padding: 10px;
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.3s ease;
+  cursor: pointer;
+}
+
+.trash-bin:hover {
+  background: var(--border-color);
+}
+
+.trash-bin i {
+  font-size: 18px;
+  color: var(--accent-red);
+}
+
+.trash-bin-text {
+  flex: 1;
+  font-size: 14px;
+}
+
+.trash-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.empty-trash-btn {
+  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+  font-size: 14px;
+}
+
+.empty-trash-btn:hover {
+  background: linear-gradient(135deg, #b71c1c, var(--accent-red));
+  transform: scale(1.05);
+}
+
+.restore-btn {
+  background: var(--button-bg);
+  color: var(--text-color);
+}
+
+.restore-btn:hover {
+  background: var(--button-hover);
+}
 </style>
 </head>
 <body>
@@ -1496,6 +1710,24 @@ button, .btn, .file-row, .folder-item, img, i {
             </li>
           <?php endforeach; ?>
         </ul>
+        
+        <!-- Add Trash Bin above Storage Indicator -->
+        <div class="trash-bin" onclick="openFolder('Trash')">
+          <i class="fas fa-trash-alt"></i>
+          <div class="trash-bin-text">Trash Bin</div>
+        </div>
+        
+        <!-- If we're in the trash folder, show empty trash button -->
+        <?php if ($currentRel === 'Trash'): ?>
+        <div class="trash-actions">
+          <form method="POST" action="/selfhostedgdrive/explorer.php?action=empty_trash">
+            <button type="submit" class="empty-trash-btn" onclick="return confirm('Empty trash? This will permanently delete all files in the trash.')">
+              Empty Trash
+            </button>
+          </form>
+        </div>
+        <?php endif; ?>
+        
         <div class="storage-indicator">
           <p><?php echo "$usedStorageGB GB used of $totalStorageGB GB"; ?></p>
           <div class="storage-bar">
@@ -1537,6 +1769,54 @@ button, .btn, .file-row, .folder-item, img, i {
         </div>
       </div>
       <div class="content-inner">
+        <?php if ($currentRel === 'Trash'): ?>
+        <div class="file-list" id="fileList">
+          <?php 
+            // Get trash directory contents
+            $username = $_SESSION['username'];
+            $trashDir = realpath("/var/www/html/webdav/users/$username/Trash");
+            $trashFiles = [];
+            
+            if (is_dir($trashDir)) {
+              $trashContents = scandir($trashDir);
+              foreach ($trashContents as $item) {
+                if ($item !== '.' && $item !== '..') {
+                  $fullPath = "$trashDir/$item";
+                  if (is_file($fullPath)) {
+                    $trashFiles[] = $item;
+                  }
+                }
+              }
+            }
+            
+            foreach ($trashFiles as $fileName): 
+              $relativePath = "Trash/" . $fileName;
+              $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
+              $iconClass = getIconClass($fileName);
+              $isImageFile = isImage($fileName);
+          ?>
+            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
+                <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
+                <?php if ($isImageFile): ?>
+                    <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
+                <?php else: ?>
+                    <i class="<?php echo $iconClass; ?> file-icon-large"></i>
+                <?php endif; ?>
+                <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
+                    <?php echo htmlspecialchars($fileName); ?>
+                </div>
+                <div class="file-actions">
+                    <button type="button" class="btn restore-btn" onclick="restoreFile('<?php echo addslashes($fileName); ?>')" title="Restore">
+                        <i class="fas fa-undo-alt"></i>
+                    </button>
+                    <button type="button" class="btn" title="Delete Permanently" onclick="confirmPermanentDelete('<?php echo addslashes($fileName); ?>')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+        <?php else: ?>
         <div id="dropZone">Drop files here to upload</div>
         <div class="file-list" id="fileList">
           <?php foreach ($files as $fileName): ?>
@@ -1571,6 +1851,7 @@ button, .btn, .file-row, .folder-item, img, i {
             </div>
           <?php endforeach; ?>
         </div>
+        <?php endif; ?>
       </div>
     </div>
   </div>
@@ -2224,6 +2505,23 @@ function closePreviewModal() {
     
     // Reset loading state
     isLoadingImage = false;
+}
+
+// Add function to handle restoring files from trash
+function restoreFile(fileName) {
+  console.log("Restoring file: " + fileName);
+  window.location.href = '/selfhostedgdrive/explorer.php?action=restore&file=' + encodeURIComponent(fileName);
+}
+
+// Add function to confirm permanent deletion from trash
+function confirmPermanentDelete(fileName) {
+  showConfirm(`Permanently delete "${fileName}"? This cannot be undone.`, () => {
+    let form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/selfhostedgdrive/explorer.php?folder=Trash&delete=' + encodeURIComponent(fileName);
+    document.body.appendChild(form);
+    form.submit();
+  });
 }
 </script>
 
