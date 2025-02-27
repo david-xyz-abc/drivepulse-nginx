@@ -2,7 +2,7 @@
 session_start();
 
 // Debug log setup with toggle
-define('DEBUG', true);
+define('DEBUG', false);
 $debug_log = '/var/www/html/selfhostedgdrive/debug.log';
 function log_debug($message) {
     if (DEBUG) {
@@ -36,20 +36,6 @@ if (!function_exists('imagecreatefromheic')) {
     }
 }
 
-// Ensure trash directory exists for the user
-if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true && isset($_SESSION['username'])) {
-    $trashDir = "/var/www/html/webdav/users/{$_SESSION['username']}/Trash";
-    if (!is_dir($trashDir)) {
-        if (!mkdir($trashDir, 0777, true)) {
-            log_debug("Failed to create trash directory: $trashDir");
-        } else {
-            chown($trashDir, 'www-data');
-            chgrp($trashDir, 'www-data');
-            log_debug("Created trash directory: $trashDir");
-        }
-    }
-}
-
 // Optimized file serving with range support (no video-specific handling)
 if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file'])) {
     if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) {
@@ -59,21 +45,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
     }
 
     $username = $_SESSION['username'];
-    $filePathBase = urldecode($_GET['file']);
-    
-    // Determine which directory to look in based on the file path
-    if (strpos($filePathBase, 'Trash/') === 0) {
-        $baseDir = realpath("/var/www/html/webdav/users/$username/Trash");
-        $requestedFile = substr($filePathBase, 6); // Remove "Trash/" prefix
-    } else {
-        $baseDir = realpath("/var/www/html/webdav/users/$username/Home");
-        if (strpos($filePathBase, 'Home/') === 0) {
-            $requestedFile = substr($filePathBase, 5); // Remove "Home/" prefix
-        } else {
-            $requestedFile = $filePathBase;
-        }
-    }
-    
+    $baseDir = realpath("/var/www/html/webdav/users/$username/Home");
     if ($baseDir === false) {
         log_debug("Base directory not found for user: $username");
         header("HTTP/1.1 500 Internal Server Error");
@@ -81,6 +53,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         exit;
     }
 
+    $requestedFile = urldecode($_GET['file']);
+    if (strpos($requestedFile, 'Home/') === 0) {
+        $requestedFile = substr($requestedFile, 5);
+    }
     $filePath = realpath($baseDir . '/' . $requestedFile);
 
     if ($filePath === false || strpos($filePath, $baseDir) !== 0 || !file_exists($filePath)) {
@@ -186,74 +162,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
     exit;
 }
 
-// Add restore from trash functionality
-if (isset($_GET['action']) && $_GET['action'] === 'restore' && isset($_GET['file'])) {
-    if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) {
-        log_debug("Unauthorized restore request, redirecting to index.php");
-        header("Location: /selfhostedgdrive/index.php", true, 302);
-        exit;
-    }
-
-    $username = $_SESSION['username'];
-    $trashDir = realpath("/var/www/html/webdav/users/$username/Trash");
-    $baseDir = realpath("/var/www/html/webdav/users/$username/Home");
-    $fileName = urldecode($_GET['file']);
-    $sourceFile = realpath("$trashDir/$fileName");
-    
-    if ($sourceFile && strpos($sourceFile, $trashDir) === 0) {
-        $destFile = "$baseDir/$fileName";
-        $destDir = dirname($destFile);
-        
-        // Create nested folders if needed
-        if (!is_dir($destDir)) {
-            mkdir($destDir, 0777, true);
-            chown($destDir, 'www-data');
-            chgrp($destDir, 'www-data');
-        }
-        
-        // Handle file name conflicts
-        $finalDestFile = $destFile;
-        $counter = 1;
-        $fileInfo = pathinfo($destFile);
-        while (file_exists($finalDestFile)) {
-            $finalDestFile = $fileInfo['dirname'] . '/' . $fileInfo['filename'] . ' (restored ' . $counter . ')' . (isset($fileInfo['extension']) ? '.' . $fileInfo['extension'] : '');
-            $counter++;
-        }
-        
-        if (rename($sourceFile, $finalDestFile)) {
-            log_debug("Restored file from trash: $sourceFile to $finalDestFile");
-            $_SESSION['success'] = "File restored successfully.";
-        } else {
-            log_debug("Failed to restore file: $sourceFile to $finalDestFile");
-            $_SESSION['error'] = "Failed to restore file.";
-        }
-    }
-    
-    header("Location: /selfhostedgdrive/explorer.php?folder=Trash", true, 302);
-    exit;
-}
-
-// Add empty trash functionality
-if (isset($_GET['action']) && $_GET['action'] === 'empty_trash' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) {
-        log_debug("Unauthorized empty trash request, redirecting to index.php");
-        header("Location: /selfhostedgdrive/index.php", true, 302);
-        exit;
-    }
-
-    $username = $_SESSION['username'];
-    $trashDir = realpath("/var/www/html/webdav/users/$username/Trash");
-    
-    if ($trashDir) {
-        deleteRecursiveContents($trashDir);
-        log_debug("Emptied trash for user: $username");
-        $_SESSION['success'] = "Trash emptied successfully.";
-    }
-    
-    header("Location: /selfhostedgdrive/explorer.php?folder=Trash", true, 302);
-    exit;
-}
-
 // Check login for page access
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) {
     log_debug("Redirecting to index.php due to no login");
@@ -266,33 +174,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_
  ************************************************/
 $username = $_SESSION['username'];
 $homeDirPath = "/var/www/html/webdav/users/$username/Home";
-
-// Debug current path configuration
-log_debug("Current directory: " . getcwd());
-log_debug("Home directory path being used: $homeDirPath");
-
-// Try alternative paths if server configuration might be different
 if (!is_dir($homeDirPath)) {
-    $altPaths = [
-        // Common alternatives for different server configurations
-        "/var/www/webdav/users/$username/Home",
-        "/var/www/html/selfhostedgdrive/users/$username/Home",
-        getcwd() . "/users/$username/Home"
-    ];
-    
-    foreach ($altPaths as $altPath) {
-        log_debug("Trying alternative home path: $altPath");
-        if (is_dir($altPath)) {
-            $homeDirPath = $altPath;
-            log_debug("Using alternative home path: $homeDirPath");
-            break;
-        }
-    }
-}
-
-// Create the home directory if it doesn't exist
-if (!is_dir($homeDirPath)) {
-    log_debug("Home directory not found, creating: $homeDirPath");
     if (!mkdir($homeDirPath, 0777, true)) {
         log_debug("Failed to create home directory: $homeDirPath");
         header("HTTP/1.1 500 Internal Server Error");
@@ -301,9 +183,7 @@ if (!is_dir($homeDirPath)) {
     }
     chown($homeDirPath, 'www-data');
     chgrp($homeDirPath, 'www-data');
-    chmod($homeDirPath, 0777);
 }
-
 $baseDir = realpath($homeDirPath);
 if ($baseDir === false) {
     log_debug("Base directory resolution failed for: $homeDirPath");
@@ -318,26 +198,6 @@ if (!isset($_GET['folder'])) {
     log_debug("No folder specified, redirecting to Home");
     header("Location: /selfhostedgdrive/explorer.php?folder=Home", true, 302);
     exit;
-}
-
-// Update the trash directory path to match the home directory structure
-$trashBasePath = dirname($homeDirPath) . "/Trash";
-log_debug("Setting trash base path to: $trashBasePath");
-
-// Ensure trash directory exists for the user
-if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true && isset($_SESSION['username'])) {
-    $trashDir = $trashBasePath;
-    if (!is_dir($trashDir)) {
-        log_debug("Creating trash directory: $trashDir");
-        if (!mkdir($trashDir, 0777, true)) {
-            log_debug("Failed to create trash directory: $trashDir");
-        } else {
-            chown($trashDir, 'www-data');
-            chgrp($trashDir, 'www-data');
-            chmod($trashDir, 0777);
-            log_debug("Created trash directory: $trashDir");
-        }
-    }
 }
 
 /************************************************
@@ -509,191 +369,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
  ************************************************/
 if (isset($_GET['delete']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $itemToDelete = $_GET['delete'];
-    $username = $_SESSION['username'];
-    
-    // Set up paths correctly
     $targetPath = realpath($currentDir . '/' . $itemToDelete);
-    $trashDir = $trashBasePath; // Use the trash path we defined earlier
-    
-    // Debug logging
-    log_debug("DELETE REQUEST: targetPath=$targetPath, currentDir=$currentDir, trashDir=$trashDir");
-    log_debug("DELETE REQUEST: currentRel=$currentRel");
-    
-    // Create trash directory if it doesn't exist - with error handling
-    if (!is_dir($trashDir)) {
-        if (!mkdir($trashDir, 0777, true)) {
-            log_debug("MKDIR FAILED: Could not create trash directory: $trashDir");
-            $_SESSION['error'] = "Failed to create trash directory.";
-            header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
-            exit;
-        }
-        chown($trashDir, 'www-data');
-        chgrp($trashDir, 'www-data');
-        chmod($trashDir, 0777);
-        log_debug("Created trash directory: $trashDir");
-    }
-    
-    // Ensure trash dir exists and get real path
-    $trashDirReal = realpath($trashDir);
-    if (!$trashDirReal) {
-        log_debug("TRASH PATH FAILED: Failed to resolve trash directory path: $trashDir");
-        $_SESSION['error'] = "Failed to access trash directory.";
-        header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
-        exit;
-    }
-    
-    log_debug("Trash dir real path: $trashDirReal");
-    
-    // Validate target path
-    if (!$targetPath || !file_exists($targetPath)) {
-        log_debug("TARGET NOT FOUND: $targetPath does not exist");
-        $_SESSION['error'] = "File or folder not found.";
-        header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
-        exit;
-    }
-    
-    // Check if we're already in the trash - explicitly determine if currentRel starts with "Trash"
-    $inTrash = ($currentRel === 'Trash' || strpos($currentRel, 'Trash/') === 0);
-    log_debug("In trash: " . ($inTrash ? "YES" : "NO"));
-    
-    if ($inTrash) {
-        // If we're already in the trash, permanently delete
+
+    if ($targetPath && strpos($targetPath, $currentDir) === 0) {
         if (is_dir($targetPath)) {
             deleteRecursive($targetPath);
-            log_debug("Permanently deleted folder from trash: $targetPath");
-            $_SESSION['success'] = "Folder permanently deleted.";
+            log_debug("Deleted folder: $targetPath");
         } elseif (unlink($targetPath)) {
-            log_debug("Permanently deleted file from trash: $targetPath");
-            $_SESSION['success'] = "File permanently deleted.";
+            log_debug("Deleted file: $targetPath");
         } else {
-            log_debug("Failed to delete item from trash: $targetPath");
-            $_SESSION['error'] = "Failed to delete item.";
-        }
-    } else {
-        // Move to trash
-        $destPath = $trashDirReal . '/' . basename($itemToDelete);
-        log_debug("Attempting to move $targetPath to trash at $destPath");
-        
-        // Handle filename conflicts in trash
-        $counter = 1;
-        $baseName = pathinfo($itemToDelete, PATHINFO_FILENAME);
-        $ext = pathinfo($itemToDelete, PATHINFO_EXTENSION);
-        $ext = $ext ? '.' . $ext : '';
-        
-        while (file_exists($destPath)) {
-            $destPath = $trashDirReal . '/' . $baseName . ' (' . $counter . ')' . $ext;
-            $counter++;
-        }
-        
-        if (is_dir($targetPath)) {
-            // Create destination directory
-            if (!mkdir($destPath, 0777, true)) {
-                log_debug("MKDIR FAILED: Failed to create directory in trash: $destPath");
-                $_SESSION['error'] = "Failed to create directory in trash.";
-                header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
-                exit;
-            }
-            
-            // Set permissions
-            chown($destPath, 'www-data');
-            chgrp($destPath, 'www-data');
-            chmod($destPath, 0777);
-            
-            // Copy contents recursively then delete original
-            $copyResult = copyRecursive($targetPath, $destPath);
-            if ($copyResult) {
-                deleteRecursive($targetPath);
-                log_debug("SUCCESS: Moved folder to trash: $targetPath to $destPath");
-                $_SESSION['success'] = "Folder moved to trash.";
-            } else {
-                log_debug("COPY FAILED: Failed to copy directory contents to trash");
-                $_SESSION['error'] = "Failed to move folder to trash.";
-                rmdir($destPath); // Clean up destination directory
-            }
-        } else {
-            // Attempt to copy file first, then delete original
-            if (copy($targetPath, $destPath)) {
-                // Set permissions on the copied file
-                chown($destPath, 'www-data');
-                chgrp($destPath, 'www-data');
-                chmod($destPath, 0664);
-                
-                // Delete original only if copy succeeded
-                if (unlink($targetPath)) {
-                    log_debug("SUCCESS: Moved file to trash: $targetPath to $destPath");
-                    $_SESSION['success'] = "File moved to trash.";
-                } else {
-                    log_debug("UNLINK FAILED: Copied file to trash but failed to delete original: $targetPath");
-                    $_SESSION['warning'] = "File was copied to trash but the original could not be deleted.";
-                }
-            } else {
-                log_debug("COPY FAILED: Failed to copy file to trash: $targetPath to $destPath");
-                $_SESSION['error'] = "Failed to move file to trash.";
-            }
+            log_debug("Failed to delete item: $targetPath");
         }
     }
-    
     header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
     exit;
-}
-
-// Helper function to copy directory contents recursively - modified to return success/failure
-function copyRecursive($source, $dest) {
-    try {
-        $dir = opendir($source);
-        if (!$dir) {
-            log_debug("Failed to open directory: $source");
-            return false;
-        }
-        
-        while (($file = readdir($dir)) !== false) {
-            if ($file != '.' && $file != '..') {
-                $sourcePath = $source . '/' . $file;
-                $destPath = $dest . '/' . $file;
-                
-                if (is_dir($sourcePath)) {
-                    if (!is_dir($destPath)) {
-                        if (!mkdir($destPath, 0777, true)) {
-                            log_debug("Failed to create subdirectory: $destPath");
-                            return false;
-                        }
-                        chown($destPath, 'www-data');
-                        chgrp($destPath, 'www-data');
-                    }
-                    if (!copyRecursive($sourcePath, $destPath)) {
-                        return false;
-                    }
-                } else {
-                    if (!copy($sourcePath, $destPath)) {
-                        log_debug("Failed to copy file: $sourcePath to $destPath");
-                        return false;
-                    }
-                    chown($destPath, 'www-data');
-                    chgrp($destPath, 'www-data');
-                    chmod($destPath, 0664);
-                }
-            }
-        }
-        closedir($dir);
-        return true;
-    } catch (Exception $e) {
-        log_debug("Exception in copyRecursive: " . $e->getMessage());
-        return false;
-    }
-}
-
-// Modified to delete folder contents but keep the folder
-function deleteRecursiveContents($dirPath) {
-    $items = scandir($dirPath);
-    foreach ($items as $item) {
-        if ($item === '.' || $item === '..') continue;
-        $full = $dirPath . '/' . $item;
-        if (is_dir($full)) {
-            deleteRecursive($full);
-        } else {
-            unlink($full);
-        }
-    }
 }
 
 /************************************************
@@ -979,15 +668,13 @@ html, body {
 }
 
 .storage-indicator {
+  margin-top: auto;
   padding: 10px;
   background: var(--content-bg);
   border: 1px solid var(--border-color);
-  border-bottom-left-radius: 4px;
-  border-bottom-right-radius: 4px;
+  border-radius: 4px;
   font-size: 12px;
   color: var(--text-color);
-  margin-top: 0;
-  border-top: none;
 }
 
 .storage-indicator p {
@@ -1772,74 +1459,6 @@ button, .btn, .file-row, .folder-item, img, i {
         transform: translateY(0);
     }
 }
-
-/* Add trash bin styles */
-.storage-section {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-
-.trash-bin {
-  padding: 10px;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-top-left-radius: 4px;
-  border-top-right-radius: 4px;
-  border-bottom: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: background 0.3s ease;
-  cursor: pointer;
-  margin-bottom: 0;
-}
-
-.trash-bin:hover {
-  background: var(--border-color);
-}
-
-.trash-bin i {
-  font-size: 18px;
-  color: var(--accent-red);
-}
-
-.trash-bin-text {
-  flex: 1;
-  font-size: 14px;
-}
-
-.trash-actions {
-  margin-top: 10px;
-  display: flex;
-  justify-content: center;
-}
-
-.empty-trash-btn {
-  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: background 0.3s ease, transform 0.2s ease;
-  font-size: 14px;
-}
-
-.empty-trash-btn:hover {
-  background: linear-gradient(135deg, #b71c1c, var(--accent-red));
-  transform: scale(1.05);
-}
-
-.restore-btn {
-  background: var(--button-bg);
-  color: var(--text-color);
-}
-
-.restore-btn:hover {
-  background: var(--button-hover);
-}
 </style>
 </head>
 <body>
@@ -1877,33 +1496,12 @@ button, .btn, .file-row, .folder-item, img, i {
             </li>
           <?php endforeach; ?>
         </ul>
-        
-        <!-- Group trash bin and storage indicator in a section -->
-        <div class="storage-section">
-          <!-- Trash Bin above Storage Indicator -->
-          <div class="trash-bin" onclick="openFolder('Trash')">
-            <i class="fas fa-trash-alt"></i>
-            <div class="trash-bin-text">Trash Bin</div>
-          </div>
-          
-          <div class="storage-indicator">
-            <p><?php echo "$usedStorageGB GB used of $totalStorageGB GB"; ?></p>
-            <div class="storage-bar">
-              <div class="storage-progress" style="width: <?php echo $storagePercentage; ?>%;"></div>
-            </div>
+        <div class="storage-indicator">
+          <p><?php echo "$usedStorageGB GB used of $totalStorageGB GB"; ?></p>
+          <div class="storage-bar">
+            <div class="storage-progress" style="width: <?php echo $storagePercentage; ?>%;"></div>
           </div>
         </div>
-        
-        <!-- If we're in the trash folder, show empty trash button -->
-        <?php if ($currentRel === 'Trash'): ?>
-        <div class="trash-actions">
-          <form method="POST" action="/selfhostedgdrive/explorer.php?action=empty_trash">
-            <button type="submit" class="empty-trash-btn" onclick="return confirm('Empty trash? This will permanently delete all files in the trash.')">
-              Empty Trash
-            </button>
-          </form>
-        </div>
-        <?php endif; ?>
       </div>
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -1939,54 +1537,6 @@ button, .btn, .file-row, .folder-item, img, i {
         </div>
       </div>
       <div class="content-inner">
-        <?php if ($currentRel === 'Trash'): ?>
-        <div class="file-list" id="fileList">
-          <?php 
-            // Get trash directory contents
-            $username = $_SESSION['username'];
-            $trashDir = realpath("/var/www/html/webdav/users/$username/Trash");
-            $trashFiles = [];
-            
-            if (is_dir($trashDir)) {
-              $trashContents = scandir($trashDir);
-              foreach ($trashContents as $item) {
-                if ($item !== '.' && $item !== '..') {
-                  $fullPath = "$trashDir/$item";
-                  if (is_file($fullPath)) {
-                    $trashFiles[] = $item;
-                  }
-                }
-              }
-            }
-            
-            foreach ($trashFiles as $fileName): 
-              $relativePath = "Trash/" . $fileName;
-              $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
-              $iconClass = getIconClass($fileName);
-              $isImageFile = isImage($fileName);
-          ?>
-            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
-                <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
-                <?php if ($isImageFile): ?>
-                    <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
-                <?php else: ?>
-                    <i class="<?php echo $iconClass; ?> file-icon-large"></i>
-                <?php endif; ?>
-                <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
-                    <?php echo htmlspecialchars($fileName); ?>
-                </div>
-                <div class="file-actions">
-                    <button type="button" class="btn restore-btn" onclick="restoreFile('<?php echo addslashes($fileName); ?>')" title="Restore">
-                        <i class="fas fa-undo-alt"></i>
-                    </button>
-                    <button type="button" class="btn" title="Delete Permanently" onclick="confirmPermanentDelete('<?php echo addslashes($fileName); ?>')">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-          <?php endforeach; ?>
-        </div>
-        <?php else: ?>
         <div id="dropZone">Drop files here to upload</div>
         <div class="file-list" id="fileList">
           <?php foreach ($files as $fileName): ?>
@@ -2021,7 +1571,6 @@ button, .btn, .file-row, .folder-item, img, i {
             </div>
           <?php endforeach; ?>
         </div>
-        <?php endif; ?>
       </div>
     </div>
   </div>
@@ -2675,23 +2224,6 @@ function closePreviewModal() {
     
     // Reset loading state
     isLoadingImage = false;
-}
-
-// Add function to handle restoring files from trash
-function restoreFile(fileName) {
-  console.log("Restoring file: " + fileName);
-  window.location.href = '/selfhostedgdrive/explorer.php?action=restore&file=' + encodeURIComponent(fileName);
-}
-
-// Add function to confirm permanent deletion from trash
-function confirmPermanentDelete(fileName) {
-  showConfirm(`Permanently delete "${fileName}"? This cannot be undone.`, () => {
-    let form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/selfhostedgdrive/explorer.php?folder=Trash&delete=' + encodeURIComponent(fileName);
-    document.body.appendChild(form);
-    form.submit();
-  });
 }
 </script>
 
