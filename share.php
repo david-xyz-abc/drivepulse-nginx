@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
 
 // Debug log setup with toggle
@@ -13,7 +16,14 @@ function log_debug($message) {
 // Connect to the database
 $db_path = '/var/www/html/selfhostedgdrive/shared_files.db';
 try {
+    if (!class_exists('SQLite3')) {
+        throw new Exception("SQLite3 extension is not available");
+    }
+    
     $db = new SQLite3($db_path);
+    if (!$db) {
+        throw new Exception("Could not connect to database");
+    }
     
     // Process the share code
     if (isset($_GET['code'])) {
@@ -68,7 +78,11 @@ try {
         echo "No share code provided.";
     }
 } catch (Exception $e) {
-    echo "An error occurred: " . htmlspecialchars($e->getMessage());
+    echo "<div style='background: #f8d7da; color: #721c24; padding: 20px; margin: 20px; border-radius: 5px;'>";
+    echo "<h3>Error</h3>";
+    echo "<p>" . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "</div>";
+    exit;
 }
 ?>
 <!DOCTYPE html>

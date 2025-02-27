@@ -1,6 +1,9 @@
 <?php
 session_start();
 
+// Right after session_start():
+$sqliteAvailable = false; // Force disable sharing feature for now
+
 // Debug log setup with toggle
 define('DEBUG', false);
 $debug_log = '/var/www/html/selfhostedgdrive/debug.log';
@@ -250,13 +253,23 @@ function getDirSize($dir) {
 // Get total server storage with error handling
 try {
     $totalStorage = disk_total_space("/var/www"); // Get actual server storage
+    if ($totalStorage === false) {
+        throw new Exception("Could not get disk space");
+    }
     $freeStorage = disk_free_space("/var/www"); // Get free space
+    if ($freeStorage === false) {
+        throw new Exception("Could not get free disk space");
+    }
     $usedStorage = $totalStorage - $freeStorage;
 } catch (Exception $e) {
     log_debug("Error getting disk space: " . $e->getMessage());
     // Fallback to fixed values
     $totalStorage = 500 * 1024 * 1024 * 1024; // 500 GB fallback
-    $usedStorage = getDirSize($webdavRoot);
+    if (isset($webdavRoot) && is_dir($webdavRoot)) {
+        $usedStorage = getDirSize($webdavRoot);
+    } else {
+        $usedStorage = 0; // Extreme fallback
+    }
 }
 $usedStorageGB = round($usedStorage / (1024 * 1024 * 1024), 2);
 $totalStorageGB = round($totalStorage / (1024 * 1024 * 1024), 2);
@@ -579,29 +592,37 @@ function isVideo($fileName) {
  * File Sharing Functionality
  ************************************************/
 // Create sharing table if it doesn't exist (one-time setup)
+$db = null;
 $db_path = '/var/www/html/selfhostedgdrive/shared_files.db';
-try {
-    $db = new SQLite3($db_path);
-    
-    // Ensure proper permissions for the database file
-    if (file_exists($db_path)) {
-        chmod($db_path, 0666);
-        chown($db_path, 'www-data');
-        chgrp($db_path, 'www-data');
+if ($sqliteAvailable) {
+    try {
+        $db = new SQLite3($db_path);
+        
+        // Ensure database directory exists and is writable
+        $db_dir = dirname($db_path);
+        if (!is_dir($db_dir)) {
+            mkdir($db_dir, 0755, true);
+        }
+        
+        // Ensure proper permissions for the database file
+        if (file_exists($db_path)) {
+            @chmod($db_path, 0666);
+            @chown($db_path, 'www-data');
+            @chgrp($db_path, 'www-data');
+        }
+        
+        $db->exec('CREATE TABLE IF NOT EXISTS shared_files (
+            id INTEGER PRIMARY KEY,
+            owner TEXT,
+            filepath TEXT,
+            share_code TEXT UNIQUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NULL
+        )');
+    } catch (Exception $e) {
+        log_debug("SQLite Error: " . $e->getMessage());
+        $db = null;
     }
-    
-    $db->exec('CREATE TABLE IF NOT EXISTS shared_files (
-        id INTEGER PRIMARY KEY,
-        owner TEXT,
-        filepath TEXT,
-        share_code TEXT UNIQUE,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        expires_at DATETIME NULL
-    )');
-} catch (Exception $e) {
-    log_debug("SQLite Error: " . $e->getMessage());
-    // Continue without database functionality
-    $db = null;
 }
 
 // Generate a share link
@@ -655,10 +676,22 @@ function getActiveShares($username, $db) {
 // Check if SQLite3 is available
 if (!class_exists('SQLite3')) {
     log_debug("SQLite3 extension is not available");
-    $db = null;
     $sqliteAvailable = false;
 } else {
     $sqliteAvailable = true;
+}
+
+// Initialize webdavRoot for storage calculation fallback
+$webdavRoot = "/var/www/html/webdav/users";
+
+// Force display errors for debugging only (remove in production)
+if (DEBUG) {
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
+    log_debug("PHP version: " . PHP_VERSION);
+    log_debug("SQLite Available: " . ($sqliteAvailable ? "Yes" : "No"));
+    log_debug("Extensions loaded: " . implode(", ", get_loaded_extensions()));
 }
 ?>
 <!DOCTYPE html>
@@ -1682,9 +1715,11 @@ button, .btn, .file-row, .folder-item, img, i {
                     <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
                         <i class="fas fa-trash"></i>
                     </button>
+                    <?php if ($sqliteAvailable && $db): ?>
                     <button type="button" class="btn" title="Share File" onclick="showShareModal('<?php echo addslashes($relativePath); ?>')">
                         <i class="fas fa-share-alt"></i>
                     </button>
+                    <?php endif; ?>
                 </div>
             </div>
           <?php endforeach; ?>
@@ -1724,6 +1759,7 @@ button, .btn, .file-row, .folder-item, img, i {
     </div>
   </div>
 
+  <?php if ($sqliteAvailable && $db): ?>
   <div id="shareModal" style="display:none;">
     <div class="dialog-content">
       <h3>Share File</h3>
@@ -1749,6 +1785,7 @@ button, .btn, .file-row, .folder-item, img, i {
       <?php unset($_SESSION['share_link']); endif; ?>
     </div>
   </div>
+  <?php endif; ?>
 <script>
 let selectedFolder = null;
 let currentXhr = null;
