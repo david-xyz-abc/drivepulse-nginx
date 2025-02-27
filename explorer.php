@@ -170,10 +170,12 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_
 }
 
 /************************************************
- * 1. Define the "Home" directory as base
+ * 1. Define the "Home" directory as base and create Trash directory
  ************************************************/
 $username = $_SESSION['username'];
 $homeDirPath = "/var/www/html/webdav/users/$username/Home";
+$trashDirPath = "/var/www/html/webdav/users/$username/Trash";
+
 if (!is_dir($homeDirPath)) {
     if (!mkdir($homeDirPath, 0777, true)) {
         log_debug("Failed to create home directory: $homeDirPath");
@@ -184,6 +186,18 @@ if (!is_dir($homeDirPath)) {
     chown($homeDirPath, 'www-data');
     chgrp($homeDirPath, 'www-data');
 }
+
+// Create trash directory if it doesn't exist
+if (!is_dir($trashDirPath)) {
+    if (!mkdir($trashDirPath, 0777, true)) {
+        log_debug("Failed to create trash directory: $trashDirPath");
+    } else {
+        chown($trashDirPath, 'www-data');
+        chgrp($trashDirPath, 'www-data');
+        log_debug("Created trash directory: $trashDirPath");
+    }
+}
+
 $baseDir = realpath($homeDirPath);
 if ($baseDir === false) {
     log_debug("Base directory resolution failed for: $homeDirPath");
@@ -215,7 +229,7 @@ if ($currentDir === false || strpos($currentDir, $baseDir) !== 0) {
 }
 
 /************************************************
- * Calculate Storage Usage
+ * Calculate Storage Usage (Server-wide)
  ************************************************/
 function getDirSize($dir) {
     static $cache = [];
@@ -233,11 +247,19 @@ function getDirSize($dir) {
     return $size;
 }
 
-$totalStorage = 10 * 1024 * 1024 * 1024; // 10 GB in bytes
-$usedStorage = getDirSize($baseDir);
+// Get total server storage instead of per-user quota
+$webdavRoot = "/var/www/html/webdav/users";
+$totalStorage = disk_total_space("/var/www"); // Get actual server storage
+$freeStorage = disk_free_space("/var/www"); // Get free space
+$usedStorage = $totalStorage - $freeStorage;
 $usedStorageGB = round($usedStorage / (1024 * 1024 * 1024), 2);
 $totalStorageGB = round($totalStorage / (1024 * 1024 * 1024), 2);
 $storagePercentage = round(($usedStorage / $totalStorage) * 100, 2);
+
+// Get user's contribution to storage usage
+$userUsedStorage = getDirSize($baseDir);
+$userUsedStorageGB = round($userUsedStorage / (1024 * 1024 * 1024), 2);
+$userPercentage = round(($userUsedStorage / $totalStorage) * 100, 2);
 
 /************************************************
  * 3. Create Folder
@@ -545,6 +567,69 @@ function isImage($fileName) {
 function isVideo($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     return in_array($ext, ['mp4', 'webm', 'ogg', 'mkv']);
+}
+
+/************************************************
+ * File Sharing Functionality
+ ************************************************/
+// Create sharing table if it doesn't exist (one-time setup)
+$db_path = '/var/www/html/selfhostedgdrive/shared_files.db';
+$db = new SQLite3($db_path);
+$db->exec('CREATE TABLE IF NOT EXISTS shared_files (
+    id INTEGER PRIMARY KEY,
+    owner TEXT,
+    filepath TEXT,
+    share_code TEXT UNIQUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NULL
+)');
+
+// Generate a share link
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_share'])) {
+    $fileToShare = $_POST['file_path'] ?? '';
+    $expiry = isset($_POST['expiry']) ? (int)$_POST['expiry'] : 0;
+    
+    if ($fileToShare) {
+        $fullPath = $baseDir . '/' . $fileToShare;
+        if (file_exists($fullPath)) {
+            // Generate a unique share code
+            $shareCode = bin2hex(random_bytes(8));
+            
+            // Calculate expiry date if needed
+            $expiryDate = null;
+            if ($expiry > 0) {
+                $expiryDate = date('Y-m-d H:i:s', strtotime("+$expiry days"));
+            }
+            
+            // Store in database
+            $stmt = $db->prepare('INSERT INTO shared_files (owner, filepath, share_code, expires_at) VALUES (?, ?, ?, ?)');
+            $stmt->bindParam(1, $username);
+            $stmt->bindParam(2, $fileToShare);
+            $stmt->bindParam(3, $shareCode);
+            $stmt->bindParam(4, $expiryDate);
+            $stmt->execute();
+            
+            $_SESSION['share_link'] = "/selfhostedgdrive/share.php?code=$shareCode";
+            log_debug("Created share link for: $fileToShare with code: $shareCode");
+        }
+    }
+    
+    header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
+    exit;
+}
+
+// Add a function to get active shares for the current user
+function getActiveShares($username, $db) {
+    $shares = [];
+    $stmt = $db->prepare('SELECT id, filepath, share_code, created_at, expires_at FROM shared_files WHERE owner = ? AND (expires_at IS NULL OR expires_at > datetime("now"))');
+    $stmt->bindParam(1, $username);
+    $result = $stmt->execute();
+    
+    while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+        $shares[] = $row;
+    }
+    
+    return $shares;
 }
 ?>
 <!DOCTYPE html>
@@ -1567,6 +1652,9 @@ button, .btn, .file-row, .folder-item, img, i {
                     <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
                         <i class="fas fa-trash"></i>
                     </button>
+                    <button type="button" class="btn" title="Share File" onclick="showShareModal('<?php echo addslashes($relativePath); ?>')">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
                 </div>
             </div>
           <?php endforeach; ?>
@@ -1603,6 +1691,32 @@ button, .btn, .file-row, .folder-item, img, i {
     <div class="dialog-content">
       <div class="dialog-message" id="dialogMessage"></div>
       <div class="dialog-buttons" id="dialogButtons"></div>
+    </div>
+  </div>
+
+  <div id="shareModal" style="display:none;">
+    <div class="dialog-content">
+      <h3>Share File</h3>
+      <form id="shareForm" method="POST" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
+        <input type="hidden" name="generate_share" value="1">
+        <input type="hidden" id="shareFilePath" name="file_path" value="">
+        <div style="margin-bottom:10px;">
+          <label for="expiry">Expire after (days, 0 for never):</label>
+          <input type="number" id="expiry" name="expiry" value="7" min="0" style="width:100%;">
+        </div>
+        <div class="dialog-buttons">
+          <button type="submit" class="dialog-button">Generate Link</button>
+          <button type="button" class="dialog-button" onclick="closeShareModal()">Cancel</button>
+        </div>
+      </form>
+      <?php if (isset($_SESSION['share_link'])): ?>
+      <div style="margin-top:15px;">
+        <p>Share Link (click to copy):</p>
+        <input type="text" id="shareLink" value="<?php echo $_SERVER['HTTP_HOST'] . htmlspecialchars($_SESSION['share_link']); ?>" 
+               readonly onclick="this.select(); document.execCommand('copy'); alert('Link copied to clipboard!');" 
+               style="width:100%; padding:5px;">
+      </div>
+      <?php unset($_SESSION['share_link']); endif; ?>
     </div>
   </div>
 <script>
@@ -2224,6 +2338,16 @@ function closePreviewModal() {
     
     // Reset loading state
     isLoadingImage = false;
+}
+
+function showShareModal(filePath) {
+    event.stopPropagation();
+    document.getElementById('shareFilePath').value = filePath;
+    document.getElementById('shareModal').style.display = 'flex';
+}
+
+function closeShareModal() {
+    document.getElementById('shareModal').style.display = 'none';
 }
 </script>
 
