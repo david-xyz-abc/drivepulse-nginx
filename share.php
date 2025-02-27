@@ -12,59 +12,63 @@ function log_debug($message) {
 
 // Connect to the database
 $db_path = '/var/www/html/selfhostedgdrive/shared_files.db';
-$db = new SQLite3($db_path);
-
-// Process the share code
-if (isset($_GET['code'])) {
-    $shareCode = $_GET['code'];
-    $stmt = $db->prepare('SELECT owner, filepath, expires_at FROM shared_files WHERE share_code = ? AND (expires_at IS NULL OR expires_at > datetime("now"))');
-    $stmt->bindParam(1, $shareCode);
-    $result = $stmt->execute();
+try {
+    $db = new SQLite3($db_path);
     
-    if ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-        $owner = $row['owner'];
-        $filepath = $row['filepath'];
-        $fullPath = "/var/www/html/webdav/users/$owner/Home/$filepath";
+    // Process the share code
+    if (isset($_GET['code'])) {
+        $shareCode = $_GET['code'];
+        $stmt = $db->prepare('SELECT owner, filepath, expires_at FROM shared_files WHERE share_code = ? AND (expires_at IS NULL OR expires_at > datetime("now"))');
+        $stmt->bindParam(1, $shareCode);
+        $result = $stmt->execute();
         
-        if (file_exists($fullPath)) {
-            $filename = basename($fullPath);
-            $mime_types = [
-                'pdf' => 'application/pdf',
-                'png' => 'image/png',
-                'jpg' => 'image/jpeg',
-                'jpeg' => 'image/jpeg',
-                'gif' => 'image/gif',
-                'heic' => 'image/heic',
-                'mkv' => 'video/x-matroska',
-                'mp4' => 'video/mp4',
-                'webm' => 'video/webm',
-                'ogg' => 'video/ogg',
-                'txt' => 'text/plain',
-            ];
-            $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
-            $mime = $mime_types[$ext] ?? mime_content_type($fullPath) ?? 'application/octet-stream';
+        if ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $owner = $row['owner'];
+            $filepath = $row['filepath'];
+            $fullPath = "/var/www/html/webdav/users/$owner/Home/$filepath";
             
-            // Check if preview is requested
-            if (isset($_GET['preview']) && in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'mp4', 'webm', 'ogg'])) {
-                header("Content-Type: $mime");
-                readfile($fullPath);
-                exit;
+            if (file_exists($fullPath)) {
+                $filename = basename($fullPath);
+                $mime_types = [
+                    'pdf' => 'application/pdf',
+                    'png' => 'image/png',
+                    'jpg' => 'image/jpeg',
+                    'jpeg' => 'image/jpeg',
+                    'gif' => 'image/gif',
+                    'heic' => 'image/heic',
+                    'mkv' => 'video/x-matroska',
+                    'mp4' => 'video/mp4',
+                    'webm' => 'video/webm',
+                    'ogg' => 'video/ogg',
+                    'txt' => 'text/plain',
+                ];
+                $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+                $mime = $mime_types[$ext] ?? mime_content_type($fullPath) ?? 'application/octet-stream';
+                
+                // Check if preview is requested
+                if (isset($_GET['preview']) && in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'mp4', 'webm', 'ogg'])) {
+                    header("Content-Type: $mime");
+                    readfile($fullPath);
+                    exit;
+                } else {
+                    // Otherwise serve as download
+                    header('Content-Disposition: attachment; filename="' . $filename . '"');
+                    header("Content-Type: $mime");
+                    header("Content-Length: " . filesize($fullPath));
+                    readfile($fullPath);
+                    exit;
+                }
             } else {
-                // Otherwise serve as download
-                header('Content-Disposition: attachment; filename="' . $filename . '"');
-                header("Content-Type: $mime");
-                header("Content-Length: " . filesize($fullPath));
-                readfile($fullPath);
-                exit;
+                echo "Shared file no longer exists.";
             }
         } else {
-            echo "Shared file no longer exists.";
+            echo "Invalid or expired share link.";
         }
     } else {
-        echo "Invalid or expired share link.";
+        echo "No share code provided.";
     }
-} else {
-    echo "No share code provided.";
+} catch (Exception $e) {
+    echo "An error occurred: " . htmlspecialchars($e->getMessage());
 }
 ?>
 <!DOCTYPE html>

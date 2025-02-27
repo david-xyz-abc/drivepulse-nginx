@@ -247,11 +247,17 @@ function getDirSize($dir) {
     return $size;
 }
 
-// Get total server storage instead of per-user quota
-$webdavRoot = "/var/www/html/webdav/users";
-$totalStorage = disk_total_space("/var/www"); // Get actual server storage
-$freeStorage = disk_free_space("/var/www"); // Get free space
-$usedStorage = $totalStorage - $freeStorage;
+// Get total server storage with error handling
+try {
+    $totalStorage = disk_total_space("/var/www"); // Get actual server storage
+    $freeStorage = disk_free_space("/var/www"); // Get free space
+    $usedStorage = $totalStorage - $freeStorage;
+} catch (Exception $e) {
+    log_debug("Error getting disk space: " . $e->getMessage());
+    // Fallback to fixed values
+    $totalStorage = 500 * 1024 * 1024 * 1024; // 500 GB fallback
+    $usedStorage = getDirSize($webdavRoot);
+}
 $usedStorageGB = round($usedStorage / (1024 * 1024 * 1024), 2);
 $totalStorageGB = round($totalStorage / (1024 * 1024 * 1024), 2);
 $storagePercentage = round(($usedStorage / $totalStorage) * 100, 2);
@@ -574,18 +580,32 @@ function isVideo($fileName) {
  ************************************************/
 // Create sharing table if it doesn't exist (one-time setup)
 $db_path = '/var/www/html/selfhostedgdrive/shared_files.db';
-$db = new SQLite3($db_path);
-$db->exec('CREATE TABLE IF NOT EXISTS shared_files (
-    id INTEGER PRIMARY KEY,
-    owner TEXT,
-    filepath TEXT,
-    share_code TEXT UNIQUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME NULL
-)');
+try {
+    $db = new SQLite3($db_path);
+    
+    // Ensure proper permissions for the database file
+    if (file_exists($db_path)) {
+        chmod($db_path, 0666);
+        chown($db_path, 'www-data');
+        chgrp($db_path, 'www-data');
+    }
+    
+    $db->exec('CREATE TABLE IF NOT EXISTS shared_files (
+        id INTEGER PRIMARY KEY,
+        owner TEXT,
+        filepath TEXT,
+        share_code TEXT UNIQUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME NULL
+    )');
+} catch (Exception $e) {
+    log_debug("SQLite Error: " . $e->getMessage());
+    // Continue without database functionality
+    $db = null;
+}
 
 // Generate a share link
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_share'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_share']) && $sqliteAvailable && $db) {
     $fileToShare = $_POST['file_path'] ?? '';
     $expiry = isset($_POST['expiry']) ? (int)$_POST['expiry'] : 0;
     
@@ -630,6 +650,15 @@ function getActiveShares($username, $db) {
     }
     
     return $shares;
+}
+
+// Check if SQLite3 is available
+if (!class_exists('SQLite3')) {
+    log_debug("SQLite3 extension is not available");
+    $db = null;
+    $sqliteAvailable = false;
+} else {
+    $sqliteAvailable = true;
 }
 ?>
 <!DOCTYPE html>
@@ -1582,10 +1611,11 @@ button, .btn, .file-row, .folder-item, img, i {
           <?php endforeach; ?>
         </ul>
         <div class="storage-indicator">
-          <p><?php echo "$usedStorageGB GB used of $totalStorageGB GB"; ?></p>
+          <p><?php echo "$usedStorageGB GB used of $totalStorageGB GB (Server)"; ?></p>
           <div class="storage-bar">
             <div class="storage-progress" style="width: <?php echo $storagePercentage; ?>%;"></div>
           </div>
+          <p style="margin-top: 10px;">Your usage: <?php echo "$userUsedStorageGB GB ($userPercentage%)"; ?></p>
         </div>
       </div>
     </div>
