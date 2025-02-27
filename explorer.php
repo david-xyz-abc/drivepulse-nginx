@@ -2,7 +2,7 @@
 session_start();
 
 // Debug log setup with toggle
-define('DEBUG', false);
+define('DEBUG', true);
 $debug_log = '/var/www/html/selfhostedgdrive/debug.log';
 function log_debug($message) {
     if (DEBUG) {
@@ -266,7 +266,33 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_
  ************************************************/
 $username = $_SESSION['username'];
 $homeDirPath = "/var/www/html/webdav/users/$username/Home";
+
+// Debug current path configuration
+log_debug("Current directory: " . getcwd());
+log_debug("Home directory path being used: $homeDirPath");
+
+// Try alternative paths if server configuration might be different
 if (!is_dir($homeDirPath)) {
+    $altPaths = [
+        // Common alternatives for different server configurations
+        "/var/www/webdav/users/$username/Home",
+        "/var/www/html/selfhostedgdrive/users/$username/Home",
+        getcwd() . "/users/$username/Home"
+    ];
+    
+    foreach ($altPaths as $altPath) {
+        log_debug("Trying alternative home path: $altPath");
+        if (is_dir($altPath)) {
+            $homeDirPath = $altPath;
+            log_debug("Using alternative home path: $homeDirPath");
+            break;
+        }
+    }
+}
+
+// Create the home directory if it doesn't exist
+if (!is_dir($homeDirPath)) {
+    log_debug("Home directory not found, creating: $homeDirPath");
     if (!mkdir($homeDirPath, 0777, true)) {
         log_debug("Failed to create home directory: $homeDirPath");
         header("HTTP/1.1 500 Internal Server Error");
@@ -275,7 +301,9 @@ if (!is_dir($homeDirPath)) {
     }
     chown($homeDirPath, 'www-data');
     chgrp($homeDirPath, 'www-data');
+    chmod($homeDirPath, 0777);
 }
+
 $baseDir = realpath($homeDirPath);
 if ($baseDir === false) {
     log_debug("Base directory resolution failed for: $homeDirPath");
@@ -290,6 +318,26 @@ if (!isset($_GET['folder'])) {
     log_debug("No folder specified, redirecting to Home");
     header("Location: /selfhostedgdrive/explorer.php?folder=Home", true, 302);
     exit;
+}
+
+// Update the trash directory path to match the home directory structure
+$trashBasePath = dirname($homeDirPath) . "/Trash";
+log_debug("Setting trash base path to: $trashBasePath");
+
+// Ensure trash directory exists for the user
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true && isset($_SESSION['username'])) {
+    $trashDir = $trashBasePath;
+    if (!is_dir($trashDir)) {
+        log_debug("Creating trash directory: $trashDir");
+        if (!mkdir($trashDir, 0777, true)) {
+            log_debug("Failed to create trash directory: $trashDir");
+        } else {
+            chown($trashDir, 'www-data');
+            chgrp($trashDir, 'www-data');
+            chmod($trashDir, 0777);
+            log_debug("Created trash directory: $trashDir");
+        }
+    }
 }
 
 /************************************************
@@ -461,89 +509,177 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
  ************************************************/
 if (isset($_GET['delete']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $itemToDelete = $_GET['delete'];
-    $targetPath = realpath($currentDir . '/' . $itemToDelete);
     $username = $_SESSION['username'];
-    $trashDir = "/var/www/html/webdav/users/$username/Trash";
     
-    // Create trash directory if it doesn't exist
+    // Set up paths correctly
+    $targetPath = realpath($currentDir . '/' . $itemToDelete);
+    $trashDir = $trashBasePath; // Use the trash path we defined earlier
+    
+    // Debug logging
+    log_debug("DELETE REQUEST: targetPath=$targetPath, currentDir=$currentDir, trashDir=$trashDir");
+    log_debug("DELETE REQUEST: currentRel=$currentRel");
+    
+    // Create trash directory if it doesn't exist - with error handling
     if (!is_dir($trashDir)) {
-        mkdir($trashDir, 0777, true);
+        if (!mkdir($trashDir, 0777, true)) {
+            log_debug("MKDIR FAILED: Could not create trash directory: $trashDir");
+            $_SESSION['error'] = "Failed to create trash directory.";
+            header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
+            exit;
+        }
         chown($trashDir, 'www-data');
         chgrp($trashDir, 'www-data');
+        chmod($trashDir, 0777);
         log_debug("Created trash directory: $trashDir");
     }
     
-    $trashDir = realpath($trashDir);
-
-    // Only move to trash if not already in trash
-    if ($targetPath && strpos($targetPath, $currentDir) === 0) {
-        // Check if we're in the trash folder by comparing with currentRel
-        if ($currentRel === 'Trash' || strpos($currentRel, 'Trash/') === 0) {
-            // If we're already in the trash, permanently delete
-            if (is_dir($targetPath)) {
+    // Ensure trash dir exists and get real path
+    $trashDirReal = realpath($trashDir);
+    if (!$trashDirReal) {
+        log_debug("TRASH PATH FAILED: Failed to resolve trash directory path: $trashDir");
+        $_SESSION['error'] = "Failed to access trash directory.";
+        header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
+        exit;
+    }
+    
+    log_debug("Trash dir real path: $trashDirReal");
+    
+    // Validate target path
+    if (!$targetPath || !file_exists($targetPath)) {
+        log_debug("TARGET NOT FOUND: $targetPath does not exist");
+        $_SESSION['error'] = "File or folder not found.";
+        header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
+        exit;
+    }
+    
+    // Check if we're already in the trash - explicitly determine if currentRel starts with "Trash"
+    $inTrash = ($currentRel === 'Trash' || strpos($currentRel, 'Trash/') === 0);
+    log_debug("In trash: " . ($inTrash ? "YES" : "NO"));
+    
+    if ($inTrash) {
+        // If we're already in the trash, permanently delete
+        if (is_dir($targetPath)) {
+            deleteRecursive($targetPath);
+            log_debug("Permanently deleted folder from trash: $targetPath");
+            $_SESSION['success'] = "Folder permanently deleted.";
+        } elseif (unlink($targetPath)) {
+            log_debug("Permanently deleted file from trash: $targetPath");
+            $_SESSION['success'] = "File permanently deleted.";
+        } else {
+            log_debug("Failed to delete item from trash: $targetPath");
+            $_SESSION['error'] = "Failed to delete item.";
+        }
+    } else {
+        // Move to trash
+        $destPath = $trashDirReal . '/' . basename($itemToDelete);
+        log_debug("Attempting to move $targetPath to trash at $destPath");
+        
+        // Handle filename conflicts in trash
+        $counter = 1;
+        $baseName = pathinfo($itemToDelete, PATHINFO_FILENAME);
+        $ext = pathinfo($itemToDelete, PATHINFO_EXTENSION);
+        $ext = $ext ? '.' . $ext : '';
+        
+        while (file_exists($destPath)) {
+            $destPath = $trashDirReal . '/' . $baseName . ' (' . $counter . ')' . $ext;
+            $counter++;
+        }
+        
+        if (is_dir($targetPath)) {
+            // Create destination directory
+            if (!mkdir($destPath, 0777, true)) {
+                log_debug("MKDIR FAILED: Failed to create directory in trash: $destPath");
+                $_SESSION['error'] = "Failed to create directory in trash.";
+                header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
+                exit;
+            }
+            
+            // Set permissions
+            chown($destPath, 'www-data');
+            chgrp($destPath, 'www-data');
+            chmod($destPath, 0777);
+            
+            // Copy contents recursively then delete original
+            $copyResult = copyRecursive($targetPath, $destPath);
+            if ($copyResult) {
                 deleteRecursive($targetPath);
-                log_debug("Permanently deleted folder from trash: $targetPath");
-            } elseif (unlink($targetPath)) {
-                log_debug("Permanently deleted file from trash: $targetPath");
+                log_debug("SUCCESS: Moved folder to trash: $targetPath to $destPath");
+                $_SESSION['success'] = "Folder moved to trash.";
             } else {
-                log_debug("Failed to delete item from trash: $targetPath");
+                log_debug("COPY FAILED: Failed to copy directory contents to trash");
+                $_SESSION['error'] = "Failed to move folder to trash.";
+                rmdir($destPath); // Clean up destination directory
             }
         } else {
-            // Move to trash
-            $destPath = $trashDir . '/' . $itemToDelete;
-            
-            // Handle filename conflicts in trash
-            $counter = 1;
-            $baseName = pathinfo($itemToDelete, PATHINFO_FILENAME);
-            $ext = pathinfo($itemToDelete, PATHINFO_EXTENSION);
-            $ext = $ext ? '.' . $ext : '';
-            
-            while (file_exists($destPath)) {
-                $destPath = $trashDir . '/' . $baseName . ' (' . $counter . ')' . $ext;
-                $counter++;
-            }
-            
-            if (is_dir($targetPath)) {
-                // Create destination directory
-                if (mkdir($destPath, 0777, true)) {
-                    // Copy contents recursively then delete original
-                    copyRecursive($targetPath, $destPath);
-                    deleteRecursive($targetPath);
-                    log_debug("Moved folder to trash: $targetPath to $destPath");
+            // Attempt to copy file first, then delete original
+            if (copy($targetPath, $destPath)) {
+                // Set permissions on the copied file
+                chown($destPath, 'www-data');
+                chgrp($destPath, 'www-data');
+                chmod($destPath, 0664);
+                
+                // Delete original only if copy succeeded
+                if (unlink($targetPath)) {
+                    log_debug("SUCCESS: Moved file to trash: $targetPath to $destPath");
+                    $_SESSION['success'] = "File moved to trash.";
+                } else {
+                    log_debug("UNLINK FAILED: Copied file to trash but failed to delete original: $targetPath");
+                    $_SESSION['warning'] = "File was copied to trash but the original could not be deleted.";
                 }
-            } elseif (rename($targetPath, $destPath)) {
-                log_debug("Moved file to trash: $targetPath to $destPath");
             } else {
-                log_debug("Failed to move item to trash: $targetPath");
+                log_debug("COPY FAILED: Failed to copy file to trash: $targetPath to $destPath");
+                $_SESSION['error'] = "Failed to move file to trash.";
             }
         }
     }
+    
     header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
     exit;
 }
 
-// Helper function to copy directory contents recursively
+// Helper function to copy directory contents recursively - modified to return success/failure
 function copyRecursive($source, $dest) {
-    $dir = opendir($source);
-    while (($file = readdir($dir)) !== false) {
-        if ($file != '.' && $file != '..') {
-            $sourcePath = $source . '/' . $file;
-            $destPath = $dest . '/' . $file;
-            if (is_dir($sourcePath)) {
-                if (!is_dir($destPath)) {
-                    mkdir($destPath, 0777, true);
+    try {
+        $dir = opendir($source);
+        if (!$dir) {
+            log_debug("Failed to open directory: $source");
+            return false;
+        }
+        
+        while (($file = readdir($dir)) !== false) {
+            if ($file != '.' && $file != '..') {
+                $sourcePath = $source . '/' . $file;
+                $destPath = $dest . '/' . $file;
+                
+                if (is_dir($sourcePath)) {
+                    if (!is_dir($destPath)) {
+                        if (!mkdir($destPath, 0777, true)) {
+                            log_debug("Failed to create subdirectory: $destPath");
+                            return false;
+                        }
+                        chown($destPath, 'www-data');
+                        chgrp($destPath, 'www-data');
+                    }
+                    if (!copyRecursive($sourcePath, $destPath)) {
+                        return false;
+                    }
+                } else {
+                    if (!copy($sourcePath, $destPath)) {
+                        log_debug("Failed to copy file: $sourcePath to $destPath");
+                        return false;
+                    }
                     chown($destPath, 'www-data');
                     chgrp($destPath, 'www-data');
+                    chmod($destPath, 0664);
                 }
-                copyRecursive($sourcePath, $destPath);
-            } else {
-                copy($sourcePath, $destPath);
-                chown($destPath, 'www-data');
-                chgrp($destPath, 'www-data');
             }
         }
+        closedir($dir);
+        return true;
+    } catch (Exception $e) {
+        log_debug("Exception in copyRecursive: " . $e->getMessage());
+        return false;
     }
-    closedir($dir);
 }
 
 // Modified to delete folder contents but keep the folder
@@ -1642,7 +1778,7 @@ button, .btn, .file-row, .folder-item, img, i {
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  width: 100%;
 }
 
 .trash-bin {
