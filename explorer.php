@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-// Debug log setup with toggledd
+// Debug log setup with toggle
 define('DEBUG', false);
 $debug_log = '/var/www/html/selfhostedgdrive/debug.log';
 function log_debug($message) {
@@ -60,7 +60,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
     $filePath = realpath($baseDir . '/' . $requestedFile);
 
     if ($filePath === false || strpos($filePath, $baseDir) !== 0 || !file_exists($filePath)) {
-        log_debug("File not found or access denied: " . ($filePath ?: "Invalid path"));
+        log_debug("File not found or access denied: " . ($filePath ?: "Invalid path") . " (Requested: " . $_GET['file'] . ")");
         header("HTTP/1.1 404 Not Found");
         echo "File not found.";
         exit;
@@ -76,15 +76,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         'jpeg' => 'image/jpeg',
         'gif' => 'image/gif',
         'heic' => 'image/heic',
+        'mkv' => 'video/x-matroska',
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
+        'ogg' => 'video/ogg',
         'txt' => 'text/plain',
     ];
-    
     $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     $mime = $mime_types[$ext] ?? mime_content_type($filePath) ?? 'application/octet-stream';
 
-    // Handle HEIC preview conversion
+    // If it's a HEIC file and preview is requested, convert to JPEG
     if ($ext === 'heic' && isset($_GET['preview'])) {
         header('Content-Type: image/jpeg');
         $output = '/tmp/' . uniqid() . '.jpg';
@@ -94,86 +95,70 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
         exit;
     }
 
-    // Set basic headers
-    header("Content-Type: $mime");
-    header("Accept-Ranges: bytes");
-    header("Cache-Control: public, max-age=31536000");
-    header("X-Content-Type-Options: nosniff");
-
     // Add Content-Disposition header for downloads
     if (!isset($_GET['preview'])) {
         header('Content-Disposition: attachment; filename="' . $fileName . '"');
     }
 
-    // Handle range requests
-    $start = 0;
-    $end = $fileSize - 1;
-    $length = $fileSize;
+    header("Content-Type: $mime");
+    header("Accept-Ranges: bytes");
+    header("Content-Length: $fileSize");
+    header("Cache-Control: private, max-age=31536000");
+    header("X-Content-Type-Options: nosniff");
 
-    if (isset($_SERVER['HTTP_RANGE'])) {
-        if (!preg_match('/bytes=(\d*)-(\d*)/', $_SERVER['HTTP_RANGE'], $matches)) {
-            header("HTTP/1.1 416 Range Not Satisfiable");
-            header("Content-Range: bytes */$fileSize");
-            exit;
-        }
-
-        $start = empty($matches[1]) ? 0 : intval($matches[1]);
-        $end = empty($matches[2]) ? $fileSize - 1 : intval($matches[2]);
-
-        if ($start >= $fileSize || $end >= $fileSize) {
-            header("HTTP/1.1 416 Range Not Satisfiable");
-            header("Content-Range: bytes */$fileSize");
-            exit;
-        }
-
-        header("HTTP/1.1 206 Partial Content");
-        header("Content-Range: bytes $start-$end/$fileSize");
-        $length = $end - $start + 1;
-    }
-
-    header("Content-Length: $length");
-    
-    // Stream the file
     $fp = fopen($filePath, 'rb');
     if ($fp === false) {
+        log_debug("Failed to open file: $filePath");
         header("HTTP/1.1 500 Internal Server Error");
+        echo "Unable to serve file.";
         exit;
     }
 
-    if ($start > 0) {
-        fseek($fp, $start);
-    }
+    ob_clean();
 
-    // Increase buffer size for better streaming
-    $buffer = 262144; // 256KB chunks
-    $sent = 0;
+    if (isset($_SERVER['HTTP_RANGE'])) {
+        $range = $_SERVER['HTTP_RANGE'];
+        if (preg_match('/bytes=(\d+)-(\d*)?/', $range, $matches)) {
+            $start = (int)$matches[1];
+            $end = isset($matches[2]) && $matches[2] !== '' ? (int)$matches[2] : $fileSize - 1;
 
-    // Disable time limit and ignore user abort
-    set_time_limit(0);
-    ignore_user_abort(true);
+            if ($start >= $fileSize || $end >= $fileSize || $start > $end) {
+                log_debug("Invalid range request: $range for file size $fileSize");
+                header("HTTP/1.1 416 Range Not Satisfiable");
+                header("Content-Range: bytes */$fileSize");
+                fclose($fp);
+                exit;
+            }
 
-    // Disable output buffering
-    if (ob_get_level()) {
-        ob_end_clean();
-    }
+            $length = $end - $start + 1;
+            header("HTTP/1.1 206 Partial Content");
+            header("Content-Length: $length");
+            header("Content-Range: bytes $start-$end/$fileSize");
 
-    while (!feof($fp) && $sent < $length && !connection_aborted()) {
-        $read = min($buffer, $length - $sent);
-        $data = fread($fp, $read);
-        if ($data === false) {
-            break;
+            fseek($fp, $start);
+            $remaining = $length;
+            while ($remaining > 0 && !feof($fp) && !connection_aborted()) {
+                $chunk = min($remaining, 8192);
+                echo fread($fp, $chunk);
+                flush();
+                $remaining -= $chunk;
+            }
+        } else {
+            log_debug("Malformed range header: $range");
+            header("HTTP/1.1 416 Range Not Satisfiable");
+            header("Content-Range: bytes */$fileSize");
+            fclose($fp);
+            exit;
         }
-        echo $data;
-        $sent += strlen($data);
-        flush();
-
-        // Free up memory
-        if ($sent % ($buffer * 4) === 0) {
-            gc_collect_cycles();
+    } else {
+        while (!feof($fp) && !connection_aborted()) {
+            echo fread($fp, 8192);
+            flush();
         }
     }
 
     fclose($fp);
+    log_debug("Successfully served file: $filePath");
     exit;
 }
 
@@ -230,7 +215,7 @@ if ($currentDir === false || strpos($currentDir, $baseDir) !== 0) {
 }
 
 /************************************************
- * Calculate Global Storage Usage
+ * Calculate Storage Usage
  ************************************************/
 function getDirSize($dir) {
     static $cache = [];
@@ -248,13 +233,8 @@ function getDirSize($dir) {
     return $size;
 }
 
-// Get total server storage and usage
-$webdavPath = "/var/www/html/webdav";
-$totalStorage = disk_total_space($webdavPath);     // Gets total disk space
-$freeStorage = disk_free_space($webdavPath);       // Gets free disk space
-$usedStorage = $totalStorage - $freeStorage;       // Calculate used space
-
-// Convert to GB for display
+$totalStorage = 10 * 1024 * 1024 * 1024; // 10 GB in bytes
+$usedStorage = getDirSize($baseDir);
 $usedStorageGB = round($usedStorage / (1024 * 1024 * 1024), 2);
 $totalStorageGB = round($totalStorage / (1024 * 1024 * 1024), 2);
 $storagePercentage = round(($usedStorage / $totalStorage) * 100, 2);
@@ -508,7 +488,6 @@ if (is_dir($currentDir)) {
                         'name' => $one,
                         'url' => $fileURL,
                         'type' => 'video',
-                        'mime' => mime_content_type($path),
                         'icon' => getIconClass($one)
                     ];
                 } else {
@@ -545,9 +524,10 @@ if ($currentDir !== $baseDir) {
  ************************************************/
 function getIconClass($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    if (isVideo($fileName)) return 'fas fa-file-video';
     if (isImage($fileName)) return 'fas fa-file-image';
     if ($ext === 'pdf') return 'fas fa-file-pdf';
-    if (isVideo($fileName)) return 'fas fa-file-video';
+    if ($ext === 'exe') return 'fas fa-file-exclamation';
     return 'fas fa-file';
 }
 
@@ -559,9 +539,12 @@ function isImage($fileName) {
     return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic']);
 }
 
+/************************************************
+ * Helper: Check if file is a video
+ ************************************************/
 function isVideo($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    return in_array($ext, ['mp4', 'webm']);
+    return in_array($ext, ['mp4', 'webm', 'ogg', 'mkv']);
 }
 ?>
 <!DOCTYPE html>
@@ -1272,25 +1255,15 @@ html, body {
   #previewClose { top: 10px; right: 10px; font-size: 25px; }
 }
 #videoPreviewContainer {
+  display: none;
   width: 100%;
   height: 100%;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #000;
 }
-
-.video-js {
-  width: 100% !important;
-  height: 100% !important;
-  max-height: 90vh;
-}
-
-.vjs-theme-forest {
-  --vjs-theme-forest--primary: var(--accent-red);
-}
-
-/* Remove all the old video player styles */
 
 #videoPlayer {
   width: 100%;
@@ -1402,6 +1375,18 @@ button, .btn, .file-row, .folder-item, img, i {
     transform: scale(1);
 }
 
+/* Video preview animations */
+#videoPreviewContainer {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#videoPreviewContainer.loaded {
+    opacity: 1;
+    transform: scale(1);
+}
+
 /* Navigation button animations */
 #previewNav button {
     transform: translateX(0);
@@ -1474,60 +1459,7 @@ button, .btn, .file-row, .folder-item, img, i {
         transform: translateY(0);
     }
 }
-
-.video-loading {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #fff;
-    background: rgba(0,0,0,0.7);
-    padding: 10px 20px;
-    border-radius: 4px;
-    z-index: 2;
-}
-
-#videoPreviewContainer {
-    position: relative;
-    background: #000;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-#videoPlayer {
-    max-width: 100%;
-    max-height: 100vh;
-    width: auto;
-    height: auto;
-    background: #000;
-}
-
-/* Remove any custom video control styles */
-
-#videoPreviewContainer {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-#videoPlayer {
-    max-width: 100%;
-    max-height: 90vh;
-}
 </style>
-
-<!-- Add these in the <head> section after your other CSS/JS links: -->
-<link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
-<script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
-
-<!-- First, add these links in the <head> section: -->
-<link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
-<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -1615,7 +1547,7 @@ button, .btn, .file-row, .folder-item, img, i {
                 $isImageFile = isImage($fileName);
                 log_debug("File URL for $fileName: $fileURL");
             ?>
-            <div class="file-row" data-url="<?php echo htmlspecialchars($fileURL); ?>" data-filename="<?php echo addslashes($fileName); ?>">
+            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
                 <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
                 <?php if ($isImageFile): ?>
                     <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
@@ -1653,9 +1585,16 @@ button, .btn, .file-row, .folder-item, img, i {
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
         <div id="videoPreviewContainer" style="display: none;">
-            <video id="videoPlayer" controls>
-                <source src="" type="">
-            </video>
+            <video id="videoPlayer" preload="auto" onclick="togglePlay(event)"></video>
+            <div class="video-controls">
+                <div class="video-controls-inner">
+                    <button id="playPauseBtn" onclick="togglePlay(event)"><i class="fas fa-play"></i></button>
+                    <div id="videoProgress" onclick="seekVideo(event)">
+                        <div id="videoProgressBar"></div>
+                    </div>
+                    <button id="fullscreenBtn" onclick="toggleFullscreen(event)"><i class="fas fa-expand"></i></button>
+                </div>
+            </div>
         </div>
     </div>
   </div>
@@ -1896,71 +1835,98 @@ function openPreviewModal(fileURL, fileName) {
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
     const videoContainer = document.getElementById('videoPreviewContainer');
+    const videoPlayer = document.getElementById('videoPlayer');
     const previewContent = document.getElementById('previewContent');
+    const previewClose = document.getElementById('previewClose');
+
+    // Add fade out effect
+    previewContent.classList.add('fade-out');
     
-    // Reset all containers
-    imageContainer.style.display = 'none';
-    imageContainer.innerHTML = '';
-    iconContainer.style.display = 'none';
-    iconContainer.innerHTML = '';
-    videoContainer.style.display = 'none';
-
-    currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
-    let file = previewFiles.find(f => f.name === fileName);
-
-    if (!file) {
-        console.error('File not found in previewFiles array:', fileName);
-        return;
-    }
-
-    if (file.type === 'video') {
-        videoContainer.style.display = 'block';
-        const videoPlayer = document.getElementById('videoPlayer');
-        const source = videoPlayer.querySelector('source');
-        source.src = file.url;
-        source.type = file.mime || 'video/mp4';
-        videoPlayer.load();
-    } else if (file.type === 'image') {
-        isLoadingImage = true;
-        const img = new Image();
-        img.onload = () => {
-            imageContainer.appendChild(img);
-            imageContainer.style.display = 'flex';
-            previewContent.classList.add('image-preview');
-            setTimeout(() => {
-                img.classList.add('loaded');
-                isLoadingImage = false;
-            }, 50);
-        };
-        img.onerror = () => {
-            console.error('Failed to load image:', file.url);
-            showAlert('Failed to load image preview');
-            isLoadingImage = false;
-        };
-        img.src = file.previewUrl || file.url;
-    } else {
-        const icon = document.createElement('i');
-        icon.className = file.icon;
-        iconContainer.appendChild(icon);
-        iconContainer.style.display = 'flex';
-    }
-
-    previewModal.style.display = 'flex';
-    
-    // Fade in the content
     setTimeout(() => {
-        previewContent.classList.remove('fade-out');
-        previewContent.classList.add('fade-in');
-    }, 50);
-
-    updateNavigationButtons();
-
-    // Add click handler for closing when clicking outside
-    previewModal.onclick = function(e) {
-        if (e.target === previewModal) {
-            closePreviewModal();
+        // Reset all containers
+        imageContainer.style.display = 'none';
+        imageContainer.innerHTML = '';
+        iconContainer.style.display = 'none';
+        iconContainer.innerHTML = '';
+        videoContainer.style.display = 'none';
+        
+        // Reset video player
+        if (videoPlayer) {
+            videoPlayer.pause();
+            videoPlayer.src = '';
+            videoPlayer.load();
         }
-    };
+        
+        // Reset classes
+        previewContent.classList.remove('image-preview');
+        previewContent.classList.remove('video-preview');
+        previewModal.classList.remove('fullscreen');
+
+        // Always show the close button
+        previewClose.style.display = 'block';
+
+        currentPreviewIndex = previewFiles.findIndex(file => file.name === fileName);
+        let file = previewFiles.find(f => f.name === fileName);
+
+        if (!file) {
+            console.error('File not found in previewFiles array:', fileName);
+            return;
+        }
+
+        if (file.type === 'video') {
+            videoContainer.classList.remove('loaded');
+            videoPlayer.src = file.url;
+            videoPlayer.load();
+            videoContainer.style.display = 'block';
+            previewContent.classList.add('video-preview');
+            setupVideoControls(videoPlayer);
+            
+            videoPlayer.oncanplay = () => {
+                videoContainer.classList.add('loaded');
+            };
+        } else if (file.type === 'image') {
+            isLoadingImage = true;
+            const img = new Image();
+            img.onload = () => {
+                imageContainer.appendChild(img);
+                imageContainer.style.display = 'flex';
+                previewContent.classList.add('image-preview');
+                // Add small delay before showing image
+                setTimeout(() => {
+                    img.classList.add('loaded');
+                    isLoadingImage = false;
+                }, 50);
+            };
+            img.onerror = () => {
+                console.error('Failed to load image:', file.url);
+                showAlert('Failed to load image preview');
+                isLoadingImage = false;
+            };
+            img.src = file.previewUrl || file.url;
+        } else {
+            const icon = document.createElement('i');
+            icon.className = file.icon;
+            iconContainer.appendChild(icon);
+            iconContainer.style.display = 'flex';
+        }
+
+        previewModal.style.display = 'flex';
+        
+        // Fade in the content
+        setTimeout(() => {
+            previewContent.classList.remove('fade-out');
+            previewContent.classList.add('fade-in');
+        }, 50);
+
+        updateNavigationButtons();
+
+        // Add click handler for closing when clicking outside
+        previewModal.onclick = function(e) {
+            if (e.target === previewModal) {
+                closePreviewModal();
+            }
+        };
+    }, 300); // Wait for fade out
 }
 
 // Add this function back if it's missing
@@ -2233,8 +2199,21 @@ gridToggleBtn.addEventListener('click', () => {
 
 function closePreviewModal() {
     const previewModal = document.getElementById('previewModal');
+    const videoPlayer = document.getElementById('videoPlayer');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
+    
+    // Clear video properly
+    try {
+        if (videoPlayer) {
+            videoPlayer.onerror = null;
+            videoPlayer.pause();
+            videoPlayer.src = '';
+            videoPlayer.load();
+        }
+    } catch (err) {
+        console.error('Video cleanup error:', err);
+    }
     
     // Clear containers
     imageContainer.innerHTML = '';
@@ -2246,39 +2225,7 @@ function closePreviewModal() {
     // Reset loading state
     isLoadingImage = false;
 }
-
-// Add these new functions and event listeners
-let lastTap = 0;
-let lastClickTime = 0;
-const DOUBLE_CLICK_DELAY = 300; // 300ms between clicks/taps
-
-// Handle double-click/tap for file rows
-document.querySelectorAll('.file-row').forEach(row => {
-    // Remove the existing onclick handler
-    row.removeAttribute('onclick');
-    
-    // Add the new click/tap handler
-    row.addEventListener('click', function(e) {
-        // Ignore clicks on buttons
-        if (e.target.closest('.file-actions')) {
-            return;
-        }
-
-        const currentTime = new Date().getTime();
-        const tapLength = currentTime - lastTap;
-        
-        if (tapLength < DOUBLE_CLICK_DELAY && tapLength > 0) {
-            // Double click/tap detected
-            const fileURL = this.dataset.url;
-            const fileName = this.dataset.filename;
-            openPreviewModal(fileURL, fileName);
-            e.preventDefault();
-        }
-        
-        lastTap = currentTime;
-    });
-});
-</script
+</script>
 
 </body>
 </html>
