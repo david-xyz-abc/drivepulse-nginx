@@ -578,15 +578,14 @@ function isVideo($fileName) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DrivePulse</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <!-- Add libde265 for HEVC support -->
-    <script src="https://cdn.jsdelivr.net/npm/libde265-wasm@0.2.4/libde265.min.js"></script>
-    <!-- Add hls.js for adaptive streaming support -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
-    <style>
+  <meta charset="UTF-8">
+  <title>Explorer with Previews</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
+  <style>
 :root {
   --background: #121212;
   --text-color: #fff;
@@ -1994,11 +1993,6 @@ function openPreviewModal(fileURL, fileName) {
             videoPlayer.setAttribute('crossorigin', 'anonymous');
             videoPlayer.setAttribute('controlsList', 'nodownload');
             
-            // Check if this might be HEVC content by file extension and name pattern
-            const isLikelyHevc = fileName.toLowerCase().includes('hevc') || 
-                                fileName.toLowerCase().includes('h.265') || 
-                                fileName.toLowerCase().includes('h265');
-            
             // Handle source differently for better performance
             if (videoPlayer.src !== file.url) {
                 videoPlayer.src = file.url;
@@ -2012,11 +2006,6 @@ function openPreviewModal(fileURL, fileName) {
             // Add buffering indicator
             const bufferingIndicator = document.getElementById('bufferingIndicator');
             bufferingIndicator.style.display = 'flex';
-            
-            // If likely HEVC, show a message
-            if (isLikelyHevc) {
-                showAlert("This appears to be an HEVC/H.265 video. If playback fails, the system will try an alternative player.");
-            }
             
             videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
@@ -2149,9 +2138,6 @@ function setupVideoControls(video) {
                     break;
                 case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
                     errorMessage = "Video format not supported by your browser";
-                    // Try to handle HEVC content
-                    tryAlternativeVideoPlayer(video.src);
-                    return;
                     break;
             }
         }
@@ -2516,95 +2502,6 @@ function closePreviewModal() {
     
     // Remove keyboard event handler
     document.onkeydown = null;
-}
-
-// Add function to check for HEVC codec and handle it
-function tryAlternativeVideoPlayer(videoSrc) {
-    const videoContainer = document.getElementById('videoPreviewContainer');
-    const videoPlayer = document.getElementById('videoPlayer');
-    const bufferingIndicator = document.getElementById('bufferingIndicator');
-    
-    // First try HLS.js for adaptive streaming
-    if (Hls.isSupported()) {
-        const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 90
-        });
-        
-        hls.loadSource(videoSrc);
-        hls.attachMedia(videoPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, function() {
-            videoPlayer.play().catch(err => {
-                console.error("HLS playback failed:", err);
-                checkForHevcAndPlay(videoSrc);
-            });
-        });
-        
-        hls.on(Hls.Events.ERROR, function(event, data) {
-            if (data.fatal) {
-                console.error("HLS fatal error:", data);
-                hls.destroy();
-                checkForHevcAndPlay(videoSrc);
-            }
-        });
-    } else {
-        checkForHevcAndPlay(videoSrc);
-    }
-    
-    function checkForHevcAndPlay(videoSrc) {
-        // Check if we can detect HEVC content
-        fetch(videoSrc, { method: 'HEAD' })
-            .then(response => {
-                // Try to use libde265 for HEVC content
-                if (typeof libde265 !== 'undefined') {
-                    showAlert("Attempting to play HEVC content with alternative player...");
-                    
-                    // Create a canvas element for libde265 rendering
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 1280;  // Default size, will be adjusted
-                    canvas.height = 720;
-                    canvas.style.width = '100%';
-                    canvas.style.height = '100%';
-                    canvas.style.objectFit = 'contain';
-                    
-                    // Replace video with canvas
-                    videoContainer.innerHTML = '';
-                    videoContainer.appendChild(canvas);
-                    
-                    // Initialize libde265
-                    const decoder = new libde265.Decoder();
-                    decoder.set_image_callback(function(image) {
-                        const ctx = canvas.getContext('2d');
-                        const imageData = ctx.createImageData(image.get_width(), image.get_height());
-                        image.display(imageData.data, imageData.width * 4);
-                        ctx.putImageData(imageData, 0, 0);
-                    });
-                    
-                    // Fetch and decode video
-                    fetch(videoSrc)
-                        .then(response => response.arrayBuffer())
-                        .then(buffer => {
-                            bufferingIndicator.style.display = 'none';
-                            decoder.push_data(new Uint8Array(buffer));
-                            decoder.flush();
-                        })
-                        .catch(err => {
-                            console.error("HEVC decoding error:", err);
-                            showAlert("Unable to play this video format. HEVC/H.265 codec is not fully supported in your browser.");
-                            bufferingIndicator.style.display = 'none';
-                        });
-                } else {
-                    showAlert("This video uses HEVC/H.265 codec which is not supported by your browser. Consider converting to H.264 for better compatibility.");
-                    bufferingIndicator.style.display = 'none';
-                }
-            })
-            .catch(err => {
-                console.error("Error checking video:", err);
-                showAlert("Unable to play this video format");
-                bufferingIndicator.style.display = 'none';
-            });
-    }
 }
 </script>
 
