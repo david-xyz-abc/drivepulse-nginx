@@ -20,7 +20,7 @@ session_start();
       --border-color: #333;
       --button-bg: linear-gradient(135deg, #555, #777);
       --button-hover: linear-gradient(135deg, #777, #555);
-      --accent-red: #d32f2f; /* Red for dark mode, matches explorer.php */
+      --accent-red: #ff4444;
     }
     body.light-mode {
       --background: #f5f5f5;
@@ -29,7 +29,7 @@ session_start();
       --border-color: #ccc;
       --button-bg: linear-gradient(135deg, #888, #aaa);
       --button-hover: linear-gradient(135deg, #aaa, #888);
-      --accent-red: #f44336; /* Red for light mode, matches explorer.php */
+      --accent-red: #f44336;
     }
     * {
       margin: 0;
@@ -45,30 +45,76 @@ session_start();
       align-items: center;
       min-height: 100vh;
       transition: background 0.3s, color 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    #particles-js {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      opacity: 0.9;
+      background: var(--background);
     }
     .login-container {
-      background: var(--content-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 30px;
-      width: 350px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      backdrop-filter: blur(8px);
+      background: rgba(30, 30, 30, 0.9);
+      border: 1px solid rgba(255, 68, 68, 0.3);
+      border-radius: 16px;
+      padding: 40px;
+      width: 380px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
       text-align: center;
+      transform: translateY(0);
+      opacity: 0;
+      animation: containerEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      transition: transform 0.3s, box-shadow 0.3s;
+      position: relative;
+      z-index: 1;
+    }
+    body.light-mode .login-container {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(244, 67, 54, 0.3);
+    }
+    @keyframes containerEntrance {
+      0% { opacity: 0; transform: translateY(40px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .login-container:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
     }
     .logo-icon {
-      font-size: 50px;
-      margin-bottom: 15px;
-      color: var(--accent-red); /* Changed from blue to red */
+      font-size: 56px;
+      margin-bottom: 20px;
+      color: var(--accent-red);
+      animation: float 4s ease-in-out infinite;
+      cursor: pointer;
+      filter: drop-shadow(0 0 8px rgba(255, 68, 68, 0.3));
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
     }
     .project-name {
       font-size: 18px;
       font-weight: 500;
       margin-bottom: 25px;
       color: var(--text-color);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
     .error {
-      color: var(--accent-red); /* Error messages in red */
+      color: var(--accent-red);
       margin-bottom: 15px;
+      animation: shake 0.4s ease-in-out;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(8px); }
+      50% { transform: translateX(-8px); }
+      75% { transform: translateX(4px); }
     }
     .form-group {
       text-align: left;
@@ -82,29 +128,53 @@ session_start();
     }
     .form-group input {
       width: 100%;
-      padding: 10px;
-      background: #2a2a2a;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
+      padding: 12px;
+      background: rgba(42, 42, 42, 0.8);
+      border: 2px solid transparent;
+      border-radius: 6px;
       color: var(--text-color);
       font-size: 14px;
-      transition: border-color 0.3s;
+      transition: all 0.3s ease;
+    }
+    .form-group input:hover {
+      border-color: var(--accent-red);
     }
     .form-group input:focus {
       outline: none;
-      border-color: var(--accent-red); /* Changed from blue to red */
+      border-color: var(--accent-red);
+      box-shadow: 0 0 16px rgba(255, 68, 68, 0.3);
     }
     .button {
       width: 100%;
-      padding: 12px;
+      padding: 14px;
       background: var(--button-bg);
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       color: var(--text-color);
       font-size: 15px;
       font-weight: 500;
       cursor: pointer;
-      transition: background 0.3s, transform 0.2s;
+      transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .button::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, 
+        transparent, 
+        rgba(255,255,255,0.15), 
+        transparent);
+      transform: rotate(45deg);
+      transition: all 0.6s ease;
+    }
+    .button:hover::after {
+      left: 50%;
+      top: 50%;
     }
     .button:hover {
       background: var(--button-hover);
@@ -114,29 +184,51 @@ session_start();
       transform: scale(0.98);
     }
     .register-button {
-      background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+      background: linear-gradient(135deg, var(--accent-red), #ff2222);
     }
     .register-button:hover {
-      background: linear-gradient(135deg, #b71c1c, var(--accent-red));
-      transform: scale(1.03);
+      background: linear-gradient(135deg, #ff2222, var(--accent-red));
     }
     .toggle-link {
-      color: var(--accent-red); /* Changed from blue to red */
+      color: var(--accent-red);
       cursor: pointer;
-      text-decoration: underline;
+      text-decoration: none;
       margin-top: 15px;
       display: inline-block;
       transition: color 0.3s;
+      position: relative;
     }
-    .toggle-link:hover {
-      color: #ff6666; /* Lighter red for hover */
+    .toggle-link::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 0;
+      height: 1px;
+      background: currentColor;
+      transition: width 0.3s ease;
+    }
+    .toggle-link:hover::after {
+      width: 100%;
     }
     .hidden {
-      display: none;
+      opacity: 0;
+      max-height: 0;
+      overflow: hidden;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    form:not(.hidden) {
+      animation: formSwitch 0.6s ease forwards;
+    }
+    @keyframes formSwitch {
+      0% { opacity: 0; transform: translateX(20px); }
+      100% { opacity: 1; transform: translateX(0); }
     }
   </style>
 </head>
 <body>
+  <div id="particles-js"></div>
+  
   <div class="login-container">
     <i class="fas fa-cloud-upload-alt logo-icon"></i>
     <div class="project-name">DrivePulse</div>
@@ -187,7 +279,84 @@ session_start();
     <span class="toggle-link hidden" onclick="toggleForms()" id="loginLink">Already have an account? Sign in</span>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
   <script>
+    // Enhanced particle configuration
+    particlesJS('particles-js', {
+      particles: {
+        number: { 
+          value: 120,
+          density: { 
+            enable: true, 
+            value_area: 1500
+          }
+        },
+        color: { 
+          value: "#ff4444"
+        },
+        shape: {
+          type: "circle",
+          stroke: {
+            width: 0,
+            color: "#ff0000"
+          }
+        },
+        opacity: {
+          value: 0.9,
+          random: true,
+          anim: {
+            enable: true,
+            speed: 0.8,
+            opacity_min: 0.4,
+            sync: false
+          }
+        },
+        size: {
+          value: 4,
+          random: {
+            enable: true,
+            minimumValue: 2
+          }
+        },
+        line_linked: {
+          enable: true,
+          distance: 120,
+          color: "#ff8888",
+          opacity: 0.6,
+          width: 1.5
+        },
+        move: {
+          enable: true,
+          speed: 3.5,
+          direction: "none",
+          random: true,
+          straight: false,
+          out_mode: "out",
+          bounce: false,
+          attract: {
+            enable: true,
+            rotateX: 600,
+            rotateY: 1200
+          }
+        }
+      },
+      interactivity: {
+        detect_on: "canvas",
+        events: {
+          onhover: {
+            enable: true,
+            mode: "repulse"
+          },
+          onclick: {
+            enable: true,
+            mode: "push"
+          },
+          resize: true
+        }
+      },
+      retina_detect: true
+    });
+
     function toggleForms() {
       const loginForm = document.getElementById('loginForm');
       const registerForm = document.getElementById('registerForm');
@@ -198,26 +367,24 @@ session_start();
       document.querySelectorAll('.toggle-link')[0].classList.toggle('hidden');
     }
 
+    // Secret admin access
     let clicks = 0;
     let lastClick = 0;
-    const CLICK_TIMEOUT = 3000; // 3 seconds to reset clicks
+    const CLICK_TIMEOUT = 3000;
 
     document.querySelector('.logo-icon').addEventListener('click', function(e) {
-        const now = new Date().getTime();
-        if (now - lastClick > CLICK_TIMEOUT) {
-            clicks = 0;
-        }
+        const now = Date.now();
+        if (now - lastClick > CLICK_TIMEOUT) clicks = 0;
         
         clicks++;
         lastClick = now;
 
-        if (clicks === 3) { // After 3 clicks
+        if (clicks === 3) {
             const password = prompt("Enter admin password:");
             if (password === "2254") {
-                // Create and submit a form instead of direct navigation
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = '/selfhostedgdrive/console.php';
+                form.action = 'console.php';
                 
                 const passwordInput = document.createElement('input');
                 passwordInput.type = 'hidden';

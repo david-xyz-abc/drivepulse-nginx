@@ -1627,11 +1627,29 @@ button, .btn, .file-row, .folder-item, img, i {
     margin-right: 15px;
   }
 }
+
+/* Particles styles for sidebar */
+#sidebar-particles-js {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.folders-container {
+  position: relative;
+  z-index: 1;
+}
 </style>
 </head>
 <body>
   <div class="app-container">
     <div class="sidebar" id="sidebar">
+      <div id="sidebar-particles-js"></div>
       <div class="folders-container">
         <div class="top-row">
           <h2>Folders</h2>
@@ -1809,6 +1827,7 @@ button, .btn, .file-row, .folder-item, img, i {
     </div>
   </div>
 
+<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 <script>
 let selectedFolder = null;
 let currentXhr = null;
@@ -2856,6 +2875,91 @@ document.getElementById('contextMenuDeleteFolder').addEventListener('click', fun
     });
     contextMenu.style.display = 'none';
   }
+});
+
+// Initialize particles for sidebar
+particlesJS('sidebar-particles-js', {
+  particles: {
+    number: { 
+      value: 70,
+      density: { 
+        enable: true, 
+        value_area: 800
+      }
+    },
+    color: { 
+      value: ["#ff4444", "#ff6b6b", "#ff8888", "#ff2222"]
+    },
+    shape: {
+      type: "circle",
+      stroke: {
+        width: 0,
+        color: "#ff0000"
+      }
+    },
+    opacity: {
+      value: 0.9,
+      random: true,
+      anim: {
+        enable: true,
+        speed: 0.8,
+        opacity_min: 0.5,
+        sync: false
+      }
+    },
+    size: {
+      value: 5,
+      random: {
+        enable: true,
+        minimumValue: 2
+      }
+    },
+    line_linked: {
+      enable: true,
+      distance: 80,
+      color: "#ff6666",
+      opacity: 0.7,
+      width: 1.5
+    },
+    move: {
+      enable: true,
+      speed: 3,
+      direction: "none",
+      random: true,
+      straight: false,
+      out_mode: "out",
+      bounce: false,
+      attract: {
+        enable: true,
+        rotateX: 600,
+        rotateY: 1200
+      }
+    }
+  },
+  interactivity: {
+    detect_on: "canvas",
+    events: {
+      onhover: {
+        enable: true,
+        mode: "bubble"
+      },
+      onclick: {
+        enable: false,
+        mode: "push"
+      },
+      resize: true
+    },
+    modes: {
+      bubble: {
+        distance: 100,
+        size: 6,
+        duration: 2,
+        opacity: 1,
+        speed: 3
+      }
+    }
+  },
+  retina_detect: true
 });
 </script>
 
