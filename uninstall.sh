@@ -1,7 +1,8 @@
 #!/bin/bash
 # Uninstaller for Self Hosted Google Drive (DriveDAV)
-# This script completely removes everything installed by the install.sh script,
-# including all dependencies, folders, and data.
+# This script completely removes everything installed by both installation scripts:
+# - The Nginx-based installation
+# - The Apache-based installation
 # WARNING: This will delete ALL user data and application files!
 # Run this as root (e.g., sudo bash uninstall.sh)
 
@@ -26,7 +27,7 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-# Define application directories (same as in install.sh)
+# Define application directories (same as in both install scripts)
 APP_DIR="/var/www/html/selfhostedgdrive"
 WEBDAV_DIR="/var/www/html/webdav"
 WEBDAV_USERS_DIR="$WEBDAV_DIR/users"
@@ -35,15 +36,16 @@ USERS_JSON="$APP_DIR/users.json"
 # Determine PHP version
 PHP_VERSION=$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')
 
-# Locate the php.ini files for CLI and PHP-FPM
+# Locate the php.ini files for all possible configurations
 CLI_PHP_INI="/etc/php/$PHP_VERSION/cli/php.ini"
 FPM_PHP_INI="/etc/php/$PHP_VERSION/fpm/php.ini"
+APACHE_PHP_INI="/etc/php/$PHP_VERSION/apache2/php.ini"
 
 echo "======================================"
-echo "Step 1: Removing Nginx configuration..."
+echo "Step 1: Removing web server configurations..."
 echo "======================================"
 
-# Remove Nginx site configuration
+# Remove Nginx site configuration (if exists)
 if [ -L /etc/nginx/sites-enabled/selfhostedgdrive ]; then
   echo "Removing Nginx site from sites-enabled..."
   unlink /etc/nginx/sites-enabled/selfhostedgdrive
@@ -58,6 +60,12 @@ fi
 if [ -f /etc/nginx/sites-available/default ] && [ ! -L /etc/nginx/sites-enabled/default ]; then
   echo "Re-enabling default Nginx site..."
   ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
+fi
+
+# Disable Apache mod_rewrite if it was enabled
+if command -v a2dismod &> /dev/null; then
+  echo "Disabling Apache mod_rewrite if enabled..."
+  a2dismod rewrite || true
 fi
 
 echo "======================================"
@@ -75,6 +83,12 @@ if [ -f "${FPM_PHP_INI}.backup" ]; then
   echo "Restoring PHP-FPM php.ini from backup..."
   cp "${FPM_PHP_INI}.backup" "$FPM_PHP_INI"
   rm -f "${FPM_PHP_INI}.backup"
+fi
+
+if [ -f "${APACHE_PHP_INI}.backup" ]; then
+  echo "Restoring Apache php.ini from backup..."
+  cp "${APACHE_PHP_INI}.backup" "$APACHE_PHP_INI"
+  rm -f "${APACHE_PHP_INI}.backup"
 fi
 
 echo "======================================"
@@ -103,30 +117,67 @@ if [ -f "/var/log/selfhostedgdrive_install.log" ]; then
   rm -f "/var/log/selfhostedgdrive_install.log"
 fi
 
+# Remove this uninstall log file when done
+trap 'rm -f "$LOGFILE"' EXIT
+
 echo "======================================"
 echo "Step 5: Uninstalling dependencies..."
 echo "======================================"
 
-# Ask user if they want to remove dependencies (nginx, php, etc.)
-echo "Do you want to remove all dependencies (nginx, php-fpm, php modules)?"
+# Ask user if they want to remove dependencies
+echo "Do you want to remove all dependencies (Nginx, Apache, PHP, and related modules)?"
 echo "WARNING: This may affect other applications on your server!"
 echo "Type 'yes' to confirm or anything else to skip: "
 read -r REMOVE_DEPS
 
 if [ "$REMOVE_DEPS" = "yes" ]; then
-  echo "Uninstalling Nginx, PHP, and related packages..."
-  apt-get remove --purge -y nginx nginx-common nginx-full php-fpm php-json php-mbstring php-xml
+  echo "Uninstalling all web server and PHP packages..."
+  
+  # Stop services first to prevent issues during uninstallation
+  systemctl stop nginx apache2 php${PHP_VERSION}-fpm || true
+  
+  # Remove Nginx packages
+  echo "Removing Nginx packages..."
+  apt-get remove --purge -y nginx nginx-common nginx-full || true
+  
+  # Remove Apache packages
+  echo "Removing Apache packages..."
+  apt-get remove --purge -y apache2 libapache2-mod-php || true
+  
+  # Remove PHP packages
+  echo "Removing PHP packages..."
+  apt-get remove --purge -y php php-fpm php-cli php-json php-mbstring php-xml || true
   
   echo "Removing any leftover configuration files..."
   apt-get autoremove -y
   apt-get clean
   
+  # Remove PHP configuration directories if empty
+  rmdir --ignore-fail-on-non-empty /etc/php/${PHP_VERSION}/cli 2>/dev/null || true
+  rmdir --ignore-fail-on-non-empty /etc/php/${PHP_VERSION}/fpm 2>/dev/null || true
+  rmdir --ignore-fail-on-non-empty /etc/php/${PHP_VERSION}/apache2 2>/dev/null || true
+  rmdir --ignore-fail-on-non-empty /etc/php/${PHP_VERSION} 2>/dev/null || true
+  rmdir --ignore-fail-on-non-empty /etc/php 2>/dev/null || true
+  
   echo "Dependencies removed successfully."
 else
   echo "Skipping dependency removal as requested."
-  echo "Restarting Nginx and PHP-FPM with new configuration..."
-  systemctl restart nginx
-  systemctl restart php${PHP_VERSION}-fpm
+  
+  # Restart services with new configurations if they exist
+  if systemctl is-active --quiet nginx; then
+    echo "Restarting Nginx with new configuration..."
+    systemctl restart nginx
+  fi
+  
+  if systemctl is-active --quiet apache2; then
+    echo "Restarting Apache with new configuration..."
+    systemctl restart apache2
+  fi
+  
+  if systemctl is-active --quiet php${PHP_VERSION}-fpm; then
+    echo "Restarting PHP-FPM with new configuration..."
+    systemctl restart php${PHP_VERSION}-fpm
+  fi
 fi
 
 echo "======================================"
