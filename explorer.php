@@ -202,11 +202,12 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_
  ************************************************/
 $username = $_SESSION['username'];
 $homeDirPath = "/var/www/html/webdav/users/$username/Home";
-if (!is_dir($homeDirPath)) {
+if (!file_exists($homeDirPath)) {
+    log_debug("Creating home directory for user: $username");
     if (!mkdir($homeDirPath, 0777, true)) {
         log_debug("Failed to create home directory: $homeDirPath");
         header("HTTP/1.1 500 Internal Server Error");
-        echo "Server configuration error.";
+        echo "Failed to create home directory.";
         exit;
     }
     chown($homeDirPath, 'www-data');
@@ -223,28 +224,23 @@ log_debug("BaseDir: $baseDir (User: $username)");
 
 // Redirect to Home if no folder specified
 if (!isset($_GET['folder'])) {
-    log_debug("No folder specified, redirecting to Home");
-    header("Location: /selfhostedgdrive/explorer.php?folder=Home", true, 302);
+    header("Location: /selfhostedgdrive/explorer.php?folder=Home");
     exit;
 }
 
-/************************************************
- * 2. Determine current folder
- ************************************************/
-$currentRel = isset($_GET['folder']) ? trim(str_replace('..', '', $_GET['folder']), '/') : 'Home';
-$currentDir = realpath($baseDir . '/' . $currentRel);
-log_debug("CurrentRel: $currentRel");
-log_debug("CurrentDir: " . ($currentDir ? $currentDir : "Not resolved"));
+// Get current relative path
+$currentRel = isset($_GET['folder']) ? trim($_GET['folder']) : 'Home';
+if ($currentRel === '') $currentRel = 'Home';
 
+// Resolve the current directory
+$currentDir = realpath($baseDir . '/' . $currentRel);
 if ($currentDir === false || strpos($currentDir, $baseDir) !== 0) {
-    log_debug("Invalid folder, resetting to Home");
-    $currentDir = $baseDir;
+    log_debug("Invalid directory requested: $currentRel");
     $currentRel = 'Home';
+    $currentDir = $baseDir;
 }
 
-/************************************************
- * Calculate Storage Usage
- ************************************************/
+// Function to calculate directory size
 function getDirSize($dir) {
     static $cache = [];
     if (isset($cache[$dir])) {
@@ -261,8 +257,10 @@ function getDirSize($dir) {
     return $size;
 }
 
-$totalStorage = 10 * 1024 * 1024 * 1024; // 10 GB in bytes
-$usedStorage = getDirSize($baseDir);
+// Calculate storage usage for all users (pooled storage)
+$webdavRoot = "/var/www/html/webdav";
+$totalStorage = disk_total_space($webdavRoot); // Get total disk space
+$usedStorage = getDirSize($webdavRoot); // Get used space for all users
 $usedStorageGB = round($usedStorage / (1024 * 1024 * 1024), 2);
 $totalStorageGB = round($totalStorage / (1024 * 1024 * 1024), 2);
 $storagePercentage = round(($usedStorage / $totalStorage) * 100, 2);
@@ -317,6 +315,27 @@ function getUniqueFilename($path, $filename, $isChunk = false) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['upload_files'])) {
     $totalFiles = count($_FILES['upload_files']['name']);
     $uploadedFiles = 0;
+    
+    // Check if there's enough space in the pooled storage
+    $webdavRoot = "/var/www/html/webdav";
+    $totalStorage = disk_total_space($webdavRoot);
+    $usedStorage = getDirSize($webdavRoot);
+    $freeStorage = $totalStorage - $usedStorage;
+    
+    // Calculate total size of files to be uploaded
+    $totalUploadSize = 0;
+    foreach ($_FILES['upload_files']['name'] as $i => $fname) {
+        if ($_FILES['upload_files']['error'][$i] === UPLOAD_ERR_OK) {
+            $totalUploadSize += $_POST['total_size'] ?? filesize($_FILES['upload_files']['tmp_name'][$i]);
+        }
+    }
+    
+    // Check if there's enough space
+    if ($totalUploadSize > $freeStorage) {
+        $_SESSION['error'] = "Not enough space in shared storage. Available: " . round($freeStorage / (1024 * 1024 * 1024), 2) . " GB, Required: " . round($totalUploadSize / (1024 * 1024 * 1024), 2) . " GB";
+        header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel));
+        exit;
+    }
 
     foreach ($_FILES['upload_files']['name'] as $i => $fname) {
         if ($_FILES['upload_files']['error'][$i] === UPLOAD_ERR_OK) {
@@ -980,45 +999,32 @@ html, body {
 
 .file-actions {
   display: flex;
+  margin-left: auto;
+}
+
+.more-options-btn {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.more-options-btn:hover {
+  background-color: var(--border-color);
 }
 
 .file-list.grid-view .file-actions {
   position: absolute;
   top: 5px;
-  right: 5px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  left: 5px;
 }
-
-.file-list.grid-view .file-row:hover .file-actions {
-  opacity: 1;
-}
-
-.file-actions button {
-  background: var(--button-bg);
-  border-radius: 4px;
-  color: var(--text-color);
-  border: none;
-  font-size: 14px;
-  transition: background 0.3s, transform 0.2s;
-  cursor: pointer;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.file-actions button:hover {
-  background: var(--button-hover);
-  transform: scale(1.05);
-}
-
-.file-actions button:active { transform: scale(0.95); }
-
-.file-actions button i { color: var(--text-color); margin: 0; }
 
 #fileInput { display: none; }
 
@@ -1564,6 +1570,63 @@ button, .btn, .file-row, .folder-item, img, i {
     height: 8px;
   }
 }
+
+/* Context Menu Styles */
+.context-menu {
+    position: fixed;
+    z-index: 1000;
+    width: 200px;
+    background: var(--content-bg);
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    display: none;
+    overflow: hidden;
+    animation: fadeIn 0.15s ease-out;
+    border: 1px solid var(--border-color);
+}
+
+.context-menu-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.context-menu-item:hover {
+    background-color: var(--border-color);
+}
+
+.context-menu-item i {
+    margin-right: 10px;
+    width: 20px;
+    text-align: center;
+    color: var(--text-color);
+}
+
+.context-menu-divider {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 5px 0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Make context menu items more touch-friendly on mobile */
+@media (max-width: 768px) {
+  .context-menu-item {
+    padding: 15px;
+    font-size: 16px;
+  }
+  
+  .context-menu-item i {
+    font-size: 18px;
+    margin-right: 15px;
+  }
+}
 </style>
 </head>
 <body>
@@ -1595,8 +1658,8 @@ button, .btn, .file-row, .folder-item, img, i {
             <?php $folderPath = ($currentRel === 'Home' ? '' : $currentRel . '/') . $folderName; 
                   log_debug("Folder path for $folderName: $folderPath"); ?>
             <li class="folder-item"
-                ondblclick="openFolder('<?php echo urlencode($folderPath); ?>')"
-                onclick="selectFolder(this, '<?php echo addslashes($folderName); ?>'); event.stopPropagation();">
+                data-folder-path="<?php echo urlencode($folderPath); ?>"
+                data-folder-name="<?php echo addslashes($folderName); ?>">
               <i class="fas fa-folder"></i> <?php echo htmlspecialchars($folderName); ?>
             </li>
           <?php endforeach; ?>
@@ -1652,7 +1715,7 @@ button, .btn, .file-row, .folder-item, img, i {
                 $isImageFile = isImage($fileName);
                 log_debug("File URL for $fileName: $fileURL");
             ?>
-            <div class="file-row" onclick="openPreviewModal('<?php echo htmlspecialchars($fileURL); ?>', '<?php echo addslashes($fileName); ?>')">
+            <div class="file-row" data-file-url="<?php echo htmlspecialchars($fileURL); ?>" data-file-name="<?php echo addslashes($fileName); ?>">
                 <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
                 <?php if ($isImageFile): ?>
                     <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
@@ -1663,14 +1726,8 @@ button, .btn, .file-row, .folder-item, img, i {
                     <?php echo htmlspecialchars($fileName); ?>
                 </div>
                 <div class="file-actions">
-                    <button type="button" class="btn" onclick="downloadFile('<?php echo $fileURL; ?>')" title="Download">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button type="button" class="btn" title="Rename File" onclick="renameFilePrompt('<?php echo addslashes($fileName); ?>')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn" title="Delete File" onclick="confirmFileDelete('<?php echo addslashes($fileName); ?>')">
-                        <i class="fas fa-trash"></i>
+                    <button class="more-options-btn" title="More options">
+                        <i class="fas fa-ellipsis-v"></i>
                     </button>
                 </div>
             </div>
@@ -1714,6 +1771,44 @@ button, .btn, .file-row, .folder-item, img, i {
       <div class="dialog-buttons" id="dialogButtons"></div>
     </div>
   </div>
+
+  <!-- Mobile menu overlay -->
+  <div id="mobileMenuOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999;"></div>
+
+  <!-- Add context menu at the bottom of the page -->
+  <div id="contextMenu" class="context-menu">
+    <!-- File-specific options -->
+    <div class="file-context-options" style="display: none;">
+      <div class="context-menu-item" id="contextMenuOpen">
+          <i class="fas fa-eye"></i> Open
+      </div>
+      <div class="context-menu-item" id="contextMenuDownload">
+          <i class="fas fa-download"></i> Download
+      </div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" id="contextMenuRename">
+          <i class="fas fa-edit"></i> Rename
+      </div>
+      <div class="context-menu-item" id="contextMenuDelete">
+          <i class="fas fa-trash"></i> Delete
+      </div>
+    </div>
+    
+    <!-- Folder-specific options -->
+    <div class="folder-context-options" style="display: none;">
+      <div class="context-menu-item" id="contextMenuOpenFolder">
+          <i class="fas fa-folder-open"></i> Open
+      </div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" id="contextMenuRenameFolder">
+          <i class="fas fa-edit"></i> Rename
+      </div>
+      <div class="context-menu-item" id="contextMenuDeleteFolder">
+          <i class="fas fa-trash"></i> Delete
+      </div>
+    </div>
+  </div>
+
 <script>
 let selectedFolder = null;
 let currentXhr = null;
@@ -2503,6 +2598,265 @@ function closePreviewModal() {
     // Remove keyboard event handler
     document.onkeydown = null;
 }
+
+// Context Menu Functionality
+const contextMenu = document.getElementById('contextMenu');
+const fileContextOptions = document.querySelector('.file-context-options');
+const folderContextOptions = document.querySelector('.folder-context-options');
+let currentFileElement = null;
+let currentFileName = '';
+let currentFileURL = '';
+
+// Prevent default context menu on the entire document
+document.addEventListener('contextmenu', function(e) {
+  // Only prevent default on file rows and folder items
+  if (e.target.closest('.file-row') || e.target.closest('.folder-item')) {
+    e.preventDefault();
+  }
+});
+
+// Function to position the context menu
+function positionContextMenu(x, y) {
+  // Check if we're on mobile
+  const isMobile = window.innerWidth <= 768;
+  const overlay = document.getElementById('mobileMenuOverlay');
+  
+  if (isMobile) {
+    // On mobile, position at the bottom of the screen
+    contextMenu.style.left = '0';
+    contextMenu.style.top = 'auto';
+    contextMenu.style.bottom = '0';
+    contextMenu.style.width = '100%';
+    contextMenu.style.borderRadius = '10px 10px 0 0';
+    contextMenu.style.boxShadow = '0 -2px 10px rgba(0, 0, 0, 0.2)';
+    
+    // Show overlay
+    overlay.style.display = 'block';
+  } else {
+    // On desktop, position near the cursor
+    const menuWidth = contextMenu.offsetWidth;
+    const menuHeight = contextMenu.offsetHeight;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    // Check if menu goes beyond right edge
+    if (x + menuWidth > windowWidth) {
+      x = windowWidth - menuWidth - 5;
+    }
+    
+    // Check if menu goes beyond bottom edge
+    if (y + menuHeight > windowHeight) {
+      y = windowHeight - menuHeight - 5;
+    }
+    
+    contextMenu.style.left = `${x}px`;
+    contextMenu.style.top = `${y}px`;
+    contextMenu.style.bottom = 'auto';
+    contextMenu.style.width = '';
+    contextMenu.style.borderRadius = '5px';
+    contextMenu.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
+    
+    // Hide overlay
+    overlay.style.display = 'none';
+  }
+  
+  contextMenu.style.display = 'block';
+}
+
+// Add event listeners to file rows for context menu and click
+document.querySelectorAll('.file-row').forEach(fileRow => {
+  // Extract file information from data attributes
+  const fileURL = fileRow.getAttribute('data-file-url');
+  const fileName = fileRow.getAttribute('data-file-name');
+  
+  if (fileURL && fileName) {
+    // Add left-click event to open preview
+    fileRow.addEventListener('click', function(e) {
+      // Don't open preview if clicking on the more options button
+      if (e.target.closest('.more-options-btn')) {
+        e.stopPropagation();
+        return;
+      }
+      openPreviewModal(fileURL, fileName);
+    });
+    
+    // Add context menu event
+    fileRow.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Store the current file information
+      currentFileElement = fileRow;
+      currentFileName = fileName;
+      currentFileURL = fileURL;
+      
+      // Show file options, hide folder options
+      fileContextOptions.style.display = 'block';
+      folderContextOptions.style.display = 'none';
+      
+      // Position and show the context menu
+      positionContextMenu(e.pageX, e.pageY);
+    });
+    
+    // Add more options button click event
+    const moreOptionsBtn = fileRow.querySelector('.more-options-btn');
+    if (moreOptionsBtn) {
+      moreOptionsBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Store the current file information
+        currentFileElement = fileRow;
+        currentFileName = fileName;
+        currentFileURL = fileURL;
+        
+        // Show file options, hide folder options
+        fileContextOptions.style.display = 'block';
+        folderContextOptions.style.display = 'none';
+        
+        // Get button position
+        const rect = this.getBoundingClientRect();
+        const x = rect.left;
+        const y = rect.bottom;
+        
+        // Position and show the context menu
+        positionContextMenu(x, y);
+      });
+    }
+  }
+});
+
+// Add event listeners to folder items
+document.querySelectorAll('.folder-item').forEach(folderItem => {
+  const folderPath = folderItem.getAttribute('data-folder-path');
+  const folderName = folderItem.getAttribute('data-folder-name');
+  
+  if (folderPath && folderName) {
+    // Add click event to select folder
+    folderItem.addEventListener('click', function(e) {
+      e.stopPropagation();
+      selectFolder(this, folderName);
+    });
+    
+    // Add double-click event to open folder
+    folderItem.addEventListener('dblclick', function(e) {
+      openFolder(folderPath);
+    });
+    
+    // Add context menu event
+    folderItem.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Select the folder first
+      selectFolder(this, folderName);
+      
+      // Show folder options, hide file options
+      fileContextOptions.style.display = 'none';
+      folderContextOptions.style.display = 'block';
+      
+      // Position and show the context menu
+      positionContextMenu(e.pageX, e.pageY);
+    });
+  }
+});
+
+// Hide context menu when clicking elsewhere
+document.addEventListener('click', function() {
+  contextMenu.style.display = 'none';
+  document.getElementById('mobileMenuOverlay').style.display = 'none';
+});
+
+// Add click handler for the overlay
+document.getElementById('mobileMenuOverlay').addEventListener('click', function() {
+  contextMenu.style.display = 'none';
+  this.style.display = 'none';
+});
+
+// Prevent context menu from closing when clicking inside it
+contextMenu.addEventListener('click', function(e) {
+  e.stopPropagation();
+});
+
+// File context menu actions
+document.getElementById('contextMenuOpen').addEventListener('click', function() {
+  if (currentFileElement) {
+    openPreviewModal(currentFileURL, currentFileName);
+    contextMenu.style.display = 'none';
+  }
+});
+
+document.getElementById('contextMenuDownload').addEventListener('click', function() {
+  if (currentFileURL) {
+    downloadFile(currentFileURL);
+    contextMenu.style.display = 'none';
+  }
+});
+
+document.getElementById('contextMenuRename').addEventListener('click', function() {
+  if (currentFileName) {
+    renameFilePrompt(currentFileName);
+    contextMenu.style.display = 'none';
+  }
+});
+
+document.getElementById('contextMenuDelete').addEventListener('click', function() {
+  if (currentFileName) {
+    confirmFileDelete(currentFileName);
+    contextMenu.style.display = 'none';
+  }
+});
+
+// Folder context menu actions
+document.getElementById('contextMenuOpenFolder').addEventListener('click', function() {
+  if (selectedFolder) {
+    openFolder(selectedFolder);
+    contextMenu.style.display = 'none';
+  }
+});
+
+document.getElementById('contextMenuRenameFolder').addEventListener('click', function() {
+  if (selectedFolder) {
+    showPrompt("Enter new folder name:", selectedFolder, function(newName) {
+      if (newName && newName.trim() !== "" && newName !== selectedFolder) {
+        let form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
+        let inputAction = document.createElement('input');
+        inputAction.type = 'hidden';
+        inputAction.name = 'rename_folder';
+        inputAction.value = '1';
+        form.appendChild(inputAction);
+        let inputOld = document.createElement('input');
+        inputOld.type = 'hidden';
+        inputOld.name = 'old_folder_name';
+        inputOld.value = selectedFolder;
+        form.appendChild(inputOld);
+        let inputNew = document.createElement('input');
+        inputNew.type = 'hidden';
+        inputNew.name = 'new_folder_name';
+        inputNew.value = newName.trim();
+        form.appendChild(inputNew);
+        document.body.appendChild(form);
+        form.submit();
+      }
+    });
+    contextMenu.style.display = 'none';
+  }
+});
+
+document.getElementById('contextMenuDeleteFolder').addEventListener('click', function() {
+  if (selectedFolder) {
+    showConfirm(`Delete folder "${selectedFolder}"?`, () => {
+      let form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>&delete=' + encodeURIComponent(selectedFolder);
+      document.body.appendChild(form);
+      form.submit();
+    });
+    contextMenu.style.display = 'none';
+  }
+});
 </script>
 
 </body>
