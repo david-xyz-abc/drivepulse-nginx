@@ -42,7 +42,14 @@ FPM_PHP_INI="/etc/php/$PHP_VERSION/fpm/php.ini"
 APACHE_PHP_INI="/etc/php/$PHP_VERSION/apache2/php.ini"
 
 echo "======================================"
-echo "Step 1: Removing web server configurations..."
+echo "Step 1: Stopping all web services..."
+echo "======================================"
+
+# Stop all web services first
+systemctl stop nginx apache2 php${PHP_VERSION}-fpm || true
+
+echo "======================================"
+echo "Step 2: Removing web server configurations..."
 echo "======================================"
 
 # Remove Nginx site configuration (if exists)
@@ -69,7 +76,7 @@ if command -v a2dismod &> /dev/null; then
 fi
 
 echo "======================================"
-echo "Step 2: Restoring PHP configuration..."
+echo "Step 3: Restoring PHP configuration..."
 echo "======================================"
 
 # Restore PHP configuration from backups if they exist
@@ -92,7 +99,7 @@ if [ -f "${APACHE_PHP_INI}.backup" ]; then
 fi
 
 echo "======================================"
-echo "Step 3: Removing application files and user data..."
+echo "Step 4: Removing application files and user data..."
 echo "======================================"
 
 # Remove application directory and all user data
@@ -108,7 +115,7 @@ if [ -d "$WEBDAV_DIR" ]; then
 fi
 
 echo "======================================"
-echo "Step 4: Removing log files..."
+echo "Step 5: Removing log files..."
 echo "======================================"
 
 # Remove installation log file
@@ -121,66 +128,71 @@ fi
 trap 'rm -f "$LOGFILE"' EXIT
 
 echo "======================================"
-echo "Step 5: Uninstalling dependencies..."
+echo "Step 6: Completely uninstalling all web servers and dependencies..."
 echo "======================================"
 
-# Ask user if they want to remove dependencies
-echo "Do you want to remove all dependencies (Nginx, Apache, PHP, and related modules)?"
-echo "WARNING: This may affect other applications on your server!"
-echo "Type 'yes' to confirm or anything else to skip: "
-read -r REMOVE_DEPS
+# Force complete removal of all web servers and PHP
+echo "Completely removing all web servers and PHP packages..."
 
-if [ "$REMOVE_DEPS" = "yes" ]; then
-  echo "Uninstalling all web server and PHP packages..."
-  
-  # Stop services first to prevent issues during uninstallation
-  systemctl stop nginx apache2 php${PHP_VERSION}-fpm || true
-  
-  # Remove Nginx packages
-  echo "Removing Nginx packages..."
-  apt-get remove --purge -y nginx nginx-common nginx-full || true
-  
-  # Remove Apache packages
-  echo "Removing Apache packages..."
-  apt-get remove --purge -y apache2 libapache2-mod-php || true
-  
-  # Remove PHP packages
-  echo "Removing PHP packages..."
-  apt-get remove --purge -y php php-fpm php-cli php-json php-mbstring php-xml || true
-  
-  echo "Removing any leftover configuration files..."
-  apt-get autoremove -y
-  apt-get clean
-  
-  # Remove PHP configuration directories if empty
-  rmdir --ignore-fail-on-non-empty /etc/php/${PHP_VERSION}/cli 2>/dev/null || true
-  rmdir --ignore-fail-on-non-empty /etc/php/${PHP_VERSION}/fpm 2>/dev/null || true
-  rmdir --ignore-fail-on-non-empty /etc/php/${PHP_VERSION}/apache2 2>/dev/null || true
-  rmdir --ignore-fail-on-non-empty /etc/php/${PHP_VERSION} 2>/dev/null || true
-  rmdir --ignore-fail-on-non-empty /etc/php 2>/dev/null || true
-  
-  echo "Dependencies removed successfully."
-else
-  echo "Skipping dependency removal as requested."
-  
-  # Restart services with new configurations if they exist
-  if systemctl is-active --quiet nginx; then
-    echo "Restarting Nginx with new configuration..."
-    systemctl restart nginx
-  fi
-  
-  if systemctl is-active --quiet apache2; then
-    echo "Restarting Apache with new configuration..."
-    systemctl restart apache2
-  fi
-  
-  if systemctl is-active --quiet php${PHP_VERSION}-fpm; then
-    echo "Restarting PHP-FPM with new configuration..."
-    systemctl restart php${PHP_VERSION}-fpm
-  fi
-fi
+# Forcefully remove Apache and all its modules
+echo "Removing Apache and all its modules..."
+apt-get remove --purge -y apache2 apache2-bin apache2-data apache2-utils libapache2-mod-php* || true
+
+# Forcefully remove Nginx and all its modules
+echo "Removing Nginx and all its modules..."
+apt-get remove --purge -y nginx nginx-common nginx-full nginx-core || true
+
+# Forcefully remove PHP and all its modules
+echo "Removing PHP and all its modules..."
+apt-get remove --purge -y php* php-common libapache2-mod-php php-cli php-fpm php-json php-mbstring php-xml || true
+
+# Remove all configuration files
+echo "Removing all configuration files..."
+apt-get autoremove -y --purge
+apt-get clean
+
+# Remove Apache configuration directories
+echo "Removing Apache configuration directories..."
+rm -rf /etc/apache2 || true
+
+# Remove Nginx configuration directories
+echo "Removing Nginx configuration directories..."
+rm -rf /etc/nginx || true
+
+# Remove PHP configuration directories
+echo "Removing PHP configuration directories..."
+rm -rf /etc/php || true
+
+# Remove any remaining web server files in /var/www
+echo "Cleaning up /var/www directory..."
+rm -rf /var/www/html/* || true
+
+# Disable services from starting on boot
+echo "Disabling services from starting on boot..."
+systemctl disable apache2 nginx php${PHP_VERSION}-fpm || true
+
+# Make sure services are stopped
+echo "Ensuring all services are stopped..."
+systemctl stop apache2 nginx php${PHP_VERSION}-fpm || true
+
+# Kill any remaining processes
+echo "Killing any remaining web server processes..."
+killall -9 apache2 nginx php-fpm7.4 php-fpm8.0 php-fpm8.1 php-fpm8.2 2>/dev/null || true
 
 echo "======================================"
 echo "Uninstallation Complete!"
-echo "All application files, configuration, and user data have been removed."
-echo "======================================" 
+echo "All application files, configuration, and web servers have been completely removed."
+echo "If you still see a web server running, please reboot your system."
+echo "======================================"
+
+# Ask if user wants to reboot
+echo "Do you want to reboot the system to ensure all changes take effect?"
+echo "Type 'yes' to reboot now or anything else to skip: "
+read -r REBOOT
+
+if [ "$REBOOT" = "yes" ]; then
+  echo "Rebooting system now..."
+  reboot
+else
+  echo "Skipping reboot. You may want to reboot manually later."
+fi 
