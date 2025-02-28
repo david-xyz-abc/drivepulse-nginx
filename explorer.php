@@ -137,11 +137,33 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
 
             fseek($fp, $start);
             $remaining = $length;
+            // Increase buffer size for video streaming
+            $bufferSize = 262144; // 256KB chunks for better streaming
+            
+            // Check if this is a video file to apply optimized streaming
+            $isVideo = in_array($ext, ['mp4', 'webm', 'ogg', 'mkv']);
+            if ($isVideo) {
+                // Set additional headers for video streaming
+                header("X-Content-Duration: $fileSize");
+                header("Content-Duration: $fileSize");
+                
+                // Use a larger buffer for initial chunk if this is a starting segment
+                if ($start < 1048576) { // 1MB
+                    $bufferSize = 524288; // 512KB for initial segment
+                }
+            }
+            
             while ($remaining > 0 && !feof($fp) && !connection_aborted()) {
-                $chunk = min($remaining, 8192);
-                echo fread($fp, $chunk);
+                $chunk = min($remaining, $bufferSize);
+                $data = fread($fp, $chunk);
+                echo $data;
                 flush();
-                $remaining -= $chunk;
+                $remaining -= strlen($data);
+                
+                // Add a small delay for very large chunks to prevent overwhelming the network
+                if ($chunk > 1048576 && connection_status() === CONNECTION_NORMAL) {
+                    usleep(10000); // 10ms delay for very large chunks
+                }
             }
         } else {
             log_debug("Malformed range header: $range");
@@ -151,8 +173,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
             exit;
         }
     } else {
+        // For regular downloads, use a larger buffer but not too large
+        $bufferSize = 8192;
+        if (filesize($filePath) > 1048576) { // 1MB
+            $bufferSize = 131072; // 128KB for larger files
+        }
+        
         while (!feof($fp) && !connection_aborted()) {
-            echo fread($fp, 8192);
+            echo fread($fp, $bufferSize);
             flush();
         }
     }
@@ -1459,6 +1487,83 @@ button, .btn, .file-row, .folder-item, img, i {
         transform: translateY(0);
     }
 }
+
+#bufferingIndicator {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  z-index: 100;
+  justify-content: center;
+  align-items: center;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--accent-red);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+#videoBufferBar {
+  position: absolute;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2.5px;
+  width: 0%;
+  pointer-events: none;
+}
+
+#videoProgress {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2.5px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+#videoProgressBar {
+  height: 100%;
+  background: var(--accent-red);
+  border-radius: 2.5px;
+  width: 0%;
+  transition: width 0.1s linear, transform 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+#videoProgress:hover #videoProgressBar {
+  transform: scaleY(1.5);
+}
+
+/* Improve video controls for mobile devices */
+@media (max-width: 768px) {
+  .video-controls-inner {
+    padding: 15px 5px;
+  }
+  
+  .video-controls button {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  #videoProgress {
+    height: 8px;
+  }
+}
 </style>
 </head>
 <body>
@@ -1586,11 +1691,15 @@ button, .btn, .file-row, .folder-item, img, i {
         <div id="iconPreviewContainer" style="display: none;"></div>
         <div id="videoPreviewContainer" style="display: none;">
             <video id="videoPlayer" preload="auto" onclick="togglePlay(event)"></video>
+            <div id="bufferingIndicator">
+                <div class="spinner"></div>
+            </div>
             <div class="video-controls">
                 <div class="video-controls-inner">
                     <button id="playPauseBtn" onclick="togglePlay(event)"><i class="fas fa-play"></i></button>
                     <div id="videoProgress" onclick="seekVideo(event)">
                         <div id="videoProgressBar"></div>
+                        <div id="videoBufferBar"></div>
                     </div>
                     <button id="fullscreenBtn" onclick="toggleFullscreen(event)"><i class="fas fa-expand"></i></button>
                 </div>
@@ -1853,7 +1962,7 @@ function openPreviewModal(fileURL, fileName) {
         // Reset video player
         if (videoPlayer) {
             videoPlayer.pause();
-            videoPlayer.src = '';
+            videoPlayer.removeAttribute('src');
             videoPlayer.load();
         }
         
@@ -1875,15 +1984,50 @@ function openPreviewModal(fileURL, fileName) {
 
         if (file.type === 'video') {
             videoContainer.classList.remove('loaded');
-            videoPlayer.src = file.url;
-            videoPlayer.load();
+            
+            // Set optimal video attributes for performance
+            videoPlayer.preload = "auto";
+            
+            // Add adaptive playback attributes
+            videoPlayer.setAttribute('playsinline', '');
+            videoPlayer.setAttribute('crossorigin', 'anonymous');
+            videoPlayer.setAttribute('controlsList', 'nodownload');
+            
+            // Handle source differently for better performance
+            if (videoPlayer.src !== file.url) {
+                videoPlayer.src = file.url;
+                videoPlayer.load();
+            }
+            
             videoContainer.style.display = 'block';
             previewContent.classList.add('video-preview');
             setupVideoControls(videoPlayer);
             
+            // Add buffering indicator
+            const bufferingIndicator = document.getElementById('bufferingIndicator');
+            bufferingIndicator.style.display = 'flex';
+            
             videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
+                bufferingIndicator.style.display = 'none';
             };
+            
+            // Add waiting event listener for rebuffering
+            videoPlayer.onwaiting = () => {
+                bufferingIndicator.style.display = 'flex';
+            };
+            
+            videoPlayer.onplaying = () => {
+                bufferingIndicator.style.display = 'none';
+            };
+            
+            // For older browsers that don't support oncanplay well
+            setTimeout(() => {
+                if (!videoContainer.classList.contains('loaded')) {
+                    videoContainer.classList.add('loaded');
+                    bufferingIndicator.style.display = 'none';
+                }
+            }, 1000);
         } else if (file.type === 'image') {
             isLoadingImage = true;
             const img = new Image();
@@ -1939,29 +2083,107 @@ function updateNavigationButtons() {
 
 function setupVideoControls(video) {
     const progressBar = document.getElementById('videoProgressBar');
-
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const bufferingIndicator = document.getElementById('bufferingIndicator');
+    
     // Update progress bar
     video.ontimeupdate = () => {
         if (video.duration) {
             const percent = (video.currentTime / video.duration) * 100;
             progressBar.style.width = percent + '%';
+            
+            // Update buffered progress
+            updateBufferProgress(video);
         }
     };
+    
+    // Add buffer progress indicator function
+    function updateBufferProgress(video) {
+        if (video.buffered.length > 0) {
+            const bufferEnd = video.buffered.end(video.buffered.length - 1);
+            const duration = video.duration;
+            const bufferPercent = (bufferEnd / duration) * 100;
+            document.getElementById('videoBufferBar').style.width = bufferPercent + '%';
+        }
+    }
+    
+    // Call initially and periodically
+    updateBufferProgress(video);
+    setInterval(() => updateBufferProgress(video), 3000);
+    
+    // Video buffering events
+    video.onprogress = () => updateBufferProgress(video);
 
     // Video ended
     video.onended = () => {
-        const playPauseBtn = document.getElementById('playPauseBtn');
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
     };
 
-    // Remove the video error handler completely
-    video.onerror = null;
+    // Improve error handling
+    video.onerror = (e) => {
+        console.error('Video error:', video.error);
+        bufferingIndicator.style.display = 'none';
+        
+        let errorMessage = "Video playback error";
+        if (video.error) {
+            switch (video.error.code) {
+                case 1: // MEDIA_ERR_ABORTED
+                    errorMessage = "Video playback aborted";
+                    break;
+                case 2: // MEDIA_ERR_NETWORK
+                    errorMessage = "Network error occurred. Please try again";
+                    break;
+                case 3: // MEDIA_ERR_DECODE
+                    errorMessage = "Video decoding error";
+                    break;
+                case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+                    errorMessage = "Video format not supported by your browser";
+                    break;
+            }
+        }
+        
+        showAlert(errorMessage);
+    };
 
-    // Space bar to play/pause
+    // Enhanced keyboard shortcuts
     document.onkeydown = (e) => {
-        if (e.code === 'Space' && video.style.display !== 'none') {
-            e.preventDefault();
-            togglePlay(e);
+        // Only process if video is displayed
+        if (document.getElementById('videoPreviewContainer').style.display !== 'none') {
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    togglePlay(e);
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    video.currentTime = Math.max(video.currentTime - 5, 0);
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    video.currentTime = Math.min(video.currentTime + 5, video.duration);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    video.volume = Math.min(video.volume + 0.1, 1);
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    video.volume = Math.max(video.volume - 0.1, 0);
+                    break;
+                case 'KeyM':
+                    e.preventDefault();
+                    video.muted = !video.muted;
+                    break;
+                case 'KeyF':
+                    e.preventDefault();
+                    toggleFullscreen(e);
+                    break;
+                case 'Escape':
+                    if (!document.fullscreenElement) {
+                        closePreviewModal();
+                    }
+                    break;
+            }
         }
     };
 
@@ -1974,6 +2196,12 @@ function setupVideoControls(video) {
             fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
         }
     };
+    
+    // Add double-click to toggle fullscreen
+    video.ondblclick = (e) => {
+        e.preventDefault();
+        toggleFullscreen(e);
+    };
 }
 
 function togglePlay(e) {
@@ -1982,8 +2210,20 @@ function togglePlay(e) {
     const playPauseBtn = document.getElementById('playPauseBtn');
     
     if (video.paused) {
-        video.play();
-        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            }).catch(error => {
+                console.error('Error playing video:', error);
+                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+                
+                // Handle autoplay restrictions
+                if (error.name === 'NotAllowedError') {
+                    showAlert('Autoplay restricted. Please click play to start video.');
+                }
+            });
+        }
     } else {
         video.pause();
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
@@ -1996,7 +2236,29 @@ function seekVideo(e) {
     const progress = document.getElementById('videoProgress');
     const rect = progress.getBoundingClientRect();
     const pos = (e.clientX - rect.left) / rect.width;
-    video.currentTime = pos * video.duration;
+    
+    // Check if we're seeking to a buffered area
+    let targetTime = pos * video.duration;
+    let isBuffered = false;
+    
+    for (let i = 0; i < video.buffered.length; i++) {
+        if (targetTime >= video.buffered.start(i) && 
+            targetTime <= video.buffered.end(i)) {
+            isBuffered = true;
+            break;
+        }
+    }
+    
+    // Show buffering indicator if seeking to unbuffered area
+    if (!isBuffered) {
+        document.getElementById('bufferingIndicator').style.display = 'flex';
+    }
+    
+    video.currentTime = targetTime;
+    
+    // Update progress bar immediately for better UX
+    const percent = (targetTime / video.duration) * 100;
+    document.getElementById('videoProgressBar').style.width = percent + '%';
 }
 
 function toggleFullscreen(e) {
@@ -2202,14 +2464,27 @@ function closePreviewModal() {
     const videoPlayer = document.getElementById('videoPlayer');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
+    const bufferingIndicator = document.getElementById('bufferingIndicator');
     
     // Clear video properly
     try {
         if (videoPlayer) {
+            videoPlayer.oncanplay = null;
+            videoPlayer.onwaiting = null;
+            videoPlayer.onplaying = null;
+            videoPlayer.ontimeupdate = null;
+            videoPlayer.onprogress = null;
             videoPlayer.onerror = null;
+            videoPlayer.onended = null;
+            videoPlayer.ondblclick = null;
             videoPlayer.pause();
-            videoPlayer.src = '';
+            videoPlayer.removeAttribute('src');
             videoPlayer.load();
+        }
+        
+        // Reset buffering indicator
+        if (bufferingIndicator) {
+            bufferingIndicator.style.display = 'none';
         }
     } catch (err) {
         console.error('Video cleanup error:', err);
@@ -2224,6 +2499,9 @@ function closePreviewModal() {
     
     // Reset loading state
     isLoadingImage = false;
+    
+    // Remove keyboard event handler
+    document.onkeydown = null;
 }
 </script>
 
