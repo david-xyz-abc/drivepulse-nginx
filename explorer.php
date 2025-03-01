@@ -702,19 +702,46 @@ html, body {
 
 .folders-container {
   padding: 20px;
-  overflow-y: auto;
-  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   height: 100%;
+  box-sizing: border-box;
+}
+
+.folder-list-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  margin-bottom: 10px;
+  /* Custom scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-red) var(--background);
+}
+
+/* For Webkit browsers (Chrome, Safari, etc.) */
+.folder-list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.folder-list-container::-webkit-scrollbar-track {
+  background: var(--background);
+  border-radius: 4px;
+}
+
+.folder-list-container::-webkit-scrollbar-thumb {
+  background: var(--accent-red);
+  border-radius: 4px;
+}
+
+.folder-list-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
 }
 
 .top-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 15px;
+  margin-bottom: 2px;
   justify-content: flex-start;
 }
 
@@ -726,13 +753,15 @@ html, body {
 }
 
 .storage-indicator {
-  margin-top: auto;
+  margin-top: 10px;
   padding: 10px;
   background: var(--content-bg);
   border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 12px;
   color: var(--text-color);
+  width: calc(100% - 22px);
+  box-sizing: border-box;
 }
 
 .storage-indicator p {
@@ -818,13 +847,19 @@ html, body {
 }
 
 .folder-item {
+  display: flex;
+  align-items: center;
   padding: 8px 10px;
-  margin-bottom: 5px;
   border-radius: 4px;
-  background: var(--content-bg);
+  margin-bottom: 2px;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background-color 0.2s;
+  color: var(--text-color);
+  word-break: break-word;
+  max-width: 100%;
 }
+
+.folder-item i { margin-right: 6px; }
 
 .folder-item:hover { background: var(--border-color); }
 
@@ -833,8 +868,6 @@ html, body {
   color: #fff;
   transform: translateX(5px);
 }
-
-.folder-item i { margin-right: 6px; }
 
 .main-content {
   flex: 1;
@@ -1654,6 +1687,73 @@ button, .btn, .file-row, .folder-item, img, i {
 .folders-container {
   position: relative;
   z-index: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.folder-list-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  margin-bottom: 10px;
+  /* Custom scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-red) var(--background);
+}
+
+/* For Webkit browsers (Chrome, Safari, etc.) */
+.folder-list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.folder-list-container::-webkit-scrollbar-track {
+  background: var(--background);
+  border-radius: 4px;
+}
+
+.folder-list-container::-webkit-scrollbar-thumb {
+  background: var(--accent-red);
+  border-radius: 4px;
+}
+
+.folder-list-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+}
+
+.top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+  justify-content: flex-start;
+}
+
+.drivepulse-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  margin-top: 10px;
+  justify-content: center;
+}
+
+.drivepulse-logo {
+  font-size: 24px;
+  color: var(--accent-red);
+}
+
+.drivepulse-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.separator-line {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 10px 0;
 }
 </style>
 </head>
@@ -1662,8 +1762,12 @@ button, .btn, .file-row, .folder-item, img, i {
     <div class="sidebar" id="sidebar">
       <div id="sidebar-particles-js"></div>
       <div class="folders-container">
+        <div class="drivepulse-header">
+          <i class="fas fa-cloud-upload-alt drivepulse-logo"></i>
+          <span class="drivepulse-title">DrivePulse</span>
+        </div>
+        <div class="separator-line"></div>
         <div class="top-row">
-          <h2>Folders</h2>
           <?php if ($parentLink): ?>
             <a class="btn-back" href="<?php echo htmlspecialchars($parentLink); ?>" title="Back">
               <i class="fas fa-arrow-left"></i>
@@ -1682,17 +1786,20 @@ button, .btn, .file-row, .folder-item, img, i {
             <i class="fa fa-sign-out" aria-hidden="true"></i>
           </a>
         </div>
-        <ul class="folder-list">
-          <?php foreach ($folders as $folderName): ?>
-            <?php $folderPath = ($currentRel === 'Home' ? '' : $currentRel . '/') . $folderName; 
-                  log_debug("Folder path for $folderName: $folderPath"); ?>
-            <li class="folder-item"
-                data-folder-path="<?php echo urlencode($folderPath); ?>"
-                data-folder-name="<?php echo addslashes($folderName); ?>">
-              <i class="fas fa-folder"></i> <?php echo htmlspecialchars($folderName); ?>
-            </li>
-          <?php endforeach; ?>
-        </ul>
+        <div class="separator-line"></div>
+        <div class="folder-list-container">
+          <ul class="folder-list">
+            <?php foreach ($folders as $folderName): ?>
+              <?php $folderPath = ($currentRel === 'Home' ? '' : $currentRel . '/') . $folderName; 
+                    log_debug("Folder path for $folderName: $folderPath"); ?>
+              <li class="folder-item"
+                  data-folder-path="<?php echo urlencode($folderPath); ?>"
+                  data-folder-name="<?php echo addslashes($folderName); ?>">
+                <i class="fas fa-folder"></i> <?php echo htmlspecialchars($folderName); ?>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
         <div class="storage-indicator">
           <p><?php echo "$usedStorageGB GB used of $totalStorageGB GB"; ?></p>
           <div class="storage-bar">
