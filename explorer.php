@@ -593,6 +593,49 @@ function isVideo($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     return in_array($ext, ['mp4', 'webm', 'ogg', 'mkv']);
 }
+
+/************************************************
+ * 13. Handle AJAX file info request
+ ************************************************/
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'get_file_info') {
+    if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Not logged in']);
+        exit;
+    }
+    
+    $fileName = isset($_POST['file_name']) ? $_POST['file_name'] : '';
+    $currentFolder = isset($_POST['current_folder']) ? $_POST['current_folder'] : 'Home';
+    
+    if (empty($fileName)) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'No file specified']);
+        exit;
+    }
+    
+    // Build the file path
+    $filePath = realpath($baseDir . '/' . $currentFolder . '/' . $fileName);
+    
+    // Security check - make sure the file is within the user's directory
+    if ($filePath === false || strpos($filePath, $baseDir) !== 0 || !file_exists($filePath) || is_dir($filePath)) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'File not found or access denied']);
+        exit;
+    }
+    
+    // Get file information
+    $fileInfo = [
+        'success' => true,
+        'name' => basename($filePath),
+        'size' => filesize($filePath),
+        'type' => mime_content_type($filePath),
+        'modified' => filemtime($filePath)
+    ];
+    
+    header('Content-Type: application/json');
+    echo json_encode($fileInfo);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -622,11 +665,14 @@ function isVideo($fileName) {
   --sidebar-bg: linear-gradient(135deg, #1e1e1e, #2a2a2a);
   --content-bg: #1e1e1e;
   --border-color: #333;
+  --border-color-rgb: 51, 51, 51; /* Added RGB values for border color */
   --button-bg: linear-gradient(135deg, #555, #777);
   --button-hover: linear-gradient(135deg, #777, #555);
   --accent-red: #d32f2f;
   --dropzone-bg: rgba(211, 47, 47, 0.1);
   --dropzone-border: #d32f2f;
+  --texture-color: rgba(255, 255, 255, 0.03);
+  --red-glow: rgba(211, 47, 47, 0.05);
 }
 
 body.light-mode {
@@ -635,11 +681,14 @@ body.light-mode {
   --sidebar-bg: linear-gradient(135deg, #e0e0e0, #fafafa);
   --content-bg: #fff;
   --border-color: #ccc;
+  --border-color-rgb: 204, 204, 204; /* Added RGB values for border color in light mode */
   --button-bg: linear-gradient(135deg, #888, #aaa);
   --button-hover: linear-gradient(135deg, #aaa, #888);
   --accent-red: #f44336;
   --dropzone-bg: rgba(244, 67, 54, 0.1);
   --dropzone-border: #f44336;
+  --texture-color: rgba(0, 0, 0, 0.03);
+  --red-glow: rgba(244, 67, 54, 0.08);
 }
 
 html, body {
@@ -741,6 +790,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-top:2px;
   margin-bottom: 2px;
   justify-content: flex-start;
 }
@@ -849,24 +899,51 @@ html, body {
 .folder-item {
   display: flex;
   align-items: center;
-  padding: 8px 10px;
-  border-radius: 4px;
-  margin-bottom: 2px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  color: var(--text-color);
-  word-break: break-word;
-  max-width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 0;
+  position: relative;
+  background-color: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(var(--border-color-rgb), 0.3);
+  box-shadow: none;
+  transition: all 0.2s ease;
+}
+
+.folder-item:hover {
+  background-color: rgba(var(--hover-color-rgb), 0.1);
+  transform: translateY(-1px);
+  border-bottom-color: var(--accent-red);
+  border-bottom-width: 2px;
 }
 
 .folder-item i { margin-right: 6px; }
 
-.folder-item:hover { background: var(--border-color); }
-
 .folder-item.selected {
-  background: var(--accent-red);
-  color: #fff;
-  transform: translateX(5px);
+  background: rgba(var(--border-color-rgb), 0.2); /* Changed to semi-transparent selection */
+}
+
+/* Add styles for folder actions */
+.folder-actions {
+  display: flex;
+  margin-left: auto;
+}
+
+.folder-more-options-btn {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.folder-more-options-btn:hover {
+  background-color: var(--border-color);
 }
 
 .main-content {
@@ -916,6 +993,13 @@ html, body {
   overflow-y: auto;
   padding: 20px;
   position: relative;
+  background-color: var(--content-bg);
+  background-image: 
+    linear-gradient(to bottom, var(--red-glow) 0%, transparent 70%),
+    linear-gradient(var(--texture-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--texture-color) 1px, transparent 1px);
+  background-size: 100% 100%, 20px 20px, 20px 20px;
+  background-position: center top;
 }
 
 .file-list {
@@ -933,13 +1017,21 @@ html, body {
 .file-row {
   display: flex;
   align-items: center;
-  padding: 8px;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  transition: box-shadow 0.3s ease, transform 0.2s;
+  padding: 8px 12px;
+  margin-bottom: 0;
   position: relative;
-  cursor: pointer;
+  background-color: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(var(--border-color-rgb), 0.3);
+  box-shadow: none;
+  transition: all 0.2s ease;
+}
+
+.file-row:hover {
+  background-color: rgba(var(--hover-color-rgb), 0.1);
+  transform: translateY(-1px);
+  border-bottom-color: var(--accent-red);
+  border-bottom-width: 2px;
 }
 
 .file-list.grid-view .file-row {
@@ -951,16 +1043,10 @@ html, body {
   overflow: hidden;
   position: relative;
   cursor: pointer;
-}
-
-.file-row:hover {
-  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-  transform: translateX(5px);
-}
-
-.file-list.grid-view .file-row:hover {
-  transform: scale(1.05);
-  translate: 0;
+  background: transparent;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  margin: 0;
 }
 
 .file-icon {
@@ -1037,7 +1123,7 @@ html, body {
   overflow: hidden;
 }
 
-.file-name:hover { border-bottom: 1px solid var(--accent-red); }
+.file-name:hover { border-bottom: 2px solid var(--accent-red); }
 
 .file-list.grid-view .file-name:hover { border-bottom: none; }
 
@@ -1068,6 +1154,12 @@ html, body {
   position: absolute;
   top: 5px;
   left: 5px;
+}
+
+.file-list.grid-view .more-options-btn {
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
 }
 
 #fileInput { display: none; }
@@ -1490,7 +1582,13 @@ button, .btn, .file-row, .folder-item, img, i {
 
 .file-row:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border-bottom-color: var(--accent-red);
+}
+
+.file-list.grid-view .file-row:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-red);
+    border-width: 2px;
 }
 
 @keyframes fadeIn {
@@ -1617,28 +1715,31 @@ button, .btn, .file-row, .folder-item, img, i {
 
 /* Context Menu Styles */
 .context-menu {
-    position: fixed;
-    z-index: 1000;
-    width: 200px;
-    background: var(--content-bg);
-    border-radius: 5px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    display: none;
-    overflow: hidden;
-    animation: fadeIn 0.15s ease-out;
+    position: absolute;
+    background-color: var(--content-bg);
     border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 10000;
+    min-width: 150px;
+    display: none;
 }
 
 .context-menu-item {
-    padding: 10px 15px;
+    padding: 8px 12px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    transition: background-color 0.2s;
+    border-bottom: 2px solid rgba(var(--border-color-rgb), 0.3);
+    background-color: transparent;
+}
+
+.context-menu-item:last-child {
+    border-bottom: none;
 }
 
 .context-menu-item:hover {
-    background-color: var(--border-color);
+    background-color: rgba(var(--hover-color-rgb), 0.1);
+    border-bottom-color: var(--accent-red);
+    border-bottom-width: 2px;
 }
 
 .context-menu-item i {
@@ -1651,7 +1752,7 @@ button, .btn, .file-row, .folder-item, img, i {
 .context-menu-divider {
     height: 1px;
     background-color: var(--border-color);
-    margin: 5px 0;
+    margin: 0; /* Changed from 5px 0 to 0 */
 }
 
 @keyframes fadeIn {
@@ -1735,7 +1836,7 @@ button, .btn, .file-row, .folder-item, img, i {
   align-items: center;
   gap: 10px;
   margin-bottom: 6px;
-  margin-top: 10px;
+  margin-top: 0px; /* Changed from 10px to 0px to move the logo and text upward */
   justify-content: center;
 }
 
@@ -1754,6 +1855,106 @@ button, .btn, .file-row, .folder-item, img, i {
   height: 1px;
   background-color: var(--border-color);
   margin: 10px 0;
+}
+
+.content-inner .folder-list .folder-item {
+  border-bottom: 2px solid var(--border-color);
+  padding: 12px 0;
+  margin: 0 10px;
+  font-size: 16px;
+  background: transparent;
+}
+
+.content-inner .folder-list .folder-item i {
+  font-size: 24px;
+  margin-right: 12px;
+  width: 30px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.content-inner .folder-list .folder-item:last-child {
+  border-bottom: none;
+}
+
+/* Add styles for grid view of folder-list */
+.folder-list.grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  padding: 0;
+  margin: 0;
+}
+
+.folder-list.grid-view .folder-item {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 15px 10px;
+  height: auto;
+  background: transparent;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  margin: 0;
+}
+
+.folder-list.grid-view .folder-item i {
+  font-size: 40px;
+  margin: 0 0 10px 0;
+  width: auto;
+  height: auto;
+}
+
+.folder-list.grid-view .folder-item:hover {
+  background: rgba(var(--border-color-rgb), 0.1);
+  transform: translateY(-2px);
+  border-color: var(--accent-red);
+  border-width: 2px;
+}
+
+.folder-list.grid-view .folder-actions {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  margin: 0;
+}
+
+.folder-list.grid-view .folder-more-options-btn {
+  width: 12px;
+  height: 12px;
+  font-size: 6px;
+}
+
+.content-inner .folder-list .folder-item {
+  border-bottom: 2px solid var(--border-color);
+  padding: 12px 0;
+  margin: 0 10px;
+  font-size: 16px;
+  background: transparent;
+}
+
+.content-inner .folder-list .folder-item:hover {
+  border-bottom-color: var(--accent-red);
+  border-bottom-width: 2px;
+}
+
+.content-inner .folder-list.grid-view .folder-item {
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  margin: 0;
+  padding: 15px 10px;
+}
+
+.content-inner .folder-list.grid-view .folder-item:hover {
+  border-color: var(--accent-red);
+  border-width: 2px;
+}
+
+/* Custom class for smaller ellipsis dots */
+.small-dots {
+  font-size: 1.2em !important;
+  transform: scale(1.2);
+  display: inline-block;
 }
 </style>
 </head>
@@ -1776,15 +1977,7 @@ button, .btn, .file-row, .folder-item, img, i {
           <button type="button" class="btn" title="Create New Folder" onclick="createFolder()">
             <i class="fas fa-folder-plus"></i>
           </button>
-          <button type="button" class="btn" id="btnDeleteFolder" title="Delete selected folder" style="display:none;">
-            <i class="fas fa-trash"></i>
-          </button>
-          <button type="button" class="btn" id="btnRenameFolder" title="Rename selected folder" style="display:none;">
-            <i class="fas fa-edit"></i>
-          </button>
-          <a href="/selfhostedgdrive/logout.php" class="btn logout-btn" title="Logout">
-            <i class="fa fa-sign-out" aria-hidden="true"></i>
-          </a>
+          
         </div>
         <div class="separator-line"></div>
         <div class="folder-list-container">
@@ -1796,6 +1989,11 @@ button, .btn, .file-row, .folder-item, img, i {
                   data-folder-path="<?php echo urlencode($folderPath); ?>"
                   data-folder-name="<?php echo addslashes($folderName); ?>">
                 <i class="fas fa-folder"></i> <?php echo htmlspecialchars($folderName); ?>
+                <div class="folder-actions">
+                  <button class="folder-more-options-btn" title="More options">
+                    <i class="fas fa-ellipsis-v small-dots"></i>
+                  </button>
+                </div>
               </li>
             <?php endforeach; ?>
           </ul>
@@ -1831,6 +2029,9 @@ button, .btn, .file-row, .folder-item, img, i {
           <button type="button" class="btn theme-toggle-btn" id="themeToggleBtn" title="Toggle Theme" style="width:36px; height:36px;">
             <i class="fas fa-moon"></i>
           </button>
+          <a href="/selfhostedgdrive/logout.php" class="btn logout-btn" title="Logout">
+            <i class="fa fa-sign-out" aria-hidden="true"></i>
+          </a>
           <div id="uploadProgressContainer">
             <div style="background:var(--border-color); width:100%; height:20px; border-radius:4px; overflow:hidden;">
               <div id="uploadProgressBar"></div>
@@ -1841,34 +2042,36 @@ button, .btn, .file-row, .folder-item, img, i {
         </div>
       </div>
       <div class="content-inner">
-        <div id="dropZone">Drop files here to upload</div>
-        <div class="file-list" id="fileList">
+        
+        <ul class="folder-list" id="fileList">
           <?php foreach ($files as $fileName): ?>
             <?php 
                 $relativePath = $currentRel . '/' . $fileName;
                 $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
                 $iconClass = getIconClass($fileName);
                 $isImageFile = isImage($fileName);
+                $filePath = $currentDir . '/' . $fileName;
+                $fileSize = filesize($filePath);
+                $fileType = mime_content_type($filePath);
+                $fileModified = filemtime($filePath);
+                
                 log_debug("File URL for $fileName: $fileURL");
             ?>
-            <div class="file-row" data-file-url="<?php echo htmlspecialchars($fileURL); ?>" data-file-name="<?php echo addslashes($fileName); ?>">
-                <i class="<?php echo $iconClass; ?> file-icon<?php echo $isImageFile ? '' : ' no-preview'; ?>"></i>
-                <?php if ($isImageFile): ?>
-                    <img src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="file-preview" loading="lazy">
-                <?php else: ?>
-                    <i class="<?php echo $iconClass; ?> file-icon-large"></i>
-                <?php endif; ?>
-                <div class="file-name" title="<?php echo htmlspecialchars($fileName); ?>">
-                    <?php echo htmlspecialchars($fileName); ?>
+            <li class="folder-item"
+                data-file-url="<?php echo htmlspecialchars($fileURL); ?>" 
+                data-file-name="<?php echo addslashes($fileName); ?>"
+                data-file-size="<?php echo $fileSize; ?>"
+                data-file-type="<?php echo htmlspecialchars($fileType); ?>"
+                data-file-modified="<?php echo $fileModified; ?>">
+                <i class="<?php echo $iconClass; ?>"></i> <?php echo htmlspecialchars($fileName); ?>
+                <div class="folder-actions">
+                  <button class="folder-more-options-btn" title="More options">
+                    <i class="fas fa-ellipsis-v small-dots"></i>
+                  </button>
                 </div>
-                <div class="file-actions">
-                    <button class="more-options-btn" title="More options">
-                        <i class="fas fa-ellipsis-v"></i>
-                    </button>
-                </div>
-            </div>
+            </li>
           <?php endforeach; ?>
-        </div>
+        </ul>
       </div>
     </div>
   </div>
@@ -1909,7 +2112,7 @@ button, .btn, .file-row, .folder-item, img, i {
   </div>
 
   <!-- Mobile menu overlay -->
-  <div id="mobileMenuOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999;"></div>
+  <div id="mobileMenuOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999;"></div>
 
   <!-- Add context menu at the bottom of the page -->
   <div id="contextMenu" class="context-menu">
@@ -1917,6 +2120,9 @@ button, .btn, .file-row, .folder-item, img, i {
     <div class="file-context-options" style="display: none;">
       <div class="context-menu-item" id="contextMenuOpen">
           <i class="fas fa-eye"></i> Open
+      </div>
+      <div class="context-menu-item" id="contextMenuInfo">
+          <i class="fas fa-info-circle"></i> Info
       </div>
       <div class="context-menu-item" id="contextMenuDownload">
           <i class="fas fa-download"></i> Download
@@ -1965,8 +2171,6 @@ function selectFolder(element, folderName) {
   document.querySelectorAll('.folder-item.selected').forEach(item => item.classList.remove('selected'));
   element.classList.add('selected');
   selectedFolder = folderName;
-  document.getElementById('btnDeleteFolder').style.display = 'flex';
-  document.getElementById('btnRenameFolder').style.display = 'flex';
 }
 
 function openFolder(folderPath) {
@@ -2016,7 +2220,7 @@ function showAlert(message, callback) {
   const dialogModal = document.getElementById('dialogModal');
   const dialogMessage = document.getElementById('dialogMessage');
   const dialogButtons = document.getElementById('dialogButtons');
-  dialogMessage.textContent = message;
+  dialogMessage.innerHTML = message;
   dialogButtons.innerHTML = '';
   const okBtn = document.createElement('button');
   okBtn.className = 'dialog-button';
@@ -2066,45 +2270,6 @@ function createFolder() {
     }
   });
 }
-
-document.getElementById('btnRenameFolder').addEventListener('click', function() {
-  if (!selectedFolder) return;
-  showPrompt("Enter new folder name:", selectedFolder, function(newName) {
-    if (newName && newName.trim() !== "" && newName !== selectedFolder) {
-      let form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
-      let inputAction = document.createElement('input');
-      inputAction.type = 'hidden';
-      inputAction.name = 'rename_folder';
-      inputAction.value = '1';
-      form.appendChild(inputAction);
-      let inputOld = document.createElement('input');
-      inputOld.type = 'hidden';
-      inputOld.name = 'old_folder_name';
-      inputOld.value = selectedFolder;
-      form.appendChild(inputOld);
-      let inputNew = document.createElement('input');
-      inputNew.type = 'hidden';
-      inputNew.name = 'new_folder_name';
-      inputNew.value = newName.trim();
-      form.appendChild(inputNew);
-      document.body.appendChild(form);
-      form.submit();
-    }
-  });
-});
-
-document.getElementById('btnDeleteFolder').addEventListener('click', function() {
-  if (!selectedFolder) return;
-  showConfirm(`Delete folder "${selectedFolder}"?`, () => {
-    let form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>&delete=' + encodeURIComponent(selectedFolder);
-    document.body.appendChild(form);
-    form.submit();
-  });
-});
 
 function renameFilePrompt(fileName) {
   let dotIndex = fileName.lastIndexOf(".");
@@ -2746,8 +2911,8 @@ let currentFileURL = '';
 
 // Prevent default context menu on the entire document
 document.addEventListener('contextmenu', function(e) {
-  // Only prevent default on file rows and folder items
-  if (e.target.closest('.file-row') || e.target.closest('.folder-item')) {
+  // Only prevent default on folder items
+  if (e.target.closest('.folder-item')) {
     e.preventDefault();
   }
 });
@@ -2800,50 +2965,34 @@ function positionContextMenu(x, y) {
   contextMenu.style.display = 'block';
 }
 
-// Add event listeners to file rows for context menu and click
-document.querySelectorAll('.file-row').forEach(fileRow => {
-  // Extract file information from data attributes
-  const fileURL = fileRow.getAttribute('data-file-url');
-  const fileName = fileRow.getAttribute('data-file-name');
+// Initialize context menu functionality after DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+  // Add event listeners to all folder items in the main content area
+  const contentFolderItems = document.querySelectorAll('.content-inner .folder-item');
   
-  if (fileURL && fileName) {
-    // Add left-click event to open preview
-    fileRow.addEventListener('click', function(e) {
-      // Don't open preview if clicking on the more options button
-      if (e.target.closest('.more-options-btn')) {
-        e.stopPropagation();
-        return;
-      }
-      openPreviewModal(fileURL, fileName);
-    });
+  contentFolderItems.forEach(item => {
+    const fileURL = item.getAttribute('data-file-url');
+    const fileName = item.getAttribute('data-file-name');
     
-    // Add context menu event
-    fileRow.addEventListener('contextmenu', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
+    // If it has a file URL, it's a file item
+    if (fileURL && fileName) {
+      // Add left-click event to open preview
+      item.addEventListener('click', function(e) {
+        // Don't open preview if clicking on the more options button
+        if (e.target.closest('.folder-more-options-btn')) {
+          e.stopPropagation();
+          return;
+        }
+        openPreviewModal(fileURL, fileName);
+      });
       
-      // Store the current file information
-      currentFileElement = fileRow;
-      currentFileName = fileName;
-      currentFileURL = fileURL;
-      
-      // Show file options, hide folder options
-      fileContextOptions.style.display = 'block';
-      folderContextOptions.style.display = 'none';
-      
-      // Position and show the context menu
-      positionContextMenu(e.pageX, e.pageY);
-    });
-    
-    // Add more options button click event
-    const moreOptionsBtn = fileRow.querySelector('.more-options-btn');
-    if (moreOptionsBtn) {
-      moreOptionsBtn.addEventListener('click', function(e) {
+      // Add context menu event
+      item.addEventListener('contextmenu', function(e) {
         e.preventDefault();
         e.stopPropagation();
         
         // Store the current file information
-        currentFileElement = fileRow;
+        currentFileElement = item;
         currentFileName = fileName;
         currentFileURL = fileURL;
         
@@ -2851,51 +3000,163 @@ document.querySelectorAll('.file-row').forEach(fileRow => {
         fileContextOptions.style.display = 'block';
         folderContextOptions.style.display = 'none';
         
-        // Get button position
-        const rect = this.getBoundingClientRect();
-        const x = rect.left;
-        const y = rect.bottom;
+        // Position and show the context menu
+        positionContextMenu(e.pageX, e.pageY);
+      });
+      
+      // Add more options button click event
+      const moreOptionsBtn = item.querySelector('.folder-more-options-btn');
+      if (moreOptionsBtn) {
+        moreOptionsBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Store the current file information
+          currentFileElement = item;
+          currentFileName = fileName;
+          currentFileURL = fileURL;
+          
+          // Show file options, hide folder options
+          fileContextOptions.style.display = 'block';
+          folderContextOptions.style.display = 'none';
+          
+          // Get button position
+          const rect = this.getBoundingClientRect();
+          const x = rect.left;
+          const y = rect.bottom;
+          
+          // Position and show the context menu
+          positionContextMenu(x, y);
+        });
+      }
+    } else {
+      // It's a folder item
+      const folderPath = item.getAttribute('data-folder-path');
+      const folderName = item.getAttribute('data-folder-name');
+      
+      if (folderPath && folderName) {
+        // Change click event to open folder directly
+        item.addEventListener('click', function(e) {
+          // Don't open folder if clicking on the more options button
+          if (e.target.closest('.folder-more-options-btn')) {
+            e.stopPropagation();
+            return;
+          }
+          
+          e.stopPropagation();
+          // First select the folder (for visual feedback)
+          selectFolder(this, folderName);
+          // Then open the folder
+          openFolder(folderPath);
+        });
+        
+        // Add more options button click event
+        const moreOptionsBtn = item.querySelector('.folder-more-options-btn');
+        if (moreOptionsBtn) {
+          moreOptionsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Select the folder first
+            selectFolder(item, folderName);
+            
+            // Show folder options, hide file options
+            fileContextOptions.style.display = 'none';
+            folderContextOptions.style.display = 'block';
+            
+            // Get button position
+            const rect = this.getBoundingClientRect();
+            const x = rect.left;
+            const y = rect.bottom;
+            
+            // Position and show the context menu
+            positionContextMenu(x, y);
+          });
+        }
+        
+        // Add context menu event
+        item.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Select the folder first
+          selectFolder(this, folderName);
+          
+          // Show folder options, hide file options
+          fileContextOptions.style.display = 'none';
+          folderContextOptions.style.display = 'block';
+          
+          // Position and show the context menu
+          positionContextMenu(e.pageX, e.pageY);
+        });
+      }
+    }
+  });
+
+  // Add event listeners to sidebar folder items
+  const sidebarFolderItems = document.querySelectorAll('.sidebar .folder-item');
+  
+  sidebarFolderItems.forEach(item => {
+    const folderPath = item.getAttribute('data-folder-path');
+    const folderName = item.getAttribute('data-folder-name');
+    
+    if (folderPath && folderName) {
+      // Change click event to open folder directly
+      item.addEventListener('click', function(e) {
+        // Don't open folder if clicking on the more options button
+        if (e.target.closest('.folder-more-options-btn')) {
+          e.stopPropagation();
+          return;
+        }
+        
+        e.stopPropagation();
+        // First select the folder (for visual feedback)
+        selectFolder(this, folderName);
+        // Then open the folder
+        openFolder(folderPath);
+      });
+      
+      // Add more options button click event
+      const moreOptionsBtn = item.querySelector('.folder-more-options-btn');
+      if (moreOptionsBtn) {
+        moreOptionsBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Select the folder first
+          selectFolder(item, folderName);
+          
+          // Show folder options, hide file options
+          fileContextOptions.style.display = 'none';
+          folderContextOptions.style.display = 'block';
+          
+          // Get button position
+          const rect = this.getBoundingClientRect();
+          const x = rect.left;
+          const y = rect.bottom;
+          
+          // Position and show the context menu
+          positionContextMenu(x, y);
+        });
+      }
+      
+      // Add context menu event
+      item.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Select the folder first
+        selectFolder(this, folderName);
+        
+        // Show folder options, hide file options
+        fileContextOptions.style.display = 'none';
+        folderContextOptions.style.display = 'block';
         
         // Position and show the context menu
-        positionContextMenu(x, y);
+        positionContextMenu(e.pageX, e.pageY);
       });
     }
-  }
-});
-
-// Add event listeners to folder items
-document.querySelectorAll('.folder-item').forEach(folderItem => {
-  const folderPath = folderItem.getAttribute('data-folder-path');
-  const folderName = folderItem.getAttribute('data-folder-name');
-  
-  if (folderPath && folderName) {
-    // Add click event to select folder
-    folderItem.addEventListener('click', function(e) {
-      e.stopPropagation();
-      selectFolder(this, folderName);
-    });
-    
-    // Add double-click event to open folder
-    folderItem.addEventListener('dblclick', function(e) {
-      openFolder(folderPath);
-    });
-    
-    // Add context menu event
-    folderItem.addEventListener('contextmenu', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Select the folder first
-      selectFolder(this, folderName);
-      
-      // Show folder options, hide file options
-      fileContextOptions.style.display = 'none';
-      folderContextOptions.style.display = 'block';
-      
-      // Position and show the context menu
-      positionContextMenu(e.pageX, e.pageY);
-    });
-  }
+  });
 });
 
 // Hide context menu when clicking elsewhere
@@ -2917,8 +3178,15 @@ contextMenu.addEventListener('click', function(e) {
 
 // File context menu actions
 document.getElementById('contextMenuOpen').addEventListener('click', function() {
-  if (currentFileElement) {
+  if (currentFileURL) {
     openPreviewModal(currentFileURL, currentFileName);
+    contextMenu.style.display = 'none';
+  }
+});
+
+document.getElementById('contextMenuInfo').addEventListener('click', function() {
+  if (currentFileName) {
+    showFileInfo(currentFileName);
     contextMenu.style.display = 'none';
   }
 });
@@ -2947,50 +3215,22 @@ document.getElementById('contextMenuDelete').addEventListener('click', function(
 // Folder context menu actions
 document.getElementById('contextMenuOpenFolder').addEventListener('click', function() {
   if (selectedFolder) {
-    openFolder(selectedFolder);
+    const folderPath = document.querySelector('.folder-item.selected').getAttribute('data-folder-path');
+    openFolder(folderPath);
     contextMenu.style.display = 'none';
   }
 });
 
 document.getElementById('contextMenuRenameFolder').addEventListener('click', function() {
   if (selectedFolder) {
-    showPrompt("Enter new folder name:", selectedFolder, function(newName) {
-      if (newName && newName.trim() !== "" && newName !== selectedFolder) {
-        let form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
-        let inputAction = document.createElement('input');
-        inputAction.type = 'hidden';
-        inputAction.name = 'rename_folder';
-        inputAction.value = '1';
-        form.appendChild(inputAction);
-        let inputOld = document.createElement('input');
-        inputOld.type = 'hidden';
-        inputOld.name = 'old_folder_name';
-        inputOld.value = selectedFolder;
-        form.appendChild(inputOld);
-        let inputNew = document.createElement('input');
-        inputNew.type = 'hidden';
-        inputNew.name = 'new_folder_name';
-        inputNew.value = newName.trim();
-        form.appendChild(inputNew);
-        document.body.appendChild(form);
-        form.submit();
-      }
-    });
+    renameFolderPrompt(selectedFolder);
     contextMenu.style.display = 'none';
   }
 });
 
 document.getElementById('contextMenuDeleteFolder').addEventListener('click', function() {
   if (selectedFolder) {
-    showConfirm(`Delete folder "${selectedFolder}"?`, () => {
-      let form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>&delete=' + encodeURIComponent(selectedFolder);
-      document.body.appendChild(form);
-      form.submit();
-    });
+    confirmFolderDelete(selectedFolder);
     contextMenu.style.display = 'none';
   }
 });
@@ -3079,6 +3319,85 @@ particlesJS('sidebar-particles-js', {
   },
   retina_detect: true
 });
+
+// Function to display file information
+function showFileInfo(fileName) {
+  // Get file information from data attributes
+  const fileElement = document.querySelector(`.folder-item[data-file-name="${fileName.replace(/"/g, '\\"')}"]`);
+  if (!fileElement) return;
+  
+  const fileSize = parseInt(fileElement.getAttribute('data-file-size'));
+  const fileType = fileElement.getAttribute('data-file-type');
+  const fileModified = parseInt(fileElement.getAttribute('data-file-modified'));
+  
+  // Format the file size
+  let sizeStr = '';
+  if (fileSize < 1024) {
+    sizeStr = fileSize + ' B';
+  } else if (fileSize < 1024 * 1024) {
+    sizeStr = (fileSize / 1024).toFixed(2) + ' KB';
+  } else if (fileSize < 1024 * 1024 * 1024) {
+    sizeStr = (fileSize / (1024 * 1024)).toFixed(2) + ' MB';
+  } else {
+    sizeStr = (fileSize / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  }
+  
+  // Format the date
+  const date = new Date(fileModified * 1000);
+  const dateStr = date.toLocaleString();
+  
+  // Create info message
+  const infoMessage = `
+    <div style="text-align: left;">
+      <p><strong>Name:</strong> ${fileName}</p>
+      <p><strong>Size:</strong> ${sizeStr}</p>
+      <p><strong>Type:</strong> ${fileType}</p>
+      <p><strong>Modified:</strong> ${dateStr}</p>
+    </div>
+  `;
+  
+  // Show the info in a dialog
+  showAlert(infoMessage);
+}
+
+// Function to handle folder rename
+function renameFolderPrompt(folderName) {
+  showPrompt("Enter new folder name:", folderName, function(newName) {
+    if (newName && newName.trim() !== "" && newName !== folderName) {
+      let form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
+      let inputAction = document.createElement('input');
+      inputAction.type = 'hidden';
+      inputAction.name = 'rename_folder';
+      inputAction.value = '1';
+      form.appendChild(inputAction);
+      let inputOld = document.createElement('input');
+      inputOld.type = 'hidden';
+      inputOld.name = 'old_folder_name';
+      inputOld.value = folderName;
+      form.appendChild(inputOld);
+      let inputNew = document.createElement('input');
+      inputNew.type = 'hidden';
+      inputNew.name = 'new_folder_name';
+      inputNew.value = newName.trim();
+      form.appendChild(inputNew);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  });
+}
+
+// Function to handle folder delete
+function confirmFolderDelete(folderName) {
+  showConfirm(`Delete folder "${folderName}"?`, () => {
+    let form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>&delete=' + encodeURIComponent(folderName);
+    document.body.appendChild(form);
+    form.submit();
+  });
+}
 </script>
 
 </body>
