@@ -10,21 +10,9 @@ function log_debug($message) {
     }
 }
 
-// Database connection
-$db_host = 'localhost';
-$db_name = 'webdav_users';
-$db_user = 'webdav_admin';
-$db_pass = 'webdav_password';
-
-try {
-    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    log_debug("Database connection failed: " . $e->getMessage());
-    $_SESSION['error'] = "System error. Please try again later.";
-    header("Location: index.php");
-    exit;
-}
+// Define the reset tokens directory
+$reset_tokens_dir = '/var/www/html/selfhostedgdrive/reset_tokens';
+$users_file = '/var/www/html/selfhostedgdrive/users.json';
 
 // Verify token
 $token = isset($_GET['token']) ? trim($_GET['token']) : '';
@@ -35,17 +23,26 @@ if (empty($token)) {
 }
 
 // Check if token exists and is valid
-$stmt = $pdo->prepare("SELECT * FROM password_resets WHERE token = ? AND expires > NOW()");
-$stmt->execute([$token]);
-$reset = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$reset) {
+$token_file = $reset_tokens_dir . '/' . $token . '.json';
+if (!file_exists($token_file)) {
     $_SESSION['error'] = "Invalid or expired reset token. Please request a new password reset.";
     header("Location: index.php");
     exit;
 }
 
-$username = $reset['username'];
+// Read token data
+$token_data = json_decode(file_get_contents($token_file), true);
+
+// Check if token has expired
+if (time() > $token_data['expires']) {
+    // Delete expired token file
+    unlink($token_file);
+    $_SESSION['error'] = "Your password reset link has expired. Please request a new one.";
+    header("Location: index.php");
+    exit;
+}
+
+$username = $token_data['username'];
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -62,17 +59,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
         
         try {
-            $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE username = ?");
-            $stmt->execute([$hashed_password, $username]);
+            // Read users file
+            if (!file_exists($users_file)) {
+                throw new Exception("Users file not found.");
+            }
             
-            // Delete the reset token
-            $stmt = $pdo->prepare("DELETE FROM password_resets WHERE token = ?");
-            $stmt->execute([$token]);
+            $users = json_decode(file_get_contents($users_file), true);
+            
+            if (!isset($users[$username])) {
+                throw new Exception("User not found.");
+            }
+            
+            // Update password
+            $users[$username]['password'] = $hashed_password;
+            
+            // Save updated users file
+            file_put_contents($users_file, json_encode($users, JSON_PRETTY_PRINT));
+            
+            // Delete the reset token file
+            unlink($token_file);
             
             $_SESSION['message'] = "Your password has been successfully reset. You can now log in with your new password.";
             header("Location: index.php");
             exit;
-        } catch (PDOException $e) {
+        } catch (Exception $e) {
             log_debug("Password update failed: " . $e->getMessage());
             $error = "Failed to update password. Please try again.";
         }
@@ -380,4 +390,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     });
   </script>
 </body>
+</html> 
 </html> 

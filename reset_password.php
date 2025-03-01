@@ -10,20 +10,29 @@ function log_debug($message) {
     }
 }
 
-// Database connection
-$db_host = 'localhost';
-$db_name = 'webdav_users';
-$db_user = 'webdav_admin';
-$db_pass = 'webdav_password';
+// Define the reset tokens directory
+$reset_tokens_dir = '/var/www/html/selfhostedgdrive/reset_tokens';
 
-try {
-    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    log_debug("Database connection failed: " . $e->getMessage());
-    $_SESSION['error'] = "System error. Please try again later.";
-    header("Location: index.php");
-    exit;
+// Create the directory if it doesn't exist
+if (!file_exists($reset_tokens_dir)) {
+    mkdir($reset_tokens_dir, 0755, true);
+}
+
+// Function to get user data
+function getUserData($username) {
+    $users_file = '/var/www/html/selfhostedgdrive/users.json';
+    
+    if (!file_exists($users_file)) {
+        return null;
+    }
+    
+    $users = json_decode(file_get_contents($users_file), true);
+    
+    if (isset($users[$username])) {
+        return $users[$username];
+    }
+    
+    return null;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -36,9 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // Check if username exists
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
-    $stmt->execute([$username]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $user = getUserData($username);
     
     if (!$user) {
         // For security reasons, don't reveal that the username doesn't exist
@@ -49,12 +56,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Generate a unique reset token
     $token = bin2hex(random_bytes(32));
-    $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+    $expires = time() + 3600; // 1 hour from now
     
-    // Store the token in the database
-    $stmt = $pdo->prepare("INSERT INTO password_resets (username, token, expires) VALUES (?, ?, ?) 
-                          ON DUPLICATE KEY UPDATE token = ?, expires = ?");
-    $stmt->execute([$username, $token, $expires, $token, $expires]);
+    // Create token data
+    $token_data = [
+        'username' => $username,
+        'expires' => $expires,
+        'created_at' => time()
+    ];
+    
+    // Store token in a file
+    $token_file = $reset_tokens_dir . '/' . $token . '.json';
+    file_put_contents($token_file, json_encode($token_data));
     
     // In a real application, you would send an email with the reset link
     // For this demo, we'll just show the reset link on the page

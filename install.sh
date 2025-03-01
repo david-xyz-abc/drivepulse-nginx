@@ -34,6 +34,7 @@ apt-get install -y nginx php-fpm php-json php-mbstring php-xml wget curl
 APP_DIR="/var/www/html/selfhostedgdrive"
 WEBDAV_USERS_DIR="/var/www/html/webdav/users"
 USERS_JSON="$APP_DIR/users.json"
+RESET_TOKENS_DIR="$APP_DIR/reset_tokens"
 
 # Create application directory if it doesn't exist
 if [ ! -d "$APP_DIR" ]; then
@@ -43,7 +44,7 @@ fi
 
 # Backup existing PHP files (if any)
 echo "Backing up existing PHP files..."
-FILES=("index.php" "authenticate.php" "explorer.php" "console.php" "logout.php" "register.php")
+FILES=("index.php" "authenticate.php" "explorer.php" "console.php" "logout.php" "register.php" "reset_password.php" "complete_reset.php" "cleanup_tokens.php")
 for file in "${FILES[@]}"; do
   if [ -f "$APP_DIR/$file" ]; then
     cp "$APP_DIR/$file" "$APP_DIR/$file.bak"
@@ -62,16 +63,51 @@ for file in "${FILES[@]}"; do
   wget -q -O "$APP_DIR/$file" "$FILE_URL" || { echo "ERROR: Failed to download ${file}"; exit 1; }
 done
 
+# Create a README file with information about the password reset feature
+cat << EOF > "$APP_DIR/README.md"
+# DrivePulse - Self-Hosted Google Drive Alternative
+
+## Password Reset Feature
+
+This application includes a password reset feature that allows users to reset their forgotten passwords.
+
+### How it works:
+1. User requests a password reset by entering their username
+2. A unique token is generated and stored in the reset_tokens directory
+3. User receives a reset link (in a real application, this would be sent via email)
+4. User sets a new password using the reset link
+5. The token is deleted after use
+
+### Files:
+- reset_password.php: Handles the initial password reset request
+- complete_reset.php: Processes the password reset form
+- cleanup_tokens.php: Automatically removes expired tokens (runs hourly via cron)
+
+### Security:
+- Tokens expire after 1 hour
+- Tokens are stored in individual files with restrictive permissions
+- Expired tokens are automatically cleaned up
+
+For more information, see the documentation.
+EOF
+
 # Create users.json if it doesn't exist
 if [ ! -f "$USERS_JSON" ]; then
   echo "{}" > "$USERS_JSON"
 fi
 
-# Set ownership and permissions for the application directory and users.json
-echo "Setting permissions for $APP_DIR and $USERS_JSON..."
+# Create reset_tokens directory for password reset functionality
+echo "Creating reset_tokens directory at $RESET_TOKENS_DIR..."
+if [ ! -d "$RESET_TOKENS_DIR" ]; then
+  mkdir -p "$RESET_TOKENS_DIR"
+fi
+
+# Set ownership and permissions for the application directory, users.json, and reset_tokens directory
+echo "Setting permissions for $APP_DIR, $USERS_JSON, and $RESET_TOKENS_DIR..."
 chown -R www-data:www-data "$APP_DIR"
 chmod -R 755 "$APP_DIR"
 chmod 664 "$USERS_JSON"  # Ensure www-data can write to users.json
+chmod 770 "$RESET_TOKENS_DIR"  # More restrictive permissions for reset tokens
 
 # Create the WebDAV users directory for file storage
 echo "Creating WebDAV users directory at $WEBDAV_USERS_DIR..."
@@ -183,6 +219,11 @@ echo "Restarting Nginx and PHP-FPM..."
 systemctl restart nginx
 systemctl restart php${PHP_VERSION}-fpm
 
+# Set up cron job for cleaning up expired password reset tokens
+echo "Setting up cron job for cleaning up expired password reset tokens..."
+CRON_JOB="0 * * * * php $APP_DIR/cleanup_tokens.php > /dev/null 2>&1"
+(crontab -l 2>/dev/null | grep -v "$APP_DIR/cleanup_tokens.php"; echo "$CRON_JOB") | crontab -
+
 # Fetch the server's public IP address
 echo "Fetching public IP address..."
 PUBLIC_IP=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org || echo "Unable to fetch IP")
@@ -195,4 +236,10 @@ echo "======================================"
 echo "Installation Complete!"
 echo "Access your application at: http://$PUBLIC_IP/selfhostedgdrive/"
 echo "If the IP doesn't work, check your server's network settings or use its local IP."
+echo ""
+echo "Password Reset Feature:"
+echo "- The password reset functionality is now installed and configured"
+echo "- Reset tokens are stored in: $RESET_TOKENS_DIR"
+echo "- A cron job has been set up to clean expired tokens hourly"
+echo "- For more details, see $APP_DIR/README.md"
 echo "======================================"
