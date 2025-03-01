@@ -1,11 +1,89 @@
 <?php
 session_start();
+
+// Debug log setup with toggle
+define('DEBUG', false);
+$debug_log = '/var/www/html/selfhostedgdrive/debug.log';
+function log_debug($message) {
+    if (DEBUG) {
+        file_put_contents($debug_log, date('[Y-m-d H:i:s] ') . $message . "\n", FILE_APPEND);
+    }
+}
+
+// Database connection
+$db_host = 'localhost';
+$db_name = 'webdav_users';
+$db_user = 'webdav_admin';
+$db_pass = 'webdav_password';
+
+try {
+    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    log_debug("Database connection failed: " . $e->getMessage());
+    $_SESSION['error'] = "System error. Please try again later.";
+    header("Location: index.php");
+    exit;
+}
+
+// Verify token
+$token = isset($_GET['token']) ? trim($_GET['token']) : '';
+if (empty($token)) {
+    $_SESSION['error'] = "Invalid or missing reset token.";
+    header("Location: index.php");
+    exit;
+}
+
+// Check if token exists and is valid
+$stmt = $pdo->prepare("SELECT * FROM password_resets WHERE token = ? AND expires > NOW()");
+$stmt->execute([$token]);
+$reset = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$reset) {
+    $_SESSION['error'] = "Invalid or expired reset token. Please request a new password reset.";
+    header("Location: index.php");
+    exit;
+}
+
+$username = $reset['username'];
+
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $password = isset($_POST['password']) ? $_POST['password'] : '';
+    $confirm_password = isset($_POST['confirm_password']) ? $_POST['confirm_password'] : '';
+    
+    // Validate password
+    if (empty($password) || strlen($password) < 8) {
+        $error = "Password must be at least 8 characters long.";
+    } elseif ($password !== $confirm_password) {
+        $error = "Passwords do not match.";
+    } else {
+        // Update password
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+        
+        try {
+            $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE username = ?");
+            $stmt->execute([$hashed_password, $username]);
+            
+            // Delete the reset token
+            $stmt = $pdo->prepare("DELETE FROM password_resets WHERE token = ?");
+            $stmt->execute([$token]);
+            
+            $_SESSION['message'] = "Your password has been successfully reset. You can now log in with your new password.";
+            header("Location: index.php");
+            exit;
+        } catch (PDOException $e) {
+            log_debug("Password update failed: " . $e->getMessage());
+            $error = "Failed to update password. Please try again.";
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DrivePulse - Login</title>
+  <title>DrivePulse - Reset Password</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,15 +99,6 @@ session_start();
       --button-bg: linear-gradient(135deg, #555, #777);
       --button-hover: linear-gradient(135deg, #777, #555);
       --accent-red: #ff4444;
-    }
-    body.light-mode {
-      --background: #f5f5f5;
-      --text-color: #333;
-      --content-bg: #fff;
-      --border-color: #ccc;
-      --button-bg: linear-gradient(135deg, #888, #aaa);
-      --button-hover: linear-gradient(135deg, #aaa, #888);
-      --accent-red: #f44336;
     }
     * {
       margin: 0;
@@ -58,7 +127,7 @@ session_start();
       opacity: 0.9;
       background: var(--background);
     }
-    .login-container {
+    .reset-container {
       backdrop-filter: blur(8px);
       background: rgba(30, 30, 30, 0.9);
       border: 1px solid rgba(255, 68, 68, 0.3);
@@ -74,15 +143,11 @@ session_start();
       position: relative;
       z-index: 1;
     }
-    body.light-mode .login-container {
-      background: rgba(255, 255, 255, 0.9);
-      border: 1px solid rgba(244, 67, 54, 0.3);
-    }
     @keyframes containerEntrance {
       0% { opacity: 0; transform: translateY(40px); }
       100% { opacity: 1; transform: translateY(0); }
     }
-    .login-container:hover {
+    .reset-container:hover {
       transform: translateY(-2px);
       box-shadow: 0 12px 40px rgba(0,0,0,0.5);
     }
@@ -147,7 +212,7 @@ session_start();
     .button {
       width: 100%;
       padding: 14px;
-      background: var(--button-bg);
+      background: linear-gradient(135deg, var(--accent-red), #ff2222);
       border: none;
       border-radius: 6px;
       color: var(--text-color);
@@ -177,19 +242,13 @@ session_start();
       top: 50%;
     }
     .button:hover {
-      background: var(--button-hover);
+      background: linear-gradient(135deg, #ff2222, var(--accent-red));
       transform: scale(1.03);
     }
     .button:active {
       transform: scale(0.98);
     }
-    .register-button {
-      background: linear-gradient(135deg, var(--accent-red), #ff2222);
-    }
-    .register-button:hover {
-      background: linear-gradient(135deg, #ff2222, var(--accent-red));
-    }
-    .toggle-link {
+    .back-link {
       color: var(--accent-red);
       cursor: pointer;
       text-decoration: none;
@@ -198,7 +257,7 @@ session_start();
       transition: color 0.3s;
       position: relative;
     }
-    .toggle-link::after {
+    .back-link::after {
       content: '';
       position: absolute;
       bottom: -2px;
@@ -208,88 +267,38 @@ session_start();
       background: currentColor;
       transition: width 0.3s ease;
     }
-    .toggle-link:hover::after {
+    .back-link:hover::after {
       width: 100%;
-    }
-    .hidden {
-      opacity: 0;
-      max-height: 0;
-      overflow: hidden;
-      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    form:not(.hidden) {
-      animation: formSwitch 0.6s ease forwards;
-    }
-    @keyframes formSwitch {
-      0% { opacity: 0; transform: translateX(20px); }
-      100% { opacity: 1; transform: translateX(0); }
     }
   </style>
 </head>
 <body>
   <div id="particles-js"></div>
   
-  <div class="login-container">
+  <div class="reset-container">
     <i class="fas fa-cloud-upload-alt logo-icon"></i>
     <div class="project-name">DrivePulse</div>
-
-    <?php 
-      if (isset($_SESSION['error'])) {
-          echo '<div class="error">' . htmlspecialchars($_SESSION['error']) . '</div>';
-          unset($_SESSION['error']);
-      }
-      if (isset($_SESSION['message'])) {
-          echo '<div style="color: var(--accent-red); margin-bottom: 15px;">' . htmlspecialchars($_SESSION['message']) . '</div>';
-          unset($_SESSION['message']);
-      }
-    ?>
-
-    <!-- Login Form -->
-    <form action="authenticate.php" method="post" id="loginForm">
-      <div class="form-group">
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" required>
-      </div>
-
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
-      </div>
-
-      <button type="submit" class="button">Sign In</button>
-    </form>
-
-    <span class="toggle-link" onclick="toggleForms()">Need an account? Register here</span>
-    <span class="toggle-link" onclick="toggleForgotPassword()" id="forgotPasswordLink">Forgot your password?</span>
-
-    <!-- Registration Form -->
-    <form action="register.php" method="post" id="registerForm" class="hidden">
-      <div class="form-group">
-        <label for="reg_username">Username</label>
-        <input type="text" id="reg_username" name="username" required>
-      </div>
-
-      <div class="form-group">
-        <label for="reg_password">Password</label>
-        <input type="password" id="reg_password" name="password" required>
-      </div>
-
-      <button type="submit" class="button register-button">Register</button>
-    </form>
-
-    <span class="toggle-link hidden" onclick="toggleForms()" id="loginLink">Already have an account? Sign in</span>
+    <h2 style="margin-bottom: 20px;">Reset Your Password</h2>
     
-    <!-- Forgot Password Form -->
-    <form action="reset_password.php" method="post" id="forgotPasswordForm" class="hidden">
+    <?php if (isset($error)): ?>
+      <div class="error"><?php echo htmlspecialchars($error); ?></div>
+    <?php endif; ?>
+
+    <form action="complete_reset.php?token=<?php echo htmlspecialchars(urlencode($token)); ?>" method="post">
       <div class="form-group">
-        <label for="reset_username">Username</label>
-        <input type="text" id="reset_username" name="username" required>
+        <label for="password">New Password</label>
+        <input type="password" id="password" name="password" required minlength="8">
       </div>
 
-      <button type="submit" class="button register-button">Reset Password</button>
+      <div class="form-group">
+        <label for="confirm_password">Confirm New Password</label>
+        <input type="password" id="confirm_password" name="confirm_password" required minlength="8">
+      </div>
+
+      <button type="submit" class="button">Reset Password</button>
     </form>
-    
-    <span class="toggle-link hidden" onclick="toggleForgotPassword()" id="backToLoginLink">Back to login</span>
+
+    <a href="index.php" class="back-link">Back to Login</a>
   </div>
 
   <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
@@ -369,81 +378,6 @@ session_start();
       },
       retina_detect: true
     });
-
-    function toggleForms() {
-      const loginForm = document.getElementById('loginForm');
-      const registerForm = document.getElementById('registerForm');
-      const loginLink = document.getElementById('loginLink');
-      const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-      
-      loginForm.classList.toggle('hidden');
-      registerForm.classList.toggle('hidden');
-      loginLink.classList.toggle('hidden');
-      forgotPasswordLink.classList.toggle('hidden');
-      document.querySelectorAll('.toggle-link')[0].classList.toggle('hidden');
-      
-      // Hide forgot password form if it's visible
-      const forgotPasswordForm = document.getElementById('forgotPasswordForm');
-      const backToLoginLink = document.getElementById('backToLoginLink');
-      if (!forgotPasswordForm.classList.contains('hidden')) {
-        forgotPasswordForm.classList.add('hidden');
-        backToLoginLink.classList.add('hidden');
-      }
-    }
-    
-    function toggleForgotPassword() {
-      const loginForm = document.getElementById('loginForm');
-      const forgotPasswordForm = document.getElementById('forgotPasswordForm');
-      const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-      const backToLoginLink = document.getElementById('backToLoginLink');
-      const registerLink = document.querySelectorAll('.toggle-link')[0];
-      
-      loginForm.classList.toggle('hidden');
-      forgotPasswordForm.classList.toggle('hidden');
-      forgotPasswordLink.classList.toggle('hidden');
-      backToLoginLink.classList.toggle('hidden');
-      registerLink.classList.toggle('hidden');
-      
-      // Hide register form if it's visible
-      const registerForm = document.getElementById('registerForm');
-      const loginLink = document.getElementById('loginLink');
-      if (!registerForm.classList.contains('hidden')) {
-        registerForm.classList.add('hidden');
-        loginLink.classList.add('hidden');
-      }
-    }
-
-    // Secret admin access
-    let clicks = 0;
-    let lastClick = 0;
-    const CLICK_TIMEOUT = 3000;
-
-    document.querySelector('.logo-icon').addEventListener('click', function(e) {
-        const now = Date.now();
-        if (now - lastClick > CLICK_TIMEOUT) clicks = 0;
-        
-        clicks++;
-        lastClick = now;
-
-        if (clicks === 3) {
-            const password = prompt("Enter admin password:");
-            if (password === "2254") {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = 'console.php';
-                
-                const passwordInput = document.createElement('input');
-                passwordInput.type = 'hidden';
-                passwordInput.name = 'password';
-                passwordInput.value = password;
-                
-                form.appendChild(passwordInput);
-                document.body.appendChild(form);
-                form.submit();
-            }
-            clicks = 0;
-        }
-    });
   </script>
 </body>
-</html>
+</html> 
