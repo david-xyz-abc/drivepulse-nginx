@@ -87,6 +87,7 @@ session_start();
     body.light-mode .login-container {
       background: rgba(255, 255, 255, 0.9);
       border: 1px solid rgba(244, 67, 54, 0.3);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
     }
     @keyframes containerEntrance {
       0% { opacity: 0; transform: translateY(40px); }
@@ -95,6 +96,9 @@ session_start();
     .login-container:hover {
       transform: translateY(-2px);
       box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    }
+    body.light-mode .login-container:hover {
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
     }
     .logo-icon {
       font-size: 56px;
@@ -114,6 +118,9 @@ session_start();
       margin-bottom: 25px;
       color: var(--text-color);
       text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    body.light-mode .project-name {
+      text-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
     .error {
       color: var(--accent-red);
@@ -136,6 +143,9 @@ session_start();
       font-size: 14px;
       color: #ccc;
     }
+    body.light-mode .form-group label {
+      color: #666;
+    }
     .form-group input {
       width: 100%;
       padding: 12px;
@@ -145,6 +155,10 @@ session_start();
       color: var(--text-color);
       font-size: 14px;
       transition: all 0.3s ease;
+    }
+    body.light-mode .form-group input {
+      background: rgba(240, 240, 240, 0.8);
+      color: #333;
     }
     .form-group input:hover {
       border-color: var(--accent-red);
@@ -167,6 +181,9 @@ session_start();
       transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
       position: relative;
       overflow: hidden;
+    }
+    body.light-mode .button {
+      color: #fff;
     }
     .button::after {
       content: '';
@@ -253,7 +270,7 @@ session_start();
     }
   </style>
 </head>
-<body>
+<body class="light-mode">
   <div id="particles-js"></div>
   
   <div class="login-container">
@@ -319,7 +336,7 @@ session_start();
           }
         },
         color: { 
-          value: "#ff4444"
+          value: "#f44336"
         },
         shape: {
           type: "circle",
@@ -329,12 +346,12 @@ session_start();
           }
         },
         opacity: {
-          value: 0.9,
+          value: 0.6,
           random: true,
           anim: {
             enable: true,
             speed: 0.8,
-            opacity_min: 0.4,
+            opacity_min: 0.3,
             sync: false
           }
         },
@@ -348,8 +365,8 @@ session_start();
         line_linked: {
           enable: true,
           distance: 120,
-          color: "#ff8888",
-          opacity: 0.6,
+          color: "#f44336",
+          opacity: 0.4,
           width: 1.5
         },
         move: {
