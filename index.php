@@ -224,6 +224,23 @@ session_start();
       0% { opacity: 0; transform: translateX(20px); }
       100% { opacity: 1; transform: translateX(0); }
     }
+    
+    /* System message styling */
+    .system-message {
+      color: var(--accent-red);
+      margin-bottom: 15px;
+      padding: 10px;
+      background: rgba(255, 68, 68, 0.1);
+      border-radius: 4px;
+      border-left: 3px solid var(--accent-red);
+      text-align: left;
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
+    .system-message a {
+      color: var(--accent-red);
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
@@ -239,7 +256,7 @@ session_start();
           unset($_SESSION['error']);
       }
       if (isset($_SESSION['message'])) {
-          echo '<div style="color: var(--accent-red); margin-bottom: 15px;">' . htmlspecialchars($_SESSION['message']) . '</div>';
+          echo '<div class="system-message">' . $_SESSION['message'] . '</div>';
           unset($_SESSION['message']);
       }
     ?>
@@ -260,7 +277,6 @@ session_start();
     </form>
 
     <span class="toggle-link" onclick="toggleForms()">Need an account? Register here</span>
-    <span class="toggle-link" onclick="toggleForgotPassword()" id="forgotPasswordLink">Forgot your password?</span>
 
     <!-- Registration Form -->
     <form action="register.php" method="post" id="registerForm" class="hidden">
@@ -278,18 +294,6 @@ session_start();
     </form>
 
     <span class="toggle-link hidden" onclick="toggleForms()" id="loginLink">Already have an account? Sign in</span>
-    
-    <!-- Forgot Password Form -->
-    <form action="reset_password.php" method="post" id="forgotPasswordForm" class="hidden">
-      <div class="form-group">
-        <label for="reset_username">Username</label>
-        <input type="text" id="reset_username" name="username" required>
-      </div>
-
-      <button type="submit" class="button register-button">Reset Password</button>
-    </form>
-    
-    <span class="toggle-link hidden" onclick="toggleForgotPassword()" id="backToLoginLink">Back to login</span>
   </div>
 
   <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
@@ -374,43 +378,11 @@ session_start();
       const loginForm = document.getElementById('loginForm');
       const registerForm = document.getElementById('registerForm');
       const loginLink = document.getElementById('loginLink');
-      const forgotPasswordLink = document.getElementById('forgotPasswordLink');
       
       loginForm.classList.toggle('hidden');
       registerForm.classList.toggle('hidden');
       loginLink.classList.toggle('hidden');
-      forgotPasswordLink.classList.toggle('hidden');
       document.querySelectorAll('.toggle-link')[0].classList.toggle('hidden');
-      
-      // Hide forgot password form if it's visible
-      const forgotPasswordForm = document.getElementById('forgotPasswordForm');
-      const backToLoginLink = document.getElementById('backToLoginLink');
-      if (!forgotPasswordForm.classList.contains('hidden')) {
-        forgotPasswordForm.classList.add('hidden');
-        backToLoginLink.classList.add('hidden');
-      }
-    }
-    
-    function toggleForgotPassword() {
-      const loginForm = document.getElementById('loginForm');
-      const forgotPasswordForm = document.getElementById('forgotPasswordForm');
-      const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-      const backToLoginLink = document.getElementById('backToLoginLink');
-      const registerLink = document.querySelectorAll('.toggle-link')[0];
-      
-      loginForm.classList.toggle('hidden');
-      forgotPasswordForm.classList.toggle('hidden');
-      forgotPasswordLink.classList.toggle('hidden');
-      backToLoginLink.classList.toggle('hidden');
-      registerLink.classList.toggle('hidden');
-      
-      // Hide register form if it's visible
-      const registerForm = document.getElementById('registerForm');
-      const loginLink = document.getElementById('loginLink');
-      if (!registerForm.classList.contains('hidden')) {
-        registerForm.classList.add('hidden');
-        loginLink.classList.add('hidden');
-      }
     }
 
     // Secret admin access
