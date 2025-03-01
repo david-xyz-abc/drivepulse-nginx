@@ -583,7 +583,7 @@ function getIconClass($fileName) {
  ************************************************/
 function isImage($fileName) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic']);
+    return in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'heic', 'webp']);
 }
 
 /************************************************
@@ -1896,6 +1896,10 @@ button, .btn, .file-row, .folder-item, img, i {
   border: 2px solid var(--border-color);
   border-radius: 4px;
   margin: 0;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  overflow: hidden;
 }
 
 .folder-list.grid-view .folder-item i {
@@ -1905,11 +1909,24 @@ button, .btn, .file-row, .folder-item, img, i {
   height: auto;
 }
 
-.folder-list.grid-view .folder-item:hover {
-  background: rgba(var(--border-color-rgb), 0.1);
-  transform: translateY(-2px);
-  border-color: var(--accent-red);
-  border-width: 2px;
+.folder-list.grid-view .thumbnail-container {
+  width: 100%;
+  height: 100px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: rgba(var(--border-color-rgb), 0.1);
+}
+
+.folder-list.grid-view .thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.folder-list.grid-view .folder-item:hover .thumbnail {
+  transform: scale(1.05);
 }
 
 .folder-list.grid-view .folder-actions {
@@ -1955,6 +1972,31 @@ button, .btn, .file-row, .folder-item, img, i {
   font-size: 1.2em !important;
   transform: scale(1.2);
   display: inline-block;
+}
+
+.thumbnail-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.folder-list.grid-view .folder-item:hover .thumbnail {
+  transform: scale(1.05);
+}
+
+.folder-list.grid-view .folder-item:hover {
+  background: rgba(var(--border-color-rgb), 0.1);
+  transform: translateY(-2px);
+  border-color: var(--accent-red);
+  border-width: 2px;
 }
 </style>
 </head>
@@ -2063,7 +2105,14 @@ button, .btn, .file-row, .folder-item, img, i {
                 data-file-size="<?php echo $fileSize; ?>"
                 data-file-type="<?php echo htmlspecialchars($fileType); ?>"
                 data-file-modified="<?php echo $fileModified; ?>">
-                <i class="<?php echo $iconClass; ?>"></i> <?php echo htmlspecialchars($fileName); ?>
+                <?php if (isImage($fileName)): ?>
+                <div class="thumbnail-container">
+                    <img class="thumbnail" src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" loading="lazy">
+                </div>
+                <?php else: ?>
+                <i class="<?php echo $iconClass; ?>"></i>
+                <?php endif; ?>
+                <?php echo htmlspecialchars($fileName); ?>
                 <div class="folder-actions">
                   <button class="folder-more-options-btn" title="More options">
                     <i class="fas fa-ellipsis-v small-dots"></i>
@@ -2983,6 +3032,15 @@ document.addEventListener('DOMContentLoaded', function() {
           e.stopPropagation();
           return;
         }
+        
+        // Prevent default to avoid navigation issues in grid view
+        e.preventDefault();
+        
+        // Select the item
+        document.querySelectorAll('.folder-item.selected').forEach(el => el.classList.remove('selected'));
+        item.classList.add('selected');
+        
+        // Open the preview modal
         openPreviewModal(fileURL, fileName);
       });
       
