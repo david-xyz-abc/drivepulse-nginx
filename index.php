@@ -11,6 +11,16 @@ session_start();
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="drivepulse.svg">
+  <!-- Apple Touch Icon -->
+  <link rel="apple-touch-icon" href="drivepulse.svg">
+  <!-- MS Tile Icon -->
+  <meta name="msapplication-TileImage" content="drivepulse.svg">
+  <meta name="msapplication-TileColor" content="#ff4444">
+  <!-- Theme Color -->
+  <meta name="theme-color" content="#ff4444">
 
   <style>
     :root {
