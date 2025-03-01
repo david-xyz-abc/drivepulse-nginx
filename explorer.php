@@ -1314,24 +1314,12 @@ html, body {
   right: 0;
   padding: 20px;
   background: linear-gradient(transparent, rgba(0,0,0,0.7));
-  opacity: 1;
+  opacity: 0;
   transition: opacity 0.3s ease;
-  z-index: 10;
 }
 
-/* Remove the hover behavior since we're handling it with JavaScript now */
 #videoPreviewContainer:hover .video-controls {
   opacity: 1;
-}
-
-/* Add this to ensure controls are visible on initial load */
-#videoPreviewContainer.loaded .video-controls {
-  opacity: 1;
-}
-
-/* Auto-hide controls after 3 seconds when video is playing */
-#videoPreviewContainer.playing .video-controls {
-  opacity: 0;
 }
 
 .video-controls-inner {
@@ -1656,24 +1644,6 @@ button, .btn, .file-row, .folder-item, img, i {
   position: relative;
   z-index: 1;
 }
-
-#videoTimeDisplay {
-  color: #fff;
-  font-size: 14px;
-  margin: 0 10px;
-  min-width: 80px;
-  text-align: center;
-  font-family: monospace;
-  white-space: nowrap;
-}
-
-@media (max-width: 768px) {
-  #videoTimeDisplay {
-    font-size: 12px;
-    margin: 0 5px;
-    min-width: 70px;
-  }
-}
 </style>
 </head>
 <body>
@@ -1795,7 +1765,7 @@ button, .btn, .file-row, .folder-item, img, i {
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
         <div id="videoPreviewContainer" style="display: none;">
-            <video id="videoPlayer" preload="auto"></video>
+            <video id="videoPlayer" preload="auto" onclick="togglePlay(event)"></video>
             <div id="bufferingIndicator">
                 <div class="spinner"></div>
             </div>
@@ -1806,7 +1776,6 @@ button, .btn, .file-row, .folder-item, img, i {
                         <div id="videoProgressBar"></div>
                         <div id="videoBufferBar"></div>
                     </div>
-                    <div id="videoTimeDisplay">0:00 / 0:00</div>
                     <button id="fullscreenBtn" onclick="toggleFullscreen(event)"><i class="fas fa-expand"></i></button>
                 </div>
             </div>
@@ -2230,37 +2199,16 @@ function setupVideoControls(video) {
     const progressBar = document.getElementById('videoProgressBar');
     const playPauseBtn = document.getElementById('playPauseBtn');
     const bufferingIndicator = document.getElementById('bufferingIndicator');
-    const timeDisplay = document.getElementById('videoTimeDisplay');
-    const videoContainer = document.getElementById('videoPreviewContainer');
-    const videoControls = document.querySelector('.video-controls');
     
-    // Clear any existing timeout
-    clearTimeout(window.controlsTimeout);
-    
-    // Format time in MM:SS format
-    function formatTime(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        seconds = Math.floor(seconds % 60);
-        return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-    }
-    
-    // Update progress bar and time display
+    // Update progress bar
     video.ontimeupdate = () => {
         if (video.duration) {
             const percent = (video.currentTime / video.duration) * 100;
             progressBar.style.width = percent + '%';
             
-            // Update time display
-            timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
-            
             // Update buffered progress
             updateBufferProgress(video);
         }
-    };
-    
-    // Update time display when metadata is loaded
-    video.onloadedmetadata = () => {
-        timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
     };
     
     // Add buffer progress indicator function
@@ -2311,55 +2259,6 @@ function setupVideoControls(video) {
         showAlert(errorMessage);
     };
 
-    // Handle video click/tap differently for mobile and desktop
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    // Function to toggle controls visibility
-    function toggleControlsVisibility() {
-        if (videoControls.style.opacity === '1' || videoControls.style.opacity === '') {
-            videoControls.style.opacity = '0';
-        } else {
-            videoControls.style.opacity = '1';
-            
-            // Auto-hide controls after 3 seconds of inactivity
-            clearTimeout(window.controlsTimeout);
-            window.controlsTimeout = setTimeout(() => {
-                videoControls.style.opacity = '0';
-            }, 3000);
-        }
-    }
-    
-    // Set up click/tap handler based on device type
-    video.onclick = (e) => {
-        e.stopPropagation();
-        if (isMobile) {
-            // On mobile, toggle controls visibility
-            toggleControlsVisibility();
-        } else {
-            // On desktop, toggle play/pause
-            togglePlay(e);
-        }
-    };
-    
-    // Show controls when touching the container
-    videoContainer.addEventListener('touchstart', () => {
-        if (isMobile) {
-            videoControls.style.opacity = '1';
-            
-            // Auto-hide controls after 3 seconds
-            clearTimeout(window.controlsTimeout);
-            window.controlsTimeout = setTimeout(() => {
-                videoControls.style.opacity = '0';
-            }, 3000);
-        }
-    });
-    
-    // Keep controls visible while interacting with them
-    videoControls.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-        clearTimeout(window.controlsTimeout);
-    });
-    
     // Enhanced keyboard shortcuts
     document.onkeydown = (e) => {
         // Only process if video is displayed
@@ -2423,26 +2322,15 @@ function togglePlay(e) {
     e.stopPropagation();
     const video = document.getElementById('videoPlayer');
     const playPauseBtn = document.getElementById('playPauseBtn');
-    const videoContainer = document.getElementById('videoPreviewContainer');
     
     if (video.paused) {
         const playPromise = video.play();
         if (playPromise !== undefined) {
             playPromise.then(() => {
                 playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                videoContainer.classList.add('playing');
-                
-                // Auto-hide controls after 3 seconds when playing
-                clearTimeout(window.controlsTimeout);
-                window.controlsTimeout = setTimeout(() => {
-                    if (!video.paused) {
-                        document.querySelector('.video-controls').style.opacity = '0';
-                    }
-                }, 3000);
             }).catch(error => {
                 console.error('Error playing video:', error);
                 playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-                videoContainer.classList.remove('playing');
                 
                 // Handle autoplay restrictions
                 if (error.name === 'NotAllowedError') {
@@ -2453,11 +2341,6 @@ function togglePlay(e) {
     } else {
         video.pause();
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-        videoContainer.classList.remove('playing');
-        // Show controls when paused
-        document.querySelector('.video-controls').style.opacity = '1';
-        // Clear any hide timeout
-        clearTimeout(window.controlsTimeout);
     }
 }
 
@@ -2693,7 +2576,6 @@ gridToggleBtn.addEventListener('click', () => {
 function closePreviewModal() {
     const previewModal = document.getElementById('previewModal');
     const videoPlayer = document.getElementById('videoPlayer');
-    const videoContainer = document.getElementById('videoPreviewContainer');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
     const bufferingIndicator = document.getElementById('bufferingIndicator');
@@ -2709,33 +2591,14 @@ function closePreviewModal() {
             videoPlayer.onerror = null;
             videoPlayer.onended = null;
             videoPlayer.ondblclick = null;
-            videoPlayer.onclick = null;
-            videoPlayer.onloadedmetadata = null;
             videoPlayer.pause();
             videoPlayer.removeAttribute('src');
             videoPlayer.load();
-            
-            // Clear any control timeouts
-            clearTimeout(window.controlsTimeout);
         }
         
         // Reset buffering indicator
         if (bufferingIndicator) {
             bufferingIndicator.style.display = 'none';
-        }
-        
-        // Remove any added event listeners
-        if (videoContainer) {
-            const videoControls = videoContainer.querySelector('.video-controls');
-            if (videoControls) {
-                videoControls.style.opacity = '1';
-                const clone = videoControls.cloneNode(true);
-                videoControls.parentNode.replaceChild(clone, videoControls);
-            }
-            
-            // Remove playing class
-            videoContainer.classList.remove('playing');
-            videoContainer.classList.remove('loaded');
         }
     } catch (err) {
         console.error('Video cleanup error:', err);
