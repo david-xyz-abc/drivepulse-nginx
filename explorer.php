@@ -475,22 +475,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['rename_folder'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['rename_file'])) {
     $oldFileName = $_POST['old_file_name'] ?? '';
     $newFileName = $_POST['new_file_name'] ?? '';
-    $oldFilePath = realpath($currentDir . '/' . $oldFileName);
-
-    if ($oldFilePath && is_file($oldFilePath)) {
-        $oldExt = strtolower(pathinfo($oldFileName, PATHINFO_EXTENSION));
-        $newExt = strtolower(pathinfo($newFileName, PATHINFO_EXTENSION));
-        if ($oldExt !== $newExt) {
-            $_SESSION['error'] = "Modification of file extension is not allowed.";
-        } else {
-            $newFilePath = $currentDir . '/' . $newFileName;
-            if (!file_exists($newFilePath) && rename($oldFilePath, $newFilePath)) {
-                log_debug("Renamed file: $oldFilePath to $newFilePath");
+    
+    if ($oldFileName !== '' && $newFileName !== '' && $oldFileName !== $newFileName) {
+        $oldPath = $currentDir . '/' . $oldFileName;
+        $newPath = $currentDir . '/' . $newFileName;
+        
+        if (file_exists($oldPath) && !file_exists($newPath)) {
+            if (rename($oldPath, $newPath)) {
+                log_debug("Renamed file: $oldPath to $newPath");
             } else {
-                log_debug("Failed to rename file: $oldFilePath to $newFilePath");
+                log_debug("Failed to rename file: $oldPath to $newPath");
+                $_SESSION['error'] = "Failed to rename file.";
+            }
+        } else {
+            if (file_exists($newPath)) {
+                $_SESSION['error'] = "A file with that name already exists.";
+            } else {
+                $_SESSION['error'] = "File not found.";
             }
         }
     }
+    
     header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
     exit;
 }
@@ -535,6 +540,16 @@ if (is_dir($currentDir)) {
                         'name' => $one,
                         'url' => $fileURL,
                         'type' => 'video',
+                        'icon' => getIconClass($one)
+                    ];
+                } elseif (isPDF($one)) {
+                    $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
+                    $previewUrl = $fileURL . '&preview=1';
+                    $previewableFiles[] = [
+                        'name' => $one,
+                        'url' => $fileURL,
+                        'previewUrl' => $previewUrl,
+                        'type' => 'pdf',
                         'icon' => getIconClass($one)
                     ];
                 } else {
@@ -595,6 +610,14 @@ function isVideo($fileName) {
 }
 
 /************************************************
+ * Helper: Check if file is a PDF
+ ************************************************/
+function isPDF($fileName) {
+    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    return $ext === 'pdf';
+}
+
+/************************************************
  * 13. Handle AJAX file info request
  ************************************************/
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'get_file_info') {
@@ -635,6 +658,147 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     header('Content-Type: application/json');
     echo json_encode($fileInfo);
     exit;
+}
+
+/************************************************
+ * 6. Delete Files
+ ************************************************/
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_files'])) {
+    if (isset($_POST['files_to_delete']) && is_array($_POST['files_to_delete'])) {
+        $deletedCount = 0;
+        $failedCount = 0;
+        
+        foreach ($_POST['files_to_delete'] as $fileName) {
+            $filePath = $currentDir . '/' . $fileName;
+            
+            // Security check to ensure the file is within the current directory
+            $realFilePath = realpath($filePath);
+            if ($realFilePath === false || strpos($realFilePath, $currentDir) !== 0) {
+                log_debug("Security violation: Attempted to delete file outside current directory: $filePath");
+                $failedCount++;
+                continue;
+            }
+            
+            if (file_exists($filePath)) {
+                if (is_file($filePath)) {
+                    if (unlink($filePath)) {
+                        log_debug("Deleted file: $filePath");
+                        $deletedCount++;
+                    } else {
+                        log_debug("Failed to delete file: $filePath");
+                        $failedCount++;
+                    }
+                } else {
+                    // If it's a directory, use the recursive delete function
+                    if (deleteRecursive($filePath)) {
+                        log_debug("Deleted directory: $filePath");
+                        $deletedCount++;
+                    } else {
+                        log_debug("Failed to delete directory: $filePath");
+                        $failedCount++;
+                    }
+                }
+            } else {
+                log_debug("File not found for deletion: $filePath");
+                $failedCount++;
+            }
+        }
+        
+        if ($deletedCount > 0) {
+            $_SESSION['success'] = "Successfully deleted $deletedCount " . ($deletedCount === 1 ? "file" : "files") . ".";
+        }
+        
+        if ($failedCount > 0) {
+            $_SESSION['error'] = "Failed to delete $failedCount " . ($failedCount === 1 ? "file" : "files") . ".";
+        }
+    }
+    
+    header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
+    exit;
+}
+
+/************************************************
+ * 7. Download Multiple Files
+ ************************************************/
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download_files'])) {
+    if (isset($_POST['files_to_download']) && is_array($_POST['files_to_download']) && count($_POST['files_to_download']) > 0) {
+        // Create a temporary directory for the zip file
+        $tempDir = sys_get_temp_dir() . '/' . uniqid('download_', true);
+        if (!mkdir($tempDir, 0777, true)) {
+            log_debug("Failed to create temporary directory for zip: $tempDir");
+            $_SESSION['error'] = "Failed to prepare download.";
+            header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
+            exit;
+        }
+        
+        // Create a unique zip filename
+        $zipFilename = 'files_' . date('Y-m-d_H-i-s') . '.zip';
+        $zipPath = $tempDir . '/' . $zipFilename;
+        
+        // Create a new zip archive
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE) !== true) {
+            log_debug("Failed to create zip archive: $zipPath");
+            $_SESSION['error'] = "Failed to create download archive.";
+            header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
+            exit;
+        }
+        
+        // Add each file to the zip
+        $fileCount = 0;
+        foreach ($_POST['files_to_download'] as $fileName) {
+            $filePath = $currentDir . '/' . $fileName;
+            
+            // Security check to ensure the file is within the current directory
+            $realFilePath = realpath($filePath);
+            if ($realFilePath === false || strpos($realFilePath, $currentDir) !== 0) {
+                log_debug("Security violation: Attempted to download file outside current directory: $filePath");
+                continue;
+            }
+            
+            if (file_exists($filePath) && is_file($filePath)) {
+                if ($zip->addFile($filePath, $fileName)) {
+                    $fileCount++;
+                } else {
+                    log_debug("Failed to add file to zip: $filePath");
+                }
+            } else {
+                log_debug("File not found for download: $filePath");
+            }
+        }
+        
+        // Close the zip file
+        $zip->close();
+        
+        if ($fileCount > 0) {
+            // Send the zip file to the browser
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="' . $zipFilename . '"');
+            header('Content-Length: ' . filesize($zipPath));
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            
+            readfile($zipPath);
+            
+            // Clean up
+            unlink($zipPath);
+            rmdir($tempDir);
+            exit;
+        } else {
+            // No files were added to the zip
+            unlink($zipPath);
+            rmdir($tempDir);
+            
+            log_debug("No files were added to the download archive");
+            $_SESSION['error'] = "No files were found for download.";
+            header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
+            exit;
+        }
+    } else {
+        $_SESSION['error'] = "No files selected for download.";
+        header("Location: /selfhostedgdrive/explorer.php?folder=" . urlencode($currentRel), true, 302);
+        exit;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -1221,6 +1385,7 @@ html, body {
   align-items: center;
   z-index: 9998;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 #previewContent {
@@ -1237,6 +1402,7 @@ html, body {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  margin: 0 auto;
 }
 
 #previewContent.image-preview {
@@ -1245,6 +1411,16 @@ html, body {
   padding: 0;
   max-width: 100vw;
   max-height: 100vh;
+  margin: 0 auto;
+}
+
+#previewContent.pdf-preview {
+  background: none;
+  border: none;
+  padding: 0;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0 auto;
 }
 
 #previewNav {
@@ -1326,6 +1502,7 @@ html, body {
   max-width: 90vw;
   max-height: 90vh;
   overflow: hidden;
+  margin: 0 auto;
 }
 
 #imagePreviewContainer img {
@@ -1335,6 +1512,66 @@ html, body {
   height: auto;
   object-fit: contain;
   display: block;
+  margin: 0 auto;
+}
+
+/* Add media query for desktop screens */
+@media (min-width: 769px) {
+  #previewModal {
+    padding: 0; /* Remove padding from modal */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  #previewContent.image-preview {
+    max-height: none; /* Remove height restriction on desktop */
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+  }
+  
+  #imagePreviewContainer {
+    max-height: none; /* Remove height restriction on desktop */
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+  }
+  
+  #imagePreviewContainer img {
+    max-height: 90vh; /* Use viewport height instead of calc */
+    object-fit: contain;
+    width: auto;
+    height: auto;
+    margin: 0 auto;
+  }
+  
+  #pdfPreviewContainer {
+    max-height: none; /* Remove height restriction on desktop */
+    height: 95vh;
+    width: 95vw; /* Make it wider */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1001;
+  }
+  
+  #pdfViewer {
+    max-height: 95vh;
+    max-width: 95vw; /* Make it wider */
+    height: 100%;
+    width: 100%;
+    border: none; /* Remove border */
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4); /* Add stronger shadow */
+    border-radius: 4px; /* Add rounded corners */
+    transform: scale(1); /* Ensure no scaling is applied */
+  }
 }
 
 #dialogModal {
@@ -1441,6 +1678,72 @@ html, body {
   max-width: 100vw;
   max-height: 100vh;
   object-fit: contain;
+}
+
+#pdfPreviewContainer {
+  display: none;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--content-bg);
+  z-index: 1001;
+}
+
+#pdfViewer {
+  width: 100%;
+  height: 100%;
+  max-width: 100vw;
+  max-height: 100vh;
+  background: white;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4); /* Add stronger shadow */
+  transform: scale(1); /* Ensure no scaling is applied */
+  border-radius: 4px; /* Add rounded corners */
+  /* Add custom scrollbar styling for the iframe */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-red) rgba(0, 0, 0, 0.1);
+}
+
+/* Style the iframe scrollbars for webkit browsers */
+#pdfViewer::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#pdfViewer::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+#pdfViewer::-webkit-scrollbar-thumb {
+  background: var(--accent-red);
+  border-radius: 4px;
+}
+
+#pdfViewer::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+}
+
+#pdfLoadingIndicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+#pdfLoadingIndicator .loading-text {
+  color: white;
+  margin-top: 10px;
+  font-size: 16px;
 }
 
 .video-controls {
@@ -1980,6 +2283,7 @@ button, .btn, .file-row, .folder-item, img, i {
   overflow: hidden;
   border-radius: 4px;
   margin-bottom: 10px;
+  display: none; /* Hide by default in stacked view */
 }
 
 .thumbnail {
@@ -1988,17 +2292,133 @@ button, .btn, .file-row, .folder-item, img, i {
   object-fit: cover;
 }
 
-.folder-list.grid-view .folder-item:hover .thumbnail {
-  transform: scale(1.05);
+/* Show thumbnails only in grid view */
+.folder-list.grid-view .thumbnail-container {
+  display: block;
 }
 
-.folder-list.grid-view .folder-item:hover {
-  background: rgba(var(--border-color-rgb), 0.1);
-  transform: translateY(-2px);
-  border-color: var(--accent-red);
-  border-width: 2px;
+/* Make sure icons are visible in stacked view */
+.folder-item i {
+  margin-right: 6px;
+  display: inline-block;
 }
-</style>
+
+/* Hide icons in grid view when there's a thumbnail */
+.folder-list.grid-view .folder-item i:not(.small-dots):not(.fa-ellipsis-v) {
+  display: none;
+}
+
+/* We'll handle the specific case in JavaScript instead of using :has() */
+// ... existing code ...
+
+/* Hide image previews in stacked view */
+.image-preview-container {
+  display: none;
+}
+
+/* Show image previews only in grid view */
+.folder-list.grid-view .image-preview-container {
+  display: block;
+}
+
+/* Make sure icons are visible for images in stacked view */
+.folder-item:has(.image-preview-container) i {
+  display: inline-block !important;
+}
+
+/* In grid view, hide icons for items with image previews */
+.folder-list.grid-view .folder-item:has(.image-preview-container) i:not(.small-dots):not(.fa-ellipsis-v) {
+  display: none !important;
+}
+// ... existing code ...
+
+/* Hide image previews in stacked view */
+.image-preview-container {
+  display: none;
+}
+
+/* Show image previews only in grid view */
+.folder-list.grid-view .image-preview-container {
+  display: block;
+}
+
+/* Ensure icons are properly displayed in stacked view */
+.folder-item i {
+  display: inline-block;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+/* Remove any conflicting rules */
+.folder-list.grid-view .folder-item i:not(.fa-ellipsis-v) {
+  display: none;
+}
+
+/* Ensure the ellipsis icon in the more options button is always visible */
+.folder-more-options-btn i {
+  display: inline-block !important;
+}
+
+/* Ensure icons are properly displayed in stacked view */
+.folder-item i:not(.fa-ellipsis-v) {
+  display: inline-block;
+  margin-right: 10px;
+  vertical-align: middle;
+  font-size: 20px;
+}
+
+/* In grid view, hide file type icons for items with thumbnails */
+.folder-list.grid-view .folder-item .image-preview-container + i {
+  display: none;
+}
+
+/* Ensure the ellipsis icon in the more options button is always visible */
+.folder-more-options-btn i {
+  display: inline-block !important;
+  margin-right: 0;
+}
+
+/* PDF preview animations */
+#pdfPreviewContainer {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#pdfPreviewContainer.loaded {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Navigation button animations */
+#previewNav button {
+    transform: translateX(0);
+    transition: transform 0.3s ease, background 0.3s ease;
+}
+
+#previewNav button:hover {
+    transform: scale(1.1);
+}
+
+#prevBtn.slide-out {
+    transform: translateX(-100px);
+}
+
+#nextBtn.slide-out {
+    transform: translateX(100px);
+}
+
+#previewContent.pdf-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    max-width: 95vw;
+    max-height: 95vh;
+    overflow: hidden;
+  }
+  </style>
 </head>
 <body>
   <div class="app-container">
@@ -2083,44 +2503,120 @@ button, .btn, .file-row, .folder-item, img, i {
           </div>
         </div>
       </div>
-      <div class="content-inner">
+      <div class="content-inner" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding-top: 20px; padding-bottom: 50px; display: flex; flex-direction: column; overflow: hidden;">
+        <!-- Fixed multi-select controls container -->
+        <div class="multi-select-controls-container" style="background: var(--sidebar-bg); opacity: 0.8; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); flex-shrink: 0;">
+          <div class="multi-select-controls" style="display: flex; align-items: center; justify-content: space-between;">
+            <!-- Left side - Select All button -->
+            <button type="button" class="multi-select-btn" id="selectAllBtn" title="Select All Files" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
+              <i class="fas fa-check-square" style="margin-right: 8px;"></i>Select All
+            </button>
+            
+            <!-- Right side - Delete and Download buttons -->
+            <div style="display: flex; gap: 20px;">
+              <button type="button" class="multi-select-btn" id="deleteSelectedBtn" title="Delete Selected Files" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: rgba(211, 47, 47, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                <i class="fas fa-trash-alt" style="margin-right: 8px;"></i>Delete
+              </button>
+              <button type="button" class="multi-select-btn" id="downloadSelectedBtn" title="Download Selected Files" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: rgba(0, 0, 0, 0.1); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
+                <i class="fas fa-download" style="margin-right: 8px;"></i>Download
+              </button>
+            </div>
+          </div>
+          
+          <style>
+            /* Hover and active states for multi-select buttons */
+            #selectAllBtn:hover {
+              border-color: var(--accent-red);
+              background: rgba(var(--border-color-rgb), 0.3);
+            }
+            
+            #deleteSelectedBtn:hover {
+              background: var(--accent-red);
+              color: white !important;
+            }
+            
+            #downloadSelectedBtn:hover {
+              background: var(--border-color);
+              color: var(--text-color);
+            }
+            
+            .multi-select-btn:active {
+              transform: scale(0.98);
+            }
+            
+            /* Ensure text is visible in both modes */
+            body.light-mode .multi-select-btn {
+              text-shadow: none;
+            }
+            
+            body.light-mode #deleteSelectedBtn {
+              color: var(--accent-red);
+            }
+          </style>
+        </div>
         
-        <ul class="folder-list" id="fileList">
-          <?php foreach ($files as $fileName): ?>
-            <?php 
-                $relativePath = $currentRel . '/' . $fileName;
-                $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
-                $iconClass = getIconClass($fileName);
-                $isImageFile = isImage($fileName);
-                $filePath = $currentDir . '/' . $fileName;
-                $fileSize = filesize($filePath);
-                $fileType = mime_content_type($filePath);
-                $fileModified = filemtime($filePath);
-                
-                log_debug("File URL for $fileName: $fileURL");
-            ?>
-            <li class="folder-item"
-                data-file-url="<?php echo htmlspecialchars($fileURL); ?>" 
-                data-file-name="<?php echo addslashes($fileName); ?>"
-                data-file-size="<?php echo $fileSize; ?>"
-                data-file-type="<?php echo htmlspecialchars($fileType); ?>"
-                data-file-modified="<?php echo $fileModified; ?>">
-                <?php if (isImage($fileName)): ?>
-                <div class="thumbnail-container">
-                    <img class="thumbnail" src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" loading="lazy">
-                </div>
-                <?php else: ?>
-                <i class="<?php echo $iconClass; ?>"></i>
-                <?php endif; ?>
-                <?php echo htmlspecialchars($fileName); ?>
-                <div class="folder-actions">
-                  <button class="folder-more-options-btn" title="More options">
-                    <i class="fas fa-ellipsis-v small-dots"></i>
-                  </button>
-                </div>
-            </li>
-          <?php endforeach; ?>
-        </ul>
+        <hr style="border: 0; height: 2px; background: var(--accent-red); margin: 0 0 20px 0; opacity: 0.8; width: 100%; flex-shrink: 0;">
+        
+        <!-- Scrollable container for files -->
+        <div class="files-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--accent-red) var(--background);">
+          <style>
+            /* Custom scrollbar styling for files container */
+            .files-container::-webkit-scrollbar {
+              width: 8px;
+            }
+            
+            .files-container::-webkit-scrollbar-track {
+              background: var(--background);
+              border-radius: 4px;
+            }
+            
+            .files-container::-webkit-scrollbar-thumb {
+              background: var(--accent-red);
+              border-radius: 4px;
+            }
+            
+            .files-container::-webkit-scrollbar-thumb:hover {
+              background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+            }
+          </style>
+          <ul class="folder-list" id="fileList">
+            <?php foreach ($files as $fileName): ?>
+              <?php 
+                  $relativePath = $currentRel . '/' . $fileName;
+                  $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
+                  $iconClass = getIconClass($fileName);
+                  $isImageFile = isImage($fileName);
+                  $filePath = $currentDir . '/' . $fileName;
+                  $fileSize = filesize($filePath);
+                  $fileType = mime_content_type($filePath);
+                  $fileModified = filemtime($filePath);
+                  
+                  log_debug("File URL for $fileName: $fileURL");
+              ?>
+              <li class="folder-item"
+                  data-file-url="<?php echo htmlspecialchars($fileURL); ?>" 
+                  data-file-name="<?php echo addslashes($fileName); ?>"
+                  data-file-size="<?php echo $fileSize; ?>"
+                  data-file-type="<?php echo htmlspecialchars($fileType); ?>"
+                  data-file-modified="<?php echo $fileModified; ?>">
+                  <?php if (isImage($fileName)): ?>
+                  <i class="<?php echo $iconClass; ?>"></i>
+                  <div class="thumbnail-container image-preview-container">
+                      <img class="thumbnail" src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" loading="lazy">
+                  </div>
+                  <?php else: ?>
+                  <i class="<?php echo $iconClass; ?>"></i>
+                  <?php endif; ?>
+                  <?php echo htmlspecialchars($fileName); ?>
+                  <div class="folder-actions">
+                    <button class="folder-more-options-btn" title="More options">
+                      <i class="fas fa-ellipsis-v small-dots"></i>
+                    </button>
+                  </div>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
@@ -2148,6 +2644,13 @@ button, .btn, .file-row, .folder-item, img, i {
                     </div>
                     <button id="fullscreenBtn" onclick="toggleFullscreen(event)"><i class="fas fa-expand"></i></button>
                 </div>
+            </div>
+        </div>
+        <div id="pdfPreviewContainer" style="display: none;">
+            <iframe id="pdfViewer" width="100%" height="100%" frameborder="0"></iframe>
+            <div id="pdfLoadingIndicator">
+                <div class="spinner"></div>
+                <div class="loading-text">Loading PDF...</div>
             </div>
         </div>
     </div>
@@ -2390,6 +2893,9 @@ function openPreviewModal(fileURL, fileName) {
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
     const videoContainer = document.getElementById('videoPreviewContainer');
+    const pdfContainer = document.getElementById('pdfPreviewContainer');
+    const pdfViewer = document.getElementById('pdfViewer');
+    const pdfLoadingIndicator = document.getElementById('pdfLoadingIndicator');
     const videoPlayer = document.getElementById('videoPlayer');
     const previewContent = document.getElementById('previewContent');
     const previewClose = document.getElementById('previewClose');
@@ -2404,6 +2910,7 @@ function openPreviewModal(fileURL, fileName) {
         iconContainer.style.display = 'none';
         iconContainer.innerHTML = '';
         videoContainer.style.display = 'none';
+        pdfContainer.style.display = 'none';
         
         // Reset video player
         if (videoPlayer) {
@@ -2412,9 +2919,15 @@ function openPreviewModal(fileURL, fileName) {
             videoPlayer.load();
         }
         
+        // Reset PDF viewer
+        if (pdfViewer) {
+            pdfViewer.src = '';
+        }
+        
         // Reset classes
         previewContent.classList.remove('image-preview');
         previewContent.classList.remove('video-preview');
+        previewContent.classList.remove('pdf-preview');
         previewModal.classList.remove('fullscreen');
 
         // Always show the close button
@@ -2478,6 +2991,7 @@ function openPreviewModal(fileURL, fileName) {
             isLoadingImage = true;
             const img = new Image();
             img.onload = () => {
+                imageContainer.innerHTML = ''; // Clear any existing content
                 imageContainer.appendChild(img);
                 imageContainer.style.display = 'flex';
                 previewContent.classList.add('image-preview');
@@ -2493,6 +3007,76 @@ function openPreviewModal(fileURL, fileName) {
                 isLoadingImage = false;
             };
             img.src = file.previewUrl || file.url;
+        } else if (file.type === 'pdf') {
+            // Show PDF container and loading indicator
+            pdfContainer.style.display = 'flex';
+            pdfLoadingIndicator.style.display = 'flex';
+            previewContent.classList.add('pdf-preview');
+            
+            // Set iframe source to PDF URL with preview parameter
+            pdfViewer.src = file.previewUrl || file.url;
+            
+            // Hide loading indicator when PDF is loaded
+            pdfViewer.onload = () => {
+                pdfLoadingIndicator.style.display = 'none';
+                pdfContainer.classList.add('loaded'); // Add loaded class for animation
+                
+                // Ensure PDF is displayed at full size
+                pdfViewer.style.width = '100%';
+                pdfViewer.style.height = '100%';
+                
+                // Show zoom controls
+                document.getElementById('pdfControls').style.display = 'block';
+                
+                // Try to inject custom scrollbar styles into the iframe
+                try {
+                    const iframeDoc = pdfViewer.contentDocument || pdfViewer.contentWindow.document;
+                    if (iframeDoc) {
+                        // Create a style element
+                        const style = iframeDoc.createElement('style');
+                        style.textContent = `
+                            ::-webkit-scrollbar {
+                                width: 10px !important;
+                                height: 10px !important;
+                            }
+                            ::-webkit-scrollbar-track {
+                                background: rgba(0, 0, 0, 0.1) !important;
+                                border-radius: 4px !important;
+                            }
+                            ::-webkit-scrollbar-thumb {
+                                background: #d32f2f !important;
+                                border-radius: 4px !important;
+                            }
+                            ::-webkit-scrollbar-thumb:hover {
+                                background: #b71c1c !important;
+                            }
+                            * {
+                                scrollbar-width: thin !important;
+                                scrollbar-color: #d32f2f rgba(0, 0, 0, 0.1) !important;
+                            }
+                        `;
+                        iframeDoc.head.appendChild(style);
+                    }
+                } catch (e) {
+                    console.log('Could not inject styles into iframe due to security restrictions', e);
+                }
+            };
+            
+            // Handle load error
+            pdfViewer.onerror = () => {
+            };
+            
+            // Handle load error
+            pdfViewer.onerror = () => {
+                console.error('Failed to load PDF:', file.previewUrl || file.url);
+                showAlert('Failed to load PDF preview');
+                pdfLoadingIndicator.style.display = 'none';
+            };
+            
+            // Fallback for browsers that don't support iframe onload for PDFs
+            setTimeout(() => {
+                pdfLoadingIndicator.style.display = 'none';
+            }, 2000);
         } else {
             const icon = document.createElement('i');
             icon.className = file.icon;
@@ -2500,7 +3084,10 @@ function openPreviewModal(fileURL, fileName) {
             iconContainer.style.display = 'flex';
         }
 
+        // Ensure the modal is centered
         previewModal.style.display = 'flex';
+        previewModal.style.justifyContent = 'center';
+        previewModal.style.alignItems = 'center';
         
         // Fade in the content
         setTimeout(() => {
@@ -2897,6 +3484,30 @@ function updateGridView() {
   gridToggleBtn.querySelector('i').classList.toggle('fa-th', isGridView);
   gridToggleBtn.querySelector('i').classList.toggle('fa-list', !isGridView);
   gridToggleBtn.title = isGridView ? 'Switch to List View' : 'Switch to Grid View';
+  
+  // Handle image previews based on view mode
+  const imagePreviewContainers = document.querySelectorAll('.image-preview-container');
+  imagePreviewContainers.forEach(container => {
+    // Show/hide thumbnails based on view mode
+    container.style.display = isGridView ? 'block' : 'none';
+    
+    // Get the parent folder item
+    const parentItem = container.closest('.folder-item');
+    if (parentItem) {
+      // Find all icons except the ellipsis icon in the more options button
+      const icons = parentItem.querySelectorAll('i:not(.fa-ellipsis-v)');
+      
+      // In grid view, hide the file type icon for image files
+      // In list view, show the file type icon for all files
+      icons.forEach(icon => {
+        // Skip the ellipsis icon in the more options button
+        if (icon.closest('.folder-more-options-btn')) return;
+        
+        // Toggle visibility based on view mode
+        icon.style.display = isGridView ? 'none' : 'inline-block';
+      });
+    }
+  });
 }
 updateGridView();
 gridToggleBtn.addEventListener('click', () => {
@@ -2910,7 +3521,13 @@ function closePreviewModal() {
     const videoPlayer = document.getElementById('videoPlayer');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
+    const videoContainer = document.getElementById('videoPreviewContainer');
+    const pdfContainer = document.getElementById('pdfPreviewContainer');
+    const pdfViewer = document.getElementById('pdfViewer');
+    const pdfControls = document.getElementById('pdfControls');
     const bufferingIndicator = document.getElementById('bufferingIndicator');
+    const pdfLoadingIndicator = document.getElementById('pdfLoadingIndicator');
+    const previewContent = document.getElementById('previewContent');
     
     // Clear video properly
     try {
@@ -2932,13 +3549,47 @@ function closePreviewModal() {
         if (bufferingIndicator) {
             bufferingIndicator.style.display = 'none';
         }
+        
+        // Reset PDF viewer
+        if (pdfViewer) {
+            pdfViewer.onload = null;
+            pdfViewer.onerror = null;
+            pdfViewer.src = '';
+        }
+        
+        // Hide PDF controls
+        if (pdfControls) {
+            pdfControls.style.display = 'none';
+        }
+        
+        // Reset PDF loading indicator
+        if (pdfLoadingIndicator) {
+            pdfLoadingIndicator.style.display = 'none';
+        }
     } catch (err) {
-        console.error('Video cleanup error:', err);
+        console.error('Media cleanup error:', err);
     }
     
     // Clear containers
     imageContainer.innerHTML = '';
     iconContainer.innerHTML = '';
+    
+    // Reset classes
+    previewContent.classList.remove('image-preview');
+    previewContent.classList.remove('video-preview');
+    previewContent.classList.remove('pdf-preview');
+    previewContent.classList.remove('fade-in');
+    previewContent.classList.remove('fade-out');
+    
+    // Remove loaded classes
+    if (videoContainer) videoContainer.classList.remove('loaded');
+    if (pdfContainer) pdfContainer.classList.remove('loaded');
+    
+    // Hide all containers
+    imageContainer.style.display = 'none';
+    iconContainer.style.display = 'none';
+    videoContainer.style.display = 'none';
+    pdfContainer.style.display = 'none';
     
     // Hide the modal
     previewModal.style.display = 'none';
@@ -3016,6 +3667,23 @@ function positionContextMenu(x, y) {
 
 // Initialize context menu functionality after DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
+  // Ensure preview modal is properly hidden on page load
+  const previewModal = document.getElementById('previewModal');
+  const imageContainer = document.getElementById('imagePreviewContainer');
+  const iconContainer = document.getElementById('iconPreviewContainer');
+  const videoContainer = document.getElementById('videoPreviewContainer');
+  
+  // Force hide all preview elements
+  previewModal.style.display = 'none';
+  imageContainer.style.display = 'none';
+  iconContainer.style.display = 'none';
+  videoContainer.style.display = 'none';
+  imageContainer.innerHTML = '';
+  iconContainer.innerHTML = '';
+  
+  // Apply the correct view mode on page load
+  updateGridView();
+  
   // Add event listeners to all folder items in the main content area
   const contentFolderItems = document.querySelectorAll('.content-inner .folder-item');
   
@@ -3025,8 +3693,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // If it has a file URL, it's a file item
     if (fileURL && fileName) {
-      // Add left-click event to open preview
-      item.addEventListener('click', function(e) {
+      // Remove any existing click handlers by cloning the node
+      const newItem = item.cloneNode(true);
+      item.parentNode.replaceChild(newItem, item);
+      item = newItem;
+      
+      // Add data attribute to mark as selectable
+      item.setAttribute('data-selectable', 'true');
+      
+      // Add double-click event to open preview
+      item.addEventListener('dblclick', function(e) {
         // Don't open preview if clicking on the more options button
         if (e.target.closest('.folder-more-options-btn')) {
           e.stopPropagation();
@@ -3036,12 +3712,97 @@ document.addEventListener('DOMContentLoaded', function() {
         // Prevent default to avoid navigation issues in grid view
         e.preventDefault();
         
-        // Select the item
-        document.querySelectorAll('.folder-item.selected').forEach(el => el.classList.remove('selected'));
-        item.classList.add('selected');
-        
         // Open the preview modal
         openPreviewModal(fileURL, fileName);
+      });
+      
+      // Add single-click event for selection
+      item.addEventListener('click', function(e) {
+        // Don't select if clicking on the more options button
+        if (e.target.closest('.folder-more-options-btn')) {
+          e.stopPropagation();
+          return;
+        }
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Check if Ctrl key is pressed (for multi-select on desktop)
+        const isMultiSelect = e.ctrlKey || e.metaKey || this.getAttribute('data-long-press') === 'true';
+        
+        if (!isMultiSelect) {
+          // Single selection mode - deselect all other files first
+          document.querySelectorAll('[data-selectable="true"]').forEach(el => {
+            if (el !== this) {
+              const elFileName = el.getAttribute('data-file-name');
+              if (selectedFiles.has(elFileName)) {
+                selectedFiles.delete(elFileName);
+                el.style.backgroundColor = '';
+                el.style.borderColor = '';
+              }
+            }
+          });
+        }
+        
+        // Toggle selection for the clicked item
+        if (selectedFiles.has(fileName)) {
+          selectedFiles.delete(fileName);
+          this.style.backgroundColor = '';
+          this.style.borderColor = '';
+        } else {
+          selectedFiles.add(fileName);
+          this.style.backgroundColor = 'rgba(211, 47, 47, 0.1)';
+          this.style.borderColor = '#d32f2f';
+        }
+        
+        updateSelectedButtons();
+      });
+      
+      // Add touch-and-hold detection for mobile multi-select
+      let touchTimeout;
+      let touchStartX;
+      let touchStartY;
+      
+      item.addEventListener('touchstart', function(e) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        
+        touchTimeout = setTimeout(() => {
+          this.setAttribute('data-long-press', 'true');
+          // Visual feedback for long press
+          this.style.backgroundColor = 'rgba(211, 47, 47, 0.1)';
+          
+          // Vibrate if supported (for tactile feedback)
+          if (navigator.vibrate) {
+            navigator.vibrate(50);
+          }
+        }, 500); // 500ms for long press
+      });
+      
+      item.addEventListener('touchmove', function(e) {
+        // Cancel long press if user moves finger more than a small threshold
+        const moveThreshold = 10;
+        const touchX = e.touches[0].clientX;
+        const touchY = e.touches[0].clientY;
+        
+        if (Math.abs(touchX - touchStartX) > moveThreshold || 
+            Math.abs(touchY - touchStartY) > moveThreshold) {
+          clearTimeout(touchTimeout);
+          this.removeAttribute('data-long-press');
+        }
+      });
+      
+      item.addEventListener('touchend', function() {
+        clearTimeout(touchTimeout);
+        // Reset long press state after a short delay (to allow the click event to use it)
+        setTimeout(() => {
+          this.removeAttribute('data-long-press');
+        }, 50);
+      });
+      
+      item.addEventListener('touchcancel', function() {
+        clearTimeout(touchTimeout);
+        this.removeAttribute('data-long-press');
       });
       
       // Add context menu event
@@ -3213,6 +3974,65 @@ document.addEventListener('DOMContentLoaded', function() {
         // Position and show the context menu
         positionContextMenu(e.pageX, e.pageY);
       });
+    }
+  });
+
+  // PDF Zoom Controls
+  let currentZoom = 1.0;
+  const zoomStep = 0.1;
+  
+  document.getElementById('zoomIn').addEventListener('click', function() {
+    currentZoom += zoomStep;
+    applyPdfZoom();
+  });
+  
+  document.getElementById('zoomOut').addEventListener('click', function() {
+    currentZoom = Math.max(0.5, currentZoom - zoomStep);
+    applyPdfZoom();
+  });
+  
+  document.getElementById('zoomReset').addEventListener('click', function() {
+    currentZoom = 1.0;
+    applyPdfZoom();
+  });
+  
+  function applyPdfZoom() {
+    const pdfViewer = document.getElementById('pdfViewer');
+    if (pdfViewer) {
+      try {
+        const iframeDoc = pdfViewer.contentDocument || pdfViewer.contentWindow.document;
+        if (iframeDoc && iframeDoc.body) {
+          iframeDoc.body.style.transform = `scale(${currentZoom})`;
+          iframeDoc.body.style.transformOrigin = 'center top';
+        }
+      } catch (e) {
+        console.error('Error applying zoom:', e);
+      }
+    }
+  }
+  
+  // Add keyboard shortcuts for PDF zooming
+  document.addEventListener('keydown', function(e) {
+    // Only handle keyboard shortcuts when PDF viewer is active
+    if (document.getElementById('pdfPreviewContainer').style.display !== 'none') {
+      // Ctrl/Cmd + Plus: Zoom in
+      if ((e.ctrlKey || e.metaKey) && e.key === '+') {
+        e.preventDefault();
+        currentZoom += zoomStep;
+        applyPdfZoom();
+      }
+      // Ctrl/Cmd + Minus: Zoom out
+      else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        currentZoom = Math.max(0.5, currentZoom - zoomStep);
+        applyPdfZoom();
+      }
+      // Ctrl/Cmd + 0: Reset zoom
+      else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        currentZoom = 1.0;
+        applyPdfZoom();
+      }
     }
   });
 });
@@ -3456,6 +4276,173 @@ function confirmFolderDelete(folderName) {
     form.submit();
   });
 }
+
+// Multi-select functionality
+const selectAllBtn = document.getElementById('selectAllBtn');
+const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
+
+// Initially hide the delete and download buttons
+deleteSelectedBtn.style.display = 'none';
+downloadSelectedBtn.style.display = 'none';
+
+// Track selection state
+let selectedFiles = new Set();
+
+// Update the visibility of delete and download buttons
+function updateSelectedButtons() {
+  if (selectedFiles.size > 0) {
+    deleteSelectedBtn.style.display = 'inline-flex';
+    downloadSelectedBtn.style.display = 'inline-flex';
+    selectAllBtn.innerHTML = '<i class="fas fa-times" style="margin-right: 5px;"></i>Cancel';
+  } else {
+    deleteSelectedBtn.style.display = 'none';
+    downloadSelectedBtn.style.display = 'none';
+    selectAllBtn.innerHTML = '<i class="fas fa-check-square" style="margin-right: 5px;"></i>Select All';
+  }
+}
+
+// Select All button functionality
+selectAllBtn.addEventListener('click', function() {
+  if (selectedFiles.size > 0) {
+    // If files are selected, deselect all
+    selectedFiles.clear();
+    document.querySelectorAll('[data-selectable="true"]').forEach(item => {
+      item.style.backgroundColor = '';
+      item.style.borderColor = '';
+    });
+  } else {
+    // If no files are selected, select all
+    document.querySelectorAll('[data-selectable="true"]').forEach(item => {
+      const fileName = item.getAttribute('data-file-name');
+      selectedFiles.add(fileName);
+      item.style.backgroundColor = 'rgba(211, 47, 47, 0.1)';
+      item.style.borderColor = '#d32f2f';
+    });
+  }
+  
+  updateSelectedButtons();
+});
+
+// Delete button click handler (placeholder for now)
+deleteSelectedBtn.addEventListener('click', function() {
+  if (selectedFiles.size === 0) return;
+  
+  // Create confirmation message based on number of files
+  const fileCount = selectedFiles.size;
+  const confirmMessage = fileCount === 1 
+    ? `Are you sure you want to delete this file?` 
+    : `Are you sure you want to delete these ${fileCount} files?`;
+  
+  showConfirm(confirmMessage, function() {
+    // Create a form to submit the delete request
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
+    
+    // Add a hidden input for the delete_files action
+    const actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'delete_files';
+    actionInput.value = '1';
+    form.appendChild(actionInput);
+    
+    // Add all selected files as hidden inputs
+    let index = 0;
+    selectedFiles.forEach(fileName => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'hidden';
+      fileInput.name = 'files_to_delete[]';
+      fileInput.value = fileName;
+      form.appendChild(fileInput);
+      index++;
+    });
+    
+    // Append the form to the body and submit it
+    document.body.appendChild(form);
+    form.submit();
+  });
+});
+
+// Download button click handler
+downloadSelectedBtn.addEventListener('click', function() {
+  if (selectedFiles.size === 0) return;
+  
+  if (selectedFiles.size === 1) {
+    // If only one file is selected, download it directly
+    const fileName = selectedFiles.values().next().value;
+    const fileItem = document.querySelector(`[data-file-name="${fileName}"]`);
+    const fileURL = fileItem.getAttribute('data-file-url');
+    
+    if (fileURL) {
+      // Create a temporary link and click it to download
+      const downloadLink = document.createElement('a');
+      downloadLink.href = fileURL;
+      downloadLink.setAttribute('download', fileName);
+      downloadLink.style.display = 'none';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
+  } else {
+    // For multiple files, create a zip archive
+    showAlert('Preparing files for download...', 'info');
+    
+    // Create a form to submit the download request
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
+    
+    // Add a hidden input for the download_files action
+    const actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'download_files';
+    actionInput.value = '1';
+    form.appendChild(actionInput);
+    
+    // Add all selected files as hidden inputs
+    let index = 0;
+    selectedFiles.forEach(fileName => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'hidden';
+      fileInput.name = 'files_to_download[]';
+      fileInput.value = fileName;
+      form.appendChild(fileInput);
+      index++;
+    });
+    
+    // Append the form to the body and submit it
+    document.body.appendChild(form);
+    form.submit();
+  }
+});
+
+// ... existing code ...
+    // Add keyboard shortcuts for PDF zooming
+    document.addEventListener('keydown', function(e) {
+      // Only handle keyboard shortcuts when PDF viewer is active
+      if (document.getElementById('pdfPreviewContainer').style.display !== 'none') {
+        // Ctrl/Cmd + Plus: Zoom in
+        if ((e.ctrlKey || e.metaKey) && e.key === '+') {
+          e.preventDefault();
+          currentZoom += zoomStep;
+          applyPdfZoom();
+        }
+        // Ctrl/Cmd + Minus: Zoom out
+        else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+          e.preventDefault();
+          currentZoom = Math.max(0.5, currentZoom - zoomStep);
+          applyPdfZoom();
+        }
+        // Ctrl/Cmd + 0: Reset zoom
+        else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+          e.preventDefault();
+          currentZoom = 1.0;
+          applyPdfZoom();
+        }
+      }
+    });
+// ... existing code ...
 </script>
 
 </body>
