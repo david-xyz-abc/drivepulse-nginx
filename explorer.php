@@ -2885,6 +2885,50 @@ input:checked + .slider:before {
 .btn-primary:hover {
   background-color: #b71c1c;
 }
+
+/* Add these CSS rules at the end of the <style> section */
+.share-status-success {
+  background-color: rgba(40, 167, 69, 0.2);
+  border: 1px solid rgba(40, 167, 69, 0.5);
+  color: #2ecc71;
+  padding: 10px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.share-status-error {
+  background-color: rgba(220, 53, 69, 0.2);
+  border: 1px solid rgba(220, 53, 69, 0.5);
+  color: #e74c3c;
+  padding: 10px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.share-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+#shareLinkInput {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  background-color: var(--background-darker);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+#shareLinkInput::selection {
+  background-color: var(--accent-red);
+  color: white;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
   </style>
 </head>
 <body>
@@ -4586,12 +4630,14 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
             <span id="shareToggleStatus" style="margin-left: 10px; font-size: 14px;">Off</span>
           </div>
           
-          <div id="shareStatus" style="margin: 15px 0; display: none;"></div>
+          <div id="shareStatus" class="share-status-success" style="margin: 15px 0; display: none; padding: 10px; border-radius: 4px; text-align: center;"></div>
           <div id="shareLink" style="display: none;">
             <p style="margin-bottom: 5px;">Share link:</p>
-            <input type="text" id="shareLinkInput" readonly style="width: 100%; padding: 8px; margin-bottom: 10px;">
-            <button id="copyShareLink" class="btn btn-primary">Copy Link</button>
-            <button id="previewShareLink" class="btn btn-secondary" style="margin-left: 10px;">Preview</button>
+            <input type="text" id="shareLinkInput" readonly style="width: 100%; padding: 8px; margin-bottom: 10px; background-color: var(--background-darker); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div class="share-buttons">
+              <button id="copyShareLink" class="btn btn-primary">Copy Link</button>
+              <button id="previewShareLink" class="btn btn-secondary">Preview</button>
+            </div>
           </div>
           <div id="shareLoading" style="display: none;">
             <div class="spinner" style="margin: 0 auto; width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: var(--accent-red); animation: spin 1s linear infinite;"></div>
@@ -5226,6 +5272,146 @@ downloadSelectedBtn.addEventListener('click', function() {
         });
       }
     });
+
+    // ... existing code ...
+    function shareFile(filePath) {
+      // Show loading spinner
+      document.getElementById('shareLoading').style.display = 'block';
+      document.getElementById('shareStatus').style.display = 'none';
+      document.getElementById('shareLink').style.display = 'none';
+      
+      // Create a FormData object
+      const formData = new FormData();
+      formData.append('file_path', filePath);
+      formData.append('action', 'share');
+      
+      // Send the request to the server
+      fetch('share_handler.php', {
+        method: 'POST',
+        body: formData
+      })
+      .then(handleFetchErrors)
+      .then(response => response.json())
+      .then(data => {
+        // Hide loading spinner
+        document.getElementById('shareLoading').style.display = 'none';
+        
+        if (data.success) {
+          // Show success message
+          const shareStatus = document.getElementById('shareStatus');
+          shareStatus.textContent = 'File shared successfully';
+          shareStatus.style.display = 'block';
+          shareStatus.className = 'share-status-success';
+          
+          // Show share link
+          document.getElementById('shareLink').style.display = 'block';
+          document.getElementById('shareLinkInput').value = data.share_url;
+          
+          // Update toggle status
+          document.getElementById('shareToggle').checked = true;
+          document.getElementById('shareToggleStatus').textContent = 'On';
+          
+          console.log('Share created successfully:', data);
+        } else {
+          // Show error message
+          const shareStatus = document.getElementById('shareStatus');
+          shareStatus.textContent = data.message || 'Failed to share file';
+          shareStatus.style.display = 'block';
+          shareStatus.className = 'share-status-error';
+          
+          console.error('Share creation failed:', data);
+        }
+      })
+      .catch(error => {
+        // Hide loading spinner
+        document.getElementById('shareLoading').style.display = 'none';
+        
+        // Show error message
+        const shareStatus = document.getElementById('shareStatus');
+        shareStatus.textContent = 'Error: ' + error.message;
+        shareStatus.style.display = 'block';
+        shareStatus.className = 'share-status-error';
+        
+        console.error('Share fetch error:', error);
+      });
+    }
+
+    function deleteShare(filePath) {
+      // Show loading spinner
+      document.getElementById('shareLoading').style.display = 'block';
+      document.getElementById('shareStatus').style.display = 'none';
+      document.getElementById('shareLink').style.display = 'none';
+      
+      // Create a FormData object for compatibility
+      const formData = new FormData();
+      formData.append('file_path', filePath);
+      formData.append('action', 'delete');
+      
+      // Use XMLHttpRequest for better compatibility with DELETE
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', 'share_handler.php');
+      xhr.onload = function() {
+        // Hide loading spinner
+        document.getElementById('shareLoading').style.display = 'none';
+        
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.success) {
+              // Show success message
+              const shareStatus = document.getElementById('shareStatus');
+              shareStatus.textContent = 'Share removed successfully';
+              shareStatus.style.display = 'block';
+              shareStatus.className = 'share-status-success';
+              
+              // Update toggle status
+              document.getElementById('shareToggle').checked = false;
+              document.getElementById('shareToggleStatus').textContent = 'Off';
+              
+              console.log('Share deleted successfully:', data);
+            } else {
+              // Show error message
+              const shareStatus = document.getElementById('shareStatus');
+              shareStatus.textContent = data.message || 'Failed to remove share';
+              shareStatus.style.display = 'block';
+              shareStatus.className = 'share-status-error';
+              
+              console.error('Share deletion failed:', data);
+            }
+          } catch (e) {
+            // Show parsing error
+            const shareStatus = document.getElementById('shareStatus');
+            shareStatus.textContent = 'Error parsing response';
+            shareStatus.style.display = 'block';
+            shareStatus.className = 'share-status-error';
+            
+            console.error('Error parsing response:', e, xhr.responseText);
+          }
+        } else {
+          // Show HTTP error
+          const shareStatus = document.getElementById('shareStatus');
+          shareStatus.textContent = 'Error: ' + xhr.status;
+          shareStatus.style.display = 'block';
+          shareStatus.className = 'share-status-error';
+          
+          console.error('Share deletion HTTP error:', xhr.status);
+        }
+      };
+      xhr.onerror = function() {
+        // Hide loading spinner
+        document.getElementById('shareLoading').style.display = 'none';
+        
+        // Show network error
+        const shareStatus = document.getElementById('shareStatus');
+        shareStatus.textContent = 'Network error occurred';
+        shareStatus.style.display = 'block';
+        shareStatus.className = 'share-status-error';
+        
+        console.error('Share deletion network error');
+      };
+      xhr.send(formData);
+    }
+    // ... existing code ...
 </script>
 
 </body>
