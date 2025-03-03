@@ -13,7 +13,7 @@ LOGFILE="/var/log/selfhostedgdrive_install.log"
 exec > >(tee -a "$LOGFILE") 2>&1
 
 echo "======================================"
-echo "Self Hosted Google Drive (DriveDAV) Installer/Updater"
+echo "DrivePulse Installer"
 echo "======================================"
 
 # Check for root privileges

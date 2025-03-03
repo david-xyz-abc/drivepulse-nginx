@@ -1,209 +1,211 @@
 <?php
-// share_handler.php - Handles file sharing functionality
+// Set error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-// Start session
-session_start();
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// Include configuration
-require_once 'config.php';
+// Debug log setup with toggle
+define('DEBUG', true);
+$debug_log = __DIR__ . '/share_debug.log';
+function log_debug($message) {
+    global $debug_log;
+    if (DEBUG) {
+        // Try to write to the log file
+        @file_put_contents($debug_log, date('[Y-m-d H:i:s] ') . $message . "\n", FILE_APPEND);
+    }
+}
 
-// Database connection
-$db = new SQLite3($dbPath);
+// Log request details for debugging
+log_debug("=== Share Handler Request ===");
+log_debug("PHP Version: " . PHP_VERSION);
+log_debug("Request Method: " . ($_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN'));
+log_debug("Request URI: " . ($_SERVER['REQUEST_URI'] ?? 'UNKNOWN'));
+log_debug("GET params: " . var_export($_GET ?? [], true));
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    log_debug("POST params: " . var_export($_POST ?? [], true));
+}
 
-// Create shares table if it doesn't exist
-$db->exec('
-CREATE TABLE IF NOT EXISTS shares (
-    id TEXT PRIMARY KEY,
-    file_path TEXT NOT NULL,
-    password TEXT,
-    expiry_time INTEGER,
-    created_at INTEGER,
-    access_count INTEGER DEFAULT 0
-)
-');
-
-// Handle AJAX requests
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $response = ['success' => false, 'message' => 'Invalid action'];
-    
-    // Create a new share
-    if (isset($_POST['action']) && $_POST['action'] === 'create_share') {
-        $filePath = $_POST['file_path'] ?? '';
-        $shareId = $_POST['share_id'] ?? '';
-        $password = $_POST['password'] ?? '';
-        $expiry = $_POST['expiry'] ?? 'never';
-        
-        // Validate inputs
-        if (empty($filePath) || empty($shareId)) {
-            $response = ['success' => false, 'message' => 'Missing required parameters'];
-            echo json_encode($response);
-            exit;
-        }
-        
-        // Check if file exists
-        if (!file_exists($filePath)) {
-            $response = ['success' => false, 'message' => 'File not found'];
-            echo json_encode($response);
-            exit;
-        }
-        
-        // Calculate expiry time
-        $expiryTime = 0; // 0 means never expires
-        $now = time();
-        
-        switch ($expiry) {
-            case '1h':
-                $expiryTime = $now + 3600;
-                break;
-            case '24h':
-                $expiryTime = $now + 86400;
-                break;
-            case '7d':
-                $expiryTime = $now + 604800;
-                break;
-            case '30d':
-                $expiryTime = $now + 2592000;
-                break;
-            default:
-                $expiryTime = 0; // Never expires
-        }
-        
-        // Hash password if provided
-        if (!empty($password)) {
-            $password = password_hash($password, PASSWORD_DEFAULT);
-        }
-        
-        // Insert share into database
-        $stmt = $db->prepare('
-            INSERT INTO shares (id, file_path, password, expiry_time, created_at, access_count)
-            VALUES (:id, :file_path, :password, :expiry_time, :created_at, 0)
-        ');
-        
-        $stmt->bindValue(':id', $shareId, SQLITE3_TEXT);
-        $stmt->bindValue(':file_path', $filePath, SQLITE3_TEXT);
-        $stmt->bindValue(':password', $password, SQLITE3_TEXT);
-        $stmt->bindValue(':expiry_time', $expiryTime, SQLITE3_INTEGER);
-        $stmt->bindValue(':created_at', $now, SQLITE3_INTEGER);
-        
-        $result = $stmt->execute();
-        
-        if ($result) {
-            $response = [
-                'success' => true, 
-                'message' => 'Share created successfully',
-                'shareId' => $shareId
-            ];
-        } else {
-            $response = ['success' => false, 'message' => 'Failed to create share'];
-        }
-    }
-    
-    // Delete a share
-    else if (isset($_POST['action']) && $_POST['action'] === 'delete_share') {
-        $shareId = $_POST['share_id'] ?? '';
-        
-        if (empty($shareId)) {
-            $response = ['success' => false, 'message' => 'Missing share ID'];
-            echo json_encode($response);
-            exit;
-        }
-        
-        $stmt = $db->prepare('DELETE FROM shares WHERE id = :id');
-        $stmt->bindValue(':id', $shareId, SQLITE3_TEXT);
-        $result = $stmt->execute();
-        
-        if ($result) {
-            $response = ['success' => true, 'message' => 'Share deleted successfully'];
-        } else {
-            $response = ['success' => false, 'message' => 'Failed to delete share'];
-        }
-    }
-    
-    // Get share info
-    else if (isset($_POST['action']) && $_POST['action'] === 'get_share_info') {
-        $shareId = $_POST['share_id'] ?? '';
-        
-        if (empty($shareId)) {
-            $response = ['success' => false, 'message' => 'Missing share ID'];
-            echo json_encode($response);
-            exit;
-        }
-        
-        $stmt = $db->prepare('SELECT * FROM shares WHERE id = :id');
-        $stmt->bindValue(':id', $shareId, SQLITE3_TEXT);
-        $result = $stmt->execute();
-        $share = $result->fetchArray(SQLITE3_ASSOC);
-        
-        if ($share) {
-            // Check if share has expired
-            if ($share['expiry_time'] > 0 && $share['expiry_time'] < time()) {
-                $response = ['success' => false, 'message' => 'Share has expired'];
-            } else {
-                $response = [
-                    'success' => true,
-                    'share' => [
-                        'id' => $share['id'],
-                        'file_path' => $share['file_path'],
-                        'has_password' => !empty($share['password']),
-                        'expiry_time' => $share['expiry_time'],
-                        'created_at' => $share['created_at'],
-                        'access_count' => $share['access_count']
-                    ]
-                ];
-            }
-        } else {
-            $response = ['success' => false, 'message' => 'Share not found'];
-        }
-    }
-    
-    // Verify share password
-    else if (isset($_POST['action']) && $_POST['action'] === 'verify_password') {
-        $shareId = $_POST['share_id'] ?? '';
-        $password = $_POST['password'] ?? '';
-        
-        if (empty($shareId) || empty($password)) {
-            $response = ['success' => false, 'message' => 'Missing required parameters'];
-            echo json_encode($response);
-            exit;
-        }
-        
-        $stmt = $db->prepare('SELECT password FROM shares WHERE id = :id');
-        $stmt->bindValue(':id', $shareId, SQLITE3_TEXT);
-        $result = $stmt->execute();
-        $share = $result->fetchArray(SQLITE3_ASSOC);
-        
-        if ($share && password_verify($password, $share['password'])) {
-            $response = ['success' => true, 'message' => 'Password verified'];
-        } else {
-            $response = ['success' => false, 'message' => 'Invalid password'];
-        }
-    }
-    
-    // Increment access count
-    else if (isset($_POST['action']) && $_POST['action'] === 'increment_access') {
-        $shareId = $_POST['share_id'] ?? '';
-        
-        if (empty($shareId)) {
-            $response = ['success' => false, 'message' => 'Missing share ID'];
-            echo json_encode($response);
-            exit;
-        }
-        
-        $stmt = $db->prepare('UPDATE shares SET access_count = access_count + 1 WHERE id = :id');
-        $stmt->bindValue(':id', $shareId, SQLITE3_TEXT);
-        $result = $stmt->execute();
-        
-        if ($result) {
-            $response = ['success' => true, 'message' => 'Access count updated'];
-        } else {
-            $response = ['success' => false, 'message' => 'Failed to update access count'];
-        }
-    }
-    
-    echo json_encode($response);
+// Function to send JSON response
+function send_json_response($data, $status_code = 200) {
+    http_response_code($status_code);
+    header('Content-Type: application/json');
+    echo json_encode($data);
     exit;
 }
 
-// Close database connection
-$db->close();
-?> 
+// Initialize shares in session if not exists
+if (!isset($_SESSION['file_shares'])) {
+    $_SESSION['file_shares'] = [];
+}
+
+// File-based storage for shares
+$shares_file = __DIR__ . '/shares.json';
+
+// Function to load shares from file
+function load_shares() {
+    global $shares_file;
+    if (file_exists($shares_file)) {
+        $content = file_get_contents($shares_file);
+        if (!empty($content)) {
+            return json_decode($content, true) ?: [];
+        }
+    }
+    return [];
+}
+
+// Function to save shares to file
+function save_shares($shares) {
+    global $shares_file;
+    file_put_contents($shares_file, json_encode($shares));
+}
+
+// Get username from session or use a default
+$username = $_SESSION['username'] ?? 'default_user';
+
+// Handle different HTTP methods
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+log_debug("Processing method: $method");
+
+try {
+    switch ($method) {
+        case 'GET':
+            // Check if a file is shared
+            if (isset($_GET['action']) && $_GET['action'] === 'check_share' && isset($_GET['file_path'])) {
+                $filePath = $_GET['file_path'];
+                log_debug("Checking share for file: $filePath");
+                
+                // Check if file is shared in file storage
+                $fileKey = $username . ':' . $filePath;
+                $shares = load_shares();
+                
+                if (isset($shares[$fileKey])) {
+                    // File is shared
+                    $shareId = $shares[$fileKey];
+                    log_debug("File is shared with ID: $shareId");
+                    send_json_response([
+                        'success' => true,
+                        'is_shared' => true,
+                        'share_url' => 'shared.php?id=' . $shareId
+                    ]);
+                } else {
+                    // File is not shared
+                    log_debug("File is not shared");
+                    send_json_response([
+                        'success' => true,
+                        'is_shared' => false
+                    ]);
+                }
+            } else {
+                log_debug("Invalid GET request");
+                send_json_response(['success' => false, 'message' => 'Invalid request'], 400);
+            }
+            break;
+            
+        case 'POST':
+            // Create a new share
+            if (isset($_POST['file_path'])) {
+                $filePath = $_POST['file_path'];
+                log_debug("Creating share for file: $filePath");
+                
+                // Generate a unique share ID
+                $shareId = bin2hex(random_bytes(16));
+                
+                // Store in file
+                $fileKey = $username . ':' . $filePath;
+                $shares = load_shares();
+                $shares[$fileKey] = $shareId;
+                save_shares($shares);
+                
+                // Also store in session for backward compatibility
+                $_SESSION['file_shares'][$fileKey] = $shareId;
+                
+                log_debug("File shared successfully with ID: $shareId");
+                send_json_response([
+                    'success' => true,
+                    'message' => 'File shared successfully',
+                    'share_url' => 'shared.php?id=' . $shareId
+                ]);
+            } else {
+                log_debug("Missing file path in POST request");
+                send_json_response(['success' => false, 'message' => 'Missing file path'], 400);
+            }
+            break;
+            
+        case 'DELETE':
+            log_debug("DELETE request received");
+            log_debug("Query string: " . ($_SERVER['QUERY_STRING'] ?? 'NONE'));
+            
+            // Try different methods to get the file path
+            $filePath = null;
+            
+            // Method 1: Parse query string
+            if (isset($_SERVER['QUERY_STRING'])) {
+                parse_str($_SERVER['QUERY_STRING'], $query);
+                if (isset($query['file_path'])) {
+                    $filePath = $query['file_path'];
+                }
+            }
+            
+            // Method 2: Check GET parameters
+            if ($filePath === null && isset($_GET['file_path'])) {
+                $filePath = $_GET['file_path'];
+            }
+            
+            // Method 3: Parse raw input
+            if ($filePath === null) {
+                $input = file_get_contents('php://input');
+                log_debug("Raw input: $input");
+                parse_str($input, $data);
+                if (isset($data['file_path'])) {
+                    $filePath = $data['file_path'];
+                }
+            }
+            
+            if ($filePath !== null) {
+                log_debug("Deleting share for file: $filePath");
+                
+                // Remove from file storage
+                $fileKey = $username . ':' . $filePath;
+                $shares = load_shares();
+                
+                if (isset($shares[$fileKey])) {
+                    unset($shares[$fileKey]);
+                    save_shares($shares);
+                    
+                    // Also remove from session for backward compatibility
+                    if (isset($_SESSION['file_shares'][$fileKey])) {
+                        unset($_SESSION['file_shares'][$fileKey]);
+                    }
+                    
+                    log_debug("File sharing disabled successfully");
+                    send_json_response([
+                        'success' => true,
+                        'message' => 'File sharing disabled'
+                    ]);
+                } else {
+                    log_debug("File was not shared");
+                    send_json_response([
+                        'success' => true,
+                        'message' => 'File was not shared'
+                    ]);
+                }
+            } else {
+                log_debug("Missing file path in DELETE request");
+                send_json_response(['success' => false, 'message' => 'Missing file path'], 400);
+            }
+            break;
+            
+        default:
+            log_debug("Method not allowed: $method");
+            send_json_response(['success' => false, 'message' => 'Method not allowed'], 405);
+            break;
+    }
+} catch (Exception $e) {
+    // Handle any unexpected errors
+    log_debug("Unexpected error: " . $e->getMessage());
+    send_json_response(['success' => false, 'message' => 'Server error: ' . $e->getMessage()], 500);
+} 

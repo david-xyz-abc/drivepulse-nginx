@@ -1287,7 +1287,10 @@ html, body {
   overflow: hidden;
 }
 
-.file-name:hover { border-bottom: 2px solid var(--accent-red); }
+.file-name:hover { 
+  /* Remove the border-bottom that's causing the double red line */
+  border-bottom: none; 
+}
 
 .file-list.grid-view .file-name:hover { border-bottom: none; }
 
@@ -1568,6 +1571,7 @@ html, body {
     height: 100%;
     width: 100%;
     border: none; /* Remove border */
+    outline: none; /* Remove outline that might be causing the second line */
     box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4); /* Add stronger shadow */
     border-radius: 4px; /* Add rounded corners */
     transform: scale(1); /* Ensure no scaling is applied */
@@ -1693,14 +1697,12 @@ html, body {
 }
 
 #pdfViewer {
-  width: 100%;
+  max-height: 95vh;
+  max-width: 95vw; /* Make it wider */
   height: 100%;
-  max-width: 100vw;
-  max-height: 100vh;
-  background: white;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4); /* Add stronger shadow */
-  transform: scale(1); /* Ensure no scaling is applied */
-  border-radius: 4px; /* Add rounded corners */
+  width: 100%;
+  border: none; /* Remove border */
+  outline: none; /* Remove outline that might be causing the second line */
   /* Add custom scrollbar styling for the iframe */
   scrollbar-width: thin;
   scrollbar-color: var(--accent-red) rgba(0, 0, 0, 0.1);
@@ -2050,11 +2052,6 @@ button, .btn, .file-row, .folder-item, img, i {
     width: 20px;
     text-align: center;
     color: var(--text-color);
-}
-
-/* Red globe icon for Share option */
-.share-globe-icon {
-    color: #e74c3c !important; /* Red color for the globe icon */
 }
 
 .context-menu-divider {
@@ -2530,191 +2527,363 @@ button, .btn, .file-row, .folder-item, img, i {
   }
 }
 
-/* Share Modal Styles */
-.share-link-container {
+.file-list.grid-view .file-name {
+  margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 20px;
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  text-align: center;
+}
+
+/* Add text truncation for file names in grid view */
+.folder-list.grid-view .file-name {
+  max-width: 160px;
+  width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  padding: 0;
+  font-size: 0.9em;
+  line-height: 1.2;
+  height: 20px; /* Reduced height for single line */
+  flex-shrink: 0; /* Prevent shrinking */
+  text-align: center;
+}
+
+/* Modal styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.3s;
+}
+
+.modal-content {
+  background-color: #fefefe;
+  margin: 10% auto;
+  padding: 0;
+  border: 1px solid #888;
+  border-radius: 5px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  max-width: 80%;
+  animation: slideDown 0.3s;
+}
+
+.modal-header {
+  padding: 15px;
+  border-bottom: 1px solid #e9e9e9;
+  background-color: #f8f9fa;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
   display: flex;
-  margin: 15px 0;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.share-link-container input {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px 0 0 4px;
-  background-color: var(--content-bg);
-  color: var(--text-color);
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
 }
 
-.share-link-container button {
-  border-radius: 0 4px 4px 0;
-  border: 1px solid var(--accent-color);
-  background-color: var(--accent-color);
-  color: white;
-  padding: 10px 15px;
+.modal-body {
+  padding: 15px;
+}
+
+.close {
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
   cursor: pointer;
 }
 
-.share-options {
-  margin: 20px 0;
-  padding: 15px;
-  background-color: rgba(var(--hover-color-rgb), 0.1);
-  border-radius: 4px;
+.close:hover,
+.close:focus {
+  color: black;
+  text-decoration: none;
 }
 
-.share-option {
+.alert {
+  padding: 12px 15px;
   margin-bottom: 15px;
-}
-
-.share-option:last-child {
-  margin-bottom: 0;
-}
-
-.share-option label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-}
-
-.share-option select, 
-.share-option input[type="password"] {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid transparent;
   border-radius: 4px;
-  background-color: var(--content-bg);
+}
+
+.alert-success {
+  color: #155724;
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+}
+
+.alert-danger {
+  color: #721c24;
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+  border: 1px solid #0069d9;
+}
+
+.btn-primary:hover {
+  background-color: #0069d9;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+  border: 1px solid #c82333;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-50px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Toggle Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #4CAF50;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #4CAF50;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.slider.round {
+  border-radius: 24px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ... existing styles ... */
+
+/* Share Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background-color: var(--background);
+  margin: 10% auto;
+  padding: 0;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  animation: modalFadeIn 0.3s ease;
+  border: 1px solid var(--border-color);
+}
+
+@keyframes modalFadeIn {
+  from {opacity: 0; transform: translateY(-20px);}
+  to {opacity: 1; transform: translateY(0);}
+}
+
+.modal-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--sidebar-bg);
+  border-radius: 8px 8px 0 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
   color: var(--text-color);
 }
 
-#generateShareLink {
-  display: block;
-  width: 100%;
-  padding: 10px;
-  background-color: #2ecc71;
+.modal-body {
+  padding: 20px;
+  color: var(--text-color);
+}
+
+.close {
+  color: var(--text-color);
+  float: right;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close:hover {
+  color: var(--accent-red);
+}
+
+/* Toggle Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #4CAF50;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #4CAF50;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.slider.round {
+  border-radius: 24px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+/* Alert styles */
+.alert {
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.alert-success {
+  background-color: rgba(76, 175, 80, 0.2);
+  border: 1px solid #4CAF50;
+  color: #4CAF50;
+}
+
+.alert-danger {
+  background-color: rgba(244, 67, 54, 0.2);
+  border: 1px solid #F44336;
+  color: #F44336;
+}
+
+/* Button styles */
+.btn-primary {
+  background-color: var(--accent-red);
   color: white;
   border: none;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: 500;
   transition: background-color 0.3s;
 }
 
-#generateShareLink:hover {
-  background-color: #27ae60;
-}
-
-/* Responsive adjustments for share modal */
-@media (max-width: 768px) {
-  .share-link-container {
-    flex-direction: column;
-  }
-  
-  .share-link-container input {
-    border-radius: 4px;
-    margin-bottom: 10px;
-  }
-  
-  .share-link-container button {
-    border-radius: 4px;
-  }
-}
-
-/* Toast Notification Styles */
-.toast-container {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 10000;
-}
-
-.toast {
-  background-color: var(--content-bg);
-  color: var(--text-color);
-  padding: 12px 20px;
-  border-radius: 4px;
-  margin-top: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  display: flex;
-  align-items: center;
-  min-width: 250px;
-  max-width: 350px;
-  animation: slideIn 0.3s, fadeOut 0.5s 2.5s forwards;
-  position: relative;
-  overflow: hidden;
-}
-
-.toast.success {
-  border-left: 4px solid #2ecc71;
-}
-
-.toast.error {
-  border-left: 4px solid #e74c3c;
-}
-
-.toast.info {
-  border-left: 4px solid #3498db;
-}
-
-.toast-icon {
-  margin-right: 10px;
-  font-size: 18px;
-}
-
-.toast.success .toast-icon {
-  color: #2ecc71;
-}
-
-.toast.error .toast-icon {
-  color: #e74c3c;
-}
-
-.toast.info .toast-icon {
-  color: #3498db;
-}
-
-.toast-message {
-  flex: 1;
-}
-
-.toast-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  width: 100%;
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-.toast-progress-bar {
-  height: 100%;
-  width: 100%;
-  animation: progress 3s linear forwards;
-}
-
-.toast.success .toast-progress-bar {
-  background-color: #2ecc71;
-}
-
-.toast.error .toast-progress-bar {
-  background-color: #e74c3c;
-}
-
-.toast.info .toast-progress-bar {
-  background-color: #3498db;
-}
-
-@keyframes slideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-
-@keyframes fadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-@keyframes progress {
-  from { width: 100%; }
-  to { width: 0%; }
+.btn-primary:hover {
+  background-color: #b71c1c;
 }
   </style>
 </head>
@@ -2945,7 +3114,7 @@ button, .btn, .file-row, .folder-item, img, i {
             </div>
         </div>
         <div id="pdfPreviewContainer" style="display: none;">
-            <iframe id="pdfViewer" width="100%" height="100%" frameborder="0"></iframe>
+            <iframe id="pdfViewer" width="100%" height="100%" frameborder="0" style="border: none; outline: none;"></iframe>
             <div id="pdfLoadingIndicator">
                 <div class="spinner"></div>
                 <div class="loading-text">Loading PDF...</div>
@@ -2978,7 +3147,7 @@ button, .btn, .file-row, .folder-item, img, i {
           <i class="fas fa-download"></i> Download
       </div>
       <div class="context-menu-item" id="contextMenuShare">
-          <i class="fas fa-globe share-globe-icon"></i> Share
+          <i class="fas fa-globe" style="color: red;"></i> Share
       </div>
       <div class="context-menu-divider"></div>
       <div class="context-menu-item" id="contextMenuRename">
@@ -3004,145 +3173,127 @@ button, .btn, .file-row, .folder-item, img, i {
     </div>
   </div>
 
-  <!-- Add toast container at the bottom of the page -->
-  <div id="toastContainer" class="toast-container"></div>
+<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+<script>
+let selectedFolder = null;
+let currentXhr = null;
+let previewFiles = <?php echo json_encode($previewableFiles); ?>;
+let currentPreviewIndex = -1;
+let isLoadingImage = false;
+let currentPath = '<?php echo htmlspecialchars($currentRel); ?>'; // Add the current path from PHP
 
-  <!-- Hidden input for current path -->
-  <input type="hidden" name="current_path" value="<?php echo $currentPath; ?>">
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sb.classList.toggle('open');
+  overlay.classList.toggle('show');
+}
+document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
 
-  <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-  <script src="share.js"></script>
-  <script>
-  let selectedFolder = null;
-  let currentXhr = null;
-  let previewFiles = <?php echo json_encode($previewableFiles); ?>;
-  let currentPreviewIndex = -1;
-  let isLoadingImage = false;
+function selectFolder(element, folderName) {
+  document.querySelectorAll('.folder-item.selected').forEach(item => item.classList.remove('selected'));
+  element.classList.add('selected');
+  selectedFolder = folderName;
+}
 
-  function toggleSidebar() {
-    const sb = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    sb.classList.toggle('open');
-    overlay.classList.toggle('show');
-  }
-  document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+function openFolder(folderPath) {
+  console.log("Opening folder: " + folderPath);
+  window.location.href = '/selfhostedgdrive/explorer.php?folder=' + folderPath;
+}
 
-  function selectFolder(element, folderName) {
-    document.querySelectorAll('.folder-item.selected').forEach(item => item.classList.remove('selected'));
-    element.classList.add('selected');
-    selectedFolder = folderName;
-  }
+function showPrompt(message, defaultValue, callback) {
+  const dialogModal = document.getElementById('dialogModal');
+  const dialogMessage = document.getElementById('dialogMessage');
+  const dialogButtons = document.getElementById('dialogButtons');
+  dialogMessage.innerHTML = '';
+  dialogButtons.innerHTML = '';
+  const msgEl = document.createElement('div');
+  msgEl.textContent = message;
+  msgEl.style.marginBottom = '10px';
+  dialogMessage.appendChild(msgEl);
+  const inputField = document.createElement('input');
+  inputField.type = 'text';
+  inputField.value = defaultValue || '';
+  inputField.style.width = '100%';
+  inputField.style.padding = '8px';
+  inputField.style.border = '1px solid #555';
+  inputField.style.borderRadius = '4px';
+  inputField.style.background = '#2a2a2a';
+  inputField.style.color = '#fff';
+  inputField.style.marginBottom = '15px';
+  dialogMessage.appendChild(inputField);
+  const okBtn = document.createElement('button');
+  okBtn.className = 'dialog-button';
+  okBtn.textContent = 'OK';
+  okBtn.onclick = () => { closeDialog(); if (callback) callback(inputField.value); };
+  dialogButtons.appendChild(okBtn);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'dialog-button';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = () => { closeDialog(); if (callback) callback(null); };
+  dialogButtons.appendChild(cancelBtn);
+  dialogModal.classList.add('show');
+}
 
-  function openFolder(folderPath) {
-    console.log("Opening folder: " + folderPath);
-    window.location.href = '/selfhostedgdrive/explorer.php?folder=' + folderPath;
-  }
+function closeDialog() {
+  document.getElementById('dialogModal').classList.remove('show');
+}
 
-  function showPrompt(message, defaultValue, callback) {
-    const dialogModal = document.getElementById('dialogModal');
-    const dialogMessage = document.getElementById('dialogMessage');
-    const dialogButtons = document.getElementById('dialogButtons');
-    dialogMessage.innerHTML = '';
-    dialogButtons.innerHTML = '';
-    const msgEl = document.createElement('div');
-    msgEl.textContent = message;
-    msgEl.style.marginBottom = '10px';
-    dialogMessage.appendChild(msgEl);
-    const inputField = document.createElement('input');
-    inputField.type = 'text';
-    inputField.value = defaultValue || '';
-    inputField.style.width = '100%';
-    inputField.style.padding = '8px';
-    inputField.style.border = '1px solid #555';
-    inputField.style.borderRadius = '4px';
-    inputField.style.background = '#2a2a2a';
-    inputField.style.color = '#fff';
-    inputField.style.marginBottom = '15px';
-    dialogMessage.appendChild(inputField);
-    const okBtn = document.createElement('button');
-    okBtn.className = 'dialog-button';
-    okBtn.textContent = 'OK';
-    okBtn.onclick = () => { closeDialog(); if (callback) callback(inputField.value); };
-    dialogButtons.appendChild(okBtn);
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'dialog-button';
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.onclick = () => { closeDialog(); if (callback) callback(null); };
-    dialogButtons.appendChild(cancelBtn);
-    dialogModal.classList.add('show');
-  }
+function showAlert(message, callback) {
+  const dialogModal = document.getElementById('dialogModal');
+  const dialogMessage = document.getElementById('dialogMessage');
+  const dialogButtons = document.getElementById('dialogButtons');
+  dialogMessage.innerHTML = message;
+  dialogButtons.innerHTML = '';
+  const okBtn = document.createElement('button');
+  okBtn.className = 'dialog-button';
+  okBtn.textContent = 'OK';
+  okBtn.onclick = () => { closeDialog(); if (callback) callback(); };
+  dialogButtons.appendChild(okBtn);
+  dialogModal.classList.add('show');
+}
 
-  function closeDialog() {
-    document.getElementById('dialogModal').classList.remove('show');
-  }
+function showConfirm(message, onYes, onNo) {
+  const dialogModal = document.getElementById('dialogModal');
+  const dialogMessage = document.getElementById('dialogMessage');
+  const dialogButtons = document.getElementById('dialogButtons');
+  dialogMessage.textContent = message;
+  dialogButtons.innerHTML = '';
+  const yesBtn = document.createElement('button');
+  yesBtn.className = 'dialog-button';
+  yesBtn.textContent = 'Yes';
+  yesBtn.onclick = () => { closeDialog(); if (onYes) onYes(); };
+  dialogButtons.appendChild(yesBtn);
+  const noBtn = document.createElement('button');
+  noBtn.className = 'dialog-button';
+  noBtn.textContent = 'No';
+  noBtn.onclick = () => { closeDialog(); if (onNo) onNo(); };
+  dialogButtons.appendChild(noBtn);
+  dialogModal.classList.add('show');
+}
 
-  function showAlert(message, callback) {
-    const dialogModal = document.getElementById('dialogModal');
-    const dialogMessage = document.getElementById('dialogMessage');
-    const dialogButtons = document.getElementById('dialogButtons');
-    dialogMessage.innerHTML = message;
-    dialogButtons.innerHTML = '';
-    const okBtn = document.createElement('button');
-    okBtn.className = 'dialog-button';
-    okBtn.textContent = 'OK';
-    okBtn.onclick = () => { closeDialog(); if (callback) callback(); };
-    dialogButtons.appendChild(okBtn);
-    dialogModal.classList.add('show');
-  }
-
-  function showConfirm(message, onYes, onNo) {
-    const dialogModal = document.getElementById('dialogModal');
-    const dialogMessage = document.getElementById('dialogMessage');
-    const dialogButtons = document.getElementById('dialogButtons');
-    dialogMessage.textContent = message;
-    dialogButtons.innerHTML = '';
-    const yesBtn = document.createElement('button');
-    yesBtn.className = 'dialog-button';
-    yesBtn.textContent = 'Yes';
-    yesBtn.onclick = () => { closeDialog(); if (onYes) onYes(); };
-    dialogButtons.appendChild(yesBtn);
-    const noBtn = document.createElement('button');
-    noBtn.className = 'dialog-button';
-    noBtn.textContent = 'No';
-    noBtn.onclick = () => { closeDialog(); if (onNo) onNo(); };
-    dialogButtons.appendChild(noBtn);
-    dialogModal.classList.add('show');
-  }
-
-  function createFolder() {
-    showPrompt("Enter new folder name:", "", function(folderName) {
-      if (folderName && folderName.trim() !== "") {
-        let form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
-        let inputCreate = document.createElement('input');
-        inputCreate.type = 'hidden';
-        inputCreate.name = 'create_folder';
-        inputCreate.value = '1';
-        form.appendChild(inputCreate);
-        let inputName = document.createElement('input');
-        inputName.type = 'hidden';
-        inputName.name = 'folder_name';
-        inputName.value = folderName.trim();
-        form.appendChild(inputName);
-        document.body.appendChild(form);
-        form.submit();
-      }
-    });
-  }
-
-  function renameFilePrompt(fileName) {
-    let dotIndex = fileName.lastIndexOf(".");
-    let baseName = fileName;
-    let ext = "";
-    if (dotIndex > 0) {
-      baseName = fileName.substring(0, dotIndex);
-      ext = fileName.substring(dotIndex);
+function createFolder() {
+  showPrompt("Enter new folder name:", "", function(folderName) {
+    if (folderName && folderName.trim() !== "") {
+      let form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
+      let inputCreate = document.createElement('input');
+      inputCreate.type = 'hidden';
+      inputCreate.name = 'create_folder';
+      inputCreate.value = '1';
+      form.appendChild(inputCreate);
+      let inputName = document.createElement('input');
+      inputName.type = 'hidden';
+      inputName.name = 'folder_name';
+      inputName.value = folderName.trim();
+      form.appendChild(inputName);
+      document.body.appendChild(form);
+      form.submit();
     }
-    showPrompt("Enter new file name:", baseName, function(newBase) {
-      if (newBase && newBase.trim() !== "" && newBase.trim() !== baseName) {
-        let finalName = newBase.trim() + ext;
-        let form = document.createElement('form');
+  });
+}
+
 function renameFilePrompt(fileName) {
   let dotIndex = fileName.lastIndexOf(".");
   let baseName = fileName;
@@ -4396,13 +4547,6 @@ document.getElementById('contextMenuDownload').addEventListener('click', functio
   }
 });
 
-document.getElementById('contextMenuShare').addEventListener('click', function() {
-  if (currentFileName) {
-    shareFile(currentFileName);
-    contextMenu.style.display = 'none';
-  }
-});
-
 document.getElementById('contextMenuRename').addEventListener('click', function() {
   if (currentFileName) {
     renameFilePrompt(currentFileName);
@@ -4413,6 +4557,289 @@ document.getElementById('contextMenuRename').addEventListener('click', function(
 document.getElementById('contextMenuDelete').addEventListener('click', function() {
   if (currentFileName) {
     confirmFileDelete(currentFileName);
+    contextMenu.style.display = 'none';
+  }
+});
+
+document.getElementById('contextMenuShare').addEventListener('click', function() {
+  if (currentFileName) {
+    const filePath = currentPath + '/' + currentFileName;
+    
+    // Create a modal dialog for sharing
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-content" style="width: 500px;">
+        <div class="modal-header">
+          <h2>Share File</h2>
+          <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <p>Share file: <strong>${currentFileName}</strong></p>
+          
+          <div class="share-toggle-container" style="margin: 20px 0; display: flex; align-items: center;">
+            <label for="shareToggle" style="margin-right: 10px;">Enable sharing:</label>
+            <label class="switch">
+              <input type="checkbox" id="shareToggle">
+              <span class="slider round"></span>
+            </label>
+            <span id="shareToggleStatus" style="margin-left: 10px; font-size: 14px;">Off</span>
+          </div>
+          
+          <div id="shareStatus" style="margin: 15px 0; display: none;"></div>
+          <div id="shareLink" style="display: none;">
+            <p style="margin-bottom: 5px;">Share link:</p>
+            <input type="text" id="shareLinkInput" readonly style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            <button id="copyShareLink" class="btn btn-primary">Copy Link</button>
+            <button id="previewShareLink" class="btn btn-secondary" style="margin-left: 10px;">Preview</button>
+          </div>
+          <div id="shareLoading" style="display: none;">
+            <div class="spinner" style="margin: 0 auto; width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: var(--accent-red); animation: spin 1s linear infinite;"></div>
+            <p style="text-align: center; margin-top: 10px;">Processing...</p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Add spinner animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(modal);
+    modal.style.display = 'block';
+    
+    const shareToggle = document.getElementById('shareToggle');
+    const shareToggleStatus = document.getElementById('shareToggleStatus');
+    const shareStatus = document.getElementById('shareStatus');
+    const shareLink = document.getElementById('shareLink');
+    const shareLoading = document.getElementById('shareLoading');
+    const shareLinkInput = document.getElementById('shareLinkInput');
+    
+    // Helper function to handle fetch errors
+    const handleFetchError = (error) => {
+      console.error('Fetch error:', error);
+      shareLoading.style.display = 'none';
+      shareStatus.style.display = 'block';
+      shareStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+    };
+    
+    // Helper function to handle response parsing
+    const handleResponse = async (response) => {
+      try {
+        // First check if the response is ok
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Server error response:', errorText);
+          throw new Error(`Server responded with status: ${response.status}`);
+        }
+        
+        // Try to parse as JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await response.text();
+          console.error('Non-JSON response:', text);
+          throw new Error('Server did not return JSON');
+        }
+        
+        try {
+          return await response.json();
+        } catch (error) {
+          console.error('JSON parse error:', error);
+          throw new Error('Failed to parse JSON response');
+        }
+      } catch (error) {
+        console.error('Response handling error:', error);
+        throw error;
+      }
+    };
+    
+    // Check if file is shared
+    shareLoading.style.display = 'block';
+    
+    fetch(`share_handler.php?action=check_share&file_path=${encodeURIComponent(filePath)}`)
+      .then(response => {
+        console.log('Check share response status:', response.status);
+        return handleResponse(response);
+      })
+      .then(data => {
+        console.log('Check share response data:', data);
+        shareLoading.style.display = 'none';
+        
+        if (data && data.success) {
+          if (data.is_shared) {
+            // File is already shared, set toggle to on
+            shareToggle.checked = true;
+            shareToggleStatus.textContent = 'On';
+            shareToggleStatus.style.color = '#4CAF50';
+            
+            // Show share link
+            shareLink.style.display = 'block';
+            const fullShareUrl = window.location.origin + window.location.pathname.replace('explorer.php', data.share_url);
+            shareLinkInput.value = fullShareUrl;
+          }
+        } else if (data && data.message) {
+          // Show error message
+          shareStatus.style.display = 'block';
+          shareStatus.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+        }
+      })
+      .catch(error => {
+        console.error('Check share error:', error);
+        handleFetchError(error);
+      });
+    
+    // Toggle share functionality
+    shareToggle.addEventListener('change', function() {
+      shareLoading.style.display = 'block';
+      shareStatus.style.display = 'none';
+      shareLink.style.display = 'none';
+      
+      if (this.checked) {
+        // Enable sharing
+        shareToggleStatus.textContent = 'On';
+        shareToggleStatus.style.color = '#4CAF50';
+        
+        console.log('Enabling sharing for:', filePath);
+        
+        // Create share
+        const formData = new FormData();
+        formData.append('file_path', filePath);
+        
+        fetch('share_handler.php', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => {
+          console.log('Create share response status:', response.status);
+          return handleResponse(response);
+        })
+        .then(data => {
+          console.log('Create share response data:', data);
+          shareLoading.style.display = 'none';
+          
+          if (data && data.success) {
+            shareStatus.style.display = 'block';
+            shareStatus.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+            
+            shareLink.style.display = 'block';
+            const fullShareUrl = window.location.origin + window.location.pathname.replace('explorer.php', data.share_url);
+            shareLinkInput.value = fullShareUrl;
+          } else {
+            shareStatus.style.display = 'block';
+            shareStatus.innerHTML = `<div class="alert alert-danger">${data.message || 'Unknown error'}</div>`;
+            // Reset toggle if failed
+            shareToggle.checked = false;
+            shareToggleStatus.textContent = 'Off';
+            shareToggleStatus.style.color = '';
+          }
+        })
+        .catch(error => {
+          console.error('Create share error:', error);
+          shareLoading.style.display = 'none';
+          shareStatus.style.display = 'block';
+          shareStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+          // Reset toggle if failed
+          shareToggle.checked = false;
+          shareToggleStatus.textContent = 'Off';
+          shareToggleStatus.style.color = '';
+        });
+      } else {
+        // Disable sharing
+        shareToggleStatus.textContent = 'Off';
+        shareToggleStatus.style.color = '';
+        
+        console.log('Disabling sharing for:', filePath);
+        
+        // Delete share - use XMLHttpRequest for better browser compatibility with DELETE
+        const xhr = new XMLHttpRequest();
+        xhr.open('DELETE', `share_handler.php?file_path=${encodeURIComponent(filePath)}`, true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        
+        xhr.onload = function() {
+          console.log('Delete share response status:', xhr.status);
+          shareLoading.style.display = 'none';
+          
+          try {
+            const data = JSON.parse(xhr.responseText);
+            console.log('Delete share response data:', data);
+            
+            if (data && data.success) {
+              shareStatus.style.display = 'block';
+              shareStatus.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+              shareLink.style.display = 'none';
+            } else {
+              shareStatus.style.display = 'block';
+              shareStatus.innerHTML = `<div class="alert alert-danger">${data.message || 'Unknown error'}</div>`;
+              // Reset toggle if failed
+              shareToggle.checked = true;
+              shareToggleStatus.textContent = 'On';
+              shareToggleStatus.style.color = '#4CAF50';
+            }
+          } catch (error) {
+            console.error('Delete share parse error:', error, xhr.responseText);
+            shareStatus.style.display = 'block';
+            shareStatus.innerHTML = `<div class="alert alert-danger">Error parsing response</div>`;
+            // Reset toggle if failed
+            shareToggle.checked = true;
+            shareToggleStatus.textContent = 'On';
+            shareToggleStatus.style.color = '#4CAF50';
+          }
+        };
+        
+        xhr.onerror = function() {
+          console.error('Delete share network error');
+          shareLoading.style.display = 'none';
+          shareStatus.style.display = 'block';
+          shareStatus.innerHTML = `<div class="alert alert-danger">Network error</div>`;
+          // Reset toggle if failed
+          shareToggle.checked = true;
+          shareToggleStatus.textContent = 'On';
+          shareToggleStatus.style.color = '#4CAF50';
+        };
+        
+        xhr.send();
+      }
+    });
+    
+    // Copy link button
+    document.getElementById('copyShareLink').addEventListener('click', function() {
+      shareLinkInput.select();
+      document.execCommand('copy');
+      this.textContent = 'Copied!';
+      setTimeout(() => {
+        this.textContent = 'Copy Link';
+      }, 2000);
+    });
+    
+    // Preview link button
+    document.getElementById('previewShareLink').addEventListener('click', function() {
+      window.open(shareLinkInput.value, '_blank');
+    });
+    
+    // Close modal when clicking on X
+    modal.querySelector('.close').addEventListener('click', function() {
+      modal.style.display = 'none';
+      setTimeout(() => {
+        document.body.removeChild(modal);
+      }, 300);
+    });
+    
+    // Close modal when clicking outside of it
+    window.addEventListener('click', function(event) {
+      if (event.target === modal) {
+        modal.style.display = 'none';
+        setTimeout(() => {
+          document.body.removeChild(modal);
+        }, 300);
+      }
+    });
+    
     contextMenu.style.display = 'none';
   }
 });
@@ -4771,171 +5198,34 @@ downloadSelectedBtn.addEventListener('click', function() {
     });
 // ... existing code ...
 
-function shareFile(fileName) {
-  // Get the current path
-  const currentPath = '<?php echo $currentPath; ?>';
-  const filePath = currentPath + '/' + fileName;
-  
-  // Generate a unique share ID
-  const shareId = generateUniqueId();
-  
-  // Create a modal to show the share link
-  const shareModal = document.createElement('div');
-  shareModal.className = 'modal';
-  shareModal.id = 'shareModal';
-  
-  // Create a unique shareable link
-  const shareLink = window.location.origin + '/selfhostedgdrive/share.php?id=' + shareId;
-  
-  // Modal content
-  shareModal.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Share File</h2>
-        <span class="close" id="closeShareModal">&times;</span>
-      </div>
-      <div class="modal-body">
-        <p>Share this link to provide access to <strong>${fileName}</strong>:</p>
-        <div class="share-link-container">
-          <input type="text" id="shareLinkInput" value="${shareLink}" readonly>
-          <button id="copyShareLink" class="btn btn-primary">
-            <i class="fas fa-copy"></i> Copy
-          </button>
-        </div>
-        <div class="share-options">
-          <div class="share-option">
-            <label>
-              <input type="checkbox" id="passwordProtect"> Password protect
-            </label>
-            <div id="passwordField" style="display: none; margin-top: 10px;">
-              <input type="password" id="sharePassword" placeholder="Enter password">
-            </div>
-          </div>
-          <div class="share-option">
-            <label>Expires after:</label>
-            <select id="expiryTime">
-              <option value="never">Never</option>
-              <option value="1h">1 hour</option>
-              <option value="24h">24 hours</option>
-              <option value="7d">7 days</option>
-              <option value="30d">30 days</option>
-            </select>
-          </div>
-        </div>
-        <button id="generateShareLink" class="btn btn-success">
-          <i class="fas fa-check"></i> Generate Link
-        </button>
-      </div>
-    </div>
-  `;
-  
-  // Add the modal to the document
-  document.body.appendChild(shareModal);
-  
-  // Show the modal
-  shareModal.style.display = 'block';
-  
-  // Close modal functionality
-  document.getElementById('closeShareModal').addEventListener('click', function() {
-    shareModal.style.display = 'none';
-    setTimeout(() => {
-      document.body.removeChild(shareModal);
-    }, 300);
-  });
-  
-  // Toggle password field
-  document.getElementById('passwordProtect').addEventListener('change', function() {
-    const passwordField = document.getElementById('passwordField');
-    passwordField.style.display = this.checked ? 'block' : 'none';
-  });
-  
-  // Copy link functionality
-  document.getElementById('copyShareLink').addEventListener('click', function() {
-    const shareLinkInput = document.getElementById('shareLinkInput');
-    shareLinkInput.select();
-    document.execCommand('copy');
-    
-    // Show copied notification
-    this.innerHTML = '<i class="fas fa-check"></i> Copied!';
-    setTimeout(() => {
-      this.innerHTML = '<i class="fas fa-copy"></i> Copy';
-    }, 2000);
-  });
-  
-  // Generate share link with options
-  document.getElementById('generateShareLink').addEventListener('click', function() {
-    const passwordProtected = document.getElementById('passwordProtect').checked;
-    const password = passwordProtected ? document.getElementById('sharePassword').value : '';
-    const expiryTime = document.getElementById('expiryTime').value;
-    
-    // AJAX request to save share information
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'share_handler.php', true);
-    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState === 4 && xhr.status === 200) {
-        const response = JSON.parse(xhr.responseText);
-        if (response.success) {
-          // Update the share link with the new ID
-          const shareLinkInput = document.getElementById('shareLinkInput');
-          shareLinkInput.value = window.location.origin + '/selfhostedgdrive/share.php?id=' + response.shareId;
-          
-          // Show success message
-          showToast('Share link generated successfully!', 'success');
-        } else {
-          showToast('Error generating share link: ' + response.message, 'error');
-        }
+    // Add event listener for PDF viewer to remove any hover effects
+    document.addEventListener('DOMContentLoaded', function() {
+      const pdfViewer = document.getElementById('pdfViewer');
+      if (pdfViewer) {
+        pdfViewer.addEventListener('load', function() {
+          try {
+            const iframeDoc = pdfViewer.contentDocument || pdfViewer.contentWindow.document;
+            if (iframeDoc) {
+              // Create a style element to inject CSS into the iframe
+              const style = iframeDoc.createElement('style');
+              style.textContent = `
+                * { 
+                  outline: none !important;
+                  border: none !important;
+                }
+                a:hover, a:focus {
+                  outline: none !important;
+                  border: none !important;
+                }
+              `;
+              iframeDoc.head.appendChild(style);
+            }
+          } catch (e) {
+            console.error('Error removing hover effects:', e);
+          }
+        });
       }
-    };
-    
-    // Prepare data
-    const data = 'action=create_share&file_path=' + encodeURIComponent(filePath) + 
-                 '&share_id=' + encodeURIComponent(shareId) + 
-                 '&password=' + encodeURIComponent(password) + 
-                 '&expiry=' + encodeURIComponent(expiryTime);
-    
-    xhr.send(data);
-  });
-}
-
-// Generate a unique ID for sharing
-function generateUniqueId() {
-  return 'share_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-}
-
-// Function to show toast notifications
-function showToast(message, type = 'info') {
-  const toastContainer = document.getElementById('toastContainer');
-  
-  // Create toast element
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  
-  // Set icon based on type
-  let icon = 'info-circle';
-  if (type === 'success') icon = 'check-circle';
-  if (type === 'error') icon = 'exclamation-circle';
-  
-  // Set toast content
-  toast.innerHTML = `
-    <div class="toast-icon">
-      <i class="fas fa-${icon}"></i>
-    </div>
-    <div class="toast-message">${message}</div>
-    <div class="toast-progress">
-      <div class="toast-progress-bar"></div>
-    </div>
-  `;
-  
-  // Add toast to container
-  toastContainer.appendChild(toast);
-  
-  // Remove toast after animation completes
-  setTimeout(() => {
-    toast.remove();
-  }, 3000);
-}
-
+    });
 </script>
 
 </body>
