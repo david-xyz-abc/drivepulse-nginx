@@ -2617,6 +2617,105 @@ button, .btn, .file-row, .folder-item, img, i {
     border-radius: 4px;
   }
 }
+
+/* Toast Notification Styles */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000;
+}
+
+.toast {
+  background-color: var(--content-bg);
+  color: var(--text-color);
+  padding: 12px 20px;
+  border-radius: 4px;
+  margin-top: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  min-width: 250px;
+  max-width: 350px;
+  animation: slideIn 0.3s, fadeOut 0.5s 2.5s forwards;
+  position: relative;
+  overflow: hidden;
+}
+
+.toast.success {
+  border-left: 4px solid #2ecc71;
+}
+
+.toast.error {
+  border-left: 4px solid #e74c3c;
+}
+
+.toast.info {
+  border-left: 4px solid #3498db;
+}
+
+.toast-icon {
+  margin-right: 10px;
+  font-size: 18px;
+}
+
+.toast.success .toast-icon {
+  color: #2ecc71;
+}
+
+.toast.error .toast-icon {
+  color: #e74c3c;
+}
+
+.toast.info .toast-icon {
+  color: #3498db;
+}
+
+.toast-message {
+  flex: 1;
+}
+
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.toast-progress-bar {
+  height: 100%;
+  width: 100%;
+  animation: progress 3s linear forwards;
+}
+
+.toast.success .toast-progress-bar {
+  background-color: #2ecc71;
+}
+
+.toast.error .toast-progress-bar {
+  background-color: #e74c3c;
+}
+
+.toast.info .toast-progress-bar {
+  background-color: #3498db;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
   </style>
 </head>
 <body>
@@ -2905,126 +3004,145 @@ button, .btn, .file-row, .folder-item, img, i {
     </div>
   </div>
 
-<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-<script>
-let selectedFolder = null;
-let currentXhr = null;
-let previewFiles = <?php echo json_encode($previewableFiles); ?>;
-let currentPreviewIndex = -1;
-let isLoadingImage = false;
+  <!-- Add toast container at the bottom of the page -->
+  <div id="toastContainer" class="toast-container"></div>
 
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
-  sb.classList.toggle('open');
-  overlay.classList.toggle('show');
-}
-document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+  <!-- Hidden input for current path -->
+  <input type="hidden" name="current_path" value="<?php echo $currentPath; ?>">
 
-function selectFolder(element, folderName) {
-  document.querySelectorAll('.folder-item.selected').forEach(item => item.classList.remove('selected'));
-  element.classList.add('selected');
-  selectedFolder = folderName;
-}
+  <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+  <script src="share.js"></script>
+  <script>
+  let selectedFolder = null;
+  let currentXhr = null;
+  let previewFiles = <?php echo json_encode($previewableFiles); ?>;
+  let currentPreviewIndex = -1;
+  let isLoadingImage = false;
 
-function openFolder(folderPath) {
-  console.log("Opening folder: " + folderPath);
-  window.location.href = '/selfhostedgdrive/explorer.php?folder=' + folderPath;
-}
+  function toggleSidebar() {
+    const sb = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sb.classList.toggle('open');
+    overlay.classList.toggle('show');
+  }
+  document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
 
-function showPrompt(message, defaultValue, callback) {
-  const dialogModal = document.getElementById('dialogModal');
-  const dialogMessage = document.getElementById('dialogMessage');
-  const dialogButtons = document.getElementById('dialogButtons');
-  dialogMessage.innerHTML = '';
-  dialogButtons.innerHTML = '';
-  const msgEl = document.createElement('div');
-  msgEl.textContent = message;
-  msgEl.style.marginBottom = '10px';
-  dialogMessage.appendChild(msgEl);
-  const inputField = document.createElement('input');
-  inputField.type = 'text';
-  inputField.value = defaultValue || '';
-  inputField.style.width = '100%';
-  inputField.style.padding = '8px';
-  inputField.style.border = '1px solid #555';
-  inputField.style.borderRadius = '4px';
-  inputField.style.background = '#2a2a2a';
-  inputField.style.color = '#fff';
-  inputField.style.marginBottom = '15px';
-  dialogMessage.appendChild(inputField);
-  const okBtn = document.createElement('button');
-  okBtn.className = 'dialog-button';
-  okBtn.textContent = 'OK';
-  okBtn.onclick = () => { closeDialog(); if (callback) callback(inputField.value); };
-  dialogButtons.appendChild(okBtn);
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'dialog-button';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.onclick = () => { closeDialog(); if (callback) callback(null); };
-  dialogButtons.appendChild(cancelBtn);
-  dialogModal.classList.add('show');
-}
+  function selectFolder(element, folderName) {
+    document.querySelectorAll('.folder-item.selected').forEach(item => item.classList.remove('selected'));
+    element.classList.add('selected');
+    selectedFolder = folderName;
+  }
 
-function closeDialog() {
-  document.getElementById('dialogModal').classList.remove('show');
-}
+  function openFolder(folderPath) {
+    console.log("Opening folder: " + folderPath);
+    window.location.href = '/selfhostedgdrive/explorer.php?folder=' + folderPath;
+  }
 
-function showAlert(message, callback) {
-  const dialogModal = document.getElementById('dialogModal');
-  const dialogMessage = document.getElementById('dialogMessage');
-  const dialogButtons = document.getElementById('dialogButtons');
-  dialogMessage.innerHTML = message;
-  dialogButtons.innerHTML = '';
-  const okBtn = document.createElement('button');
-  okBtn.className = 'dialog-button';
-  okBtn.textContent = 'OK';
-  okBtn.onclick = () => { closeDialog(); if (callback) callback(); };
-  dialogButtons.appendChild(okBtn);
-  dialogModal.classList.add('show');
-}
+  function showPrompt(message, defaultValue, callback) {
+    const dialogModal = document.getElementById('dialogModal');
+    const dialogMessage = document.getElementById('dialogMessage');
+    const dialogButtons = document.getElementById('dialogButtons');
+    dialogMessage.innerHTML = '';
+    dialogButtons.innerHTML = '';
+    const msgEl = document.createElement('div');
+    msgEl.textContent = message;
+    msgEl.style.marginBottom = '10px';
+    dialogMessage.appendChild(msgEl);
+    const inputField = document.createElement('input');
+    inputField.type = 'text';
+    inputField.value = defaultValue || '';
+    inputField.style.width = '100%';
+    inputField.style.padding = '8px';
+    inputField.style.border = '1px solid #555';
+    inputField.style.borderRadius = '4px';
+    inputField.style.background = '#2a2a2a';
+    inputField.style.color = '#fff';
+    inputField.style.marginBottom = '15px';
+    dialogMessage.appendChild(inputField);
+    const okBtn = document.createElement('button');
+    okBtn.className = 'dialog-button';
+    okBtn.textContent = 'OK';
+    okBtn.onclick = () => { closeDialog(); if (callback) callback(inputField.value); };
+    dialogButtons.appendChild(okBtn);
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'dialog-button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = () => { closeDialog(); if (callback) callback(null); };
+    dialogButtons.appendChild(cancelBtn);
+    dialogModal.classList.add('show');
+  }
 
-function showConfirm(message, onYes, onNo) {
-  const dialogModal = document.getElementById('dialogModal');
-  const dialogMessage = document.getElementById('dialogMessage');
-  const dialogButtons = document.getElementById('dialogButtons');
-  dialogMessage.textContent = message;
-  dialogButtons.innerHTML = '';
-  const yesBtn = document.createElement('button');
-  yesBtn.className = 'dialog-button';
-  yesBtn.textContent = 'Yes';
-  yesBtn.onclick = () => { closeDialog(); if (onYes) onYes(); };
-  dialogButtons.appendChild(yesBtn);
-  const noBtn = document.createElement('button');
-  noBtn.className = 'dialog-button';
-  noBtn.textContent = 'No';
-  noBtn.onclick = () => { closeDialog(); if (onNo) onNo(); };
-  dialogButtons.appendChild(noBtn);
-  dialogModal.classList.add('show');
-}
+  function closeDialog() {
+    document.getElementById('dialogModal').classList.remove('show');
+  }
 
-function createFolder() {
-  showPrompt("Enter new folder name:", "", function(folderName) {
-    if (folderName && folderName.trim() !== "") {
-      let form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
-      let inputCreate = document.createElement('input');
-      inputCreate.type = 'hidden';
-      inputCreate.name = 'create_folder';
-      inputCreate.value = '1';
-      form.appendChild(inputCreate);
-      let inputName = document.createElement('input');
-      inputName.type = 'hidden';
-      inputName.name = 'folder_name';
-      inputName.value = folderName.trim();
-      form.appendChild(inputName);
-      document.body.appendChild(form);
-      form.submit();
+  function showAlert(message, callback) {
+    const dialogModal = document.getElementById('dialogModal');
+    const dialogMessage = document.getElementById('dialogMessage');
+    const dialogButtons = document.getElementById('dialogButtons');
+    dialogMessage.innerHTML = message;
+    dialogButtons.innerHTML = '';
+    const okBtn = document.createElement('button');
+    okBtn.className = 'dialog-button';
+    okBtn.textContent = 'OK';
+    okBtn.onclick = () => { closeDialog(); if (callback) callback(); };
+    dialogButtons.appendChild(okBtn);
+    dialogModal.classList.add('show');
+  }
+
+  function showConfirm(message, onYes, onNo) {
+    const dialogModal = document.getElementById('dialogModal');
+    const dialogMessage = document.getElementById('dialogMessage');
+    const dialogButtons = document.getElementById('dialogButtons');
+    dialogMessage.textContent = message;
+    dialogButtons.innerHTML = '';
+    const yesBtn = document.createElement('button');
+    yesBtn.className = 'dialog-button';
+    yesBtn.textContent = 'Yes';
+    yesBtn.onclick = () => { closeDialog(); if (onYes) onYes(); };
+    dialogButtons.appendChild(yesBtn);
+    const noBtn = document.createElement('button');
+    noBtn.className = 'dialog-button';
+    noBtn.textContent = 'No';
+    noBtn.onclick = () => { closeDialog(); if (onNo) onNo(); };
+    dialogButtons.appendChild(noBtn);
+    dialogModal.classList.add('show');
+  }
+
+  function createFolder() {
+    showPrompt("Enter new folder name:", "", function(folderName) {
+      if (folderName && folderName.trim() !== "") {
+        let form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>';
+        let inputCreate = document.createElement('input');
+        inputCreate.type = 'hidden';
+        inputCreate.name = 'create_folder';
+        inputCreate.value = '1';
+        form.appendChild(inputCreate);
+        let inputName = document.createElement('input');
+        inputName.type = 'hidden';
+        inputName.name = 'folder_name';
+        inputName.value = folderName.trim();
+        form.appendChild(inputName);
+        document.body.appendChild(form);
+        form.submit();
+      }
+    });
+  }
+
+  function renameFilePrompt(fileName) {
+    let dotIndex = fileName.lastIndexOf(".");
+    let baseName = fileName;
+    let ext = "";
+    if (dotIndex > 0) {
+      baseName = fileName.substring(0, dotIndex);
+      ext = fileName.substring(dotIndex);
     }
-  });
-}
-
+    showPrompt("Enter new file name:", baseName, function(newBase) {
+      if (newBase && newBase.trim() !== "" && newBase.trim() !== baseName) {
+        let finalName = newBase.trim() + ext;
+        let form = document.createElement('form');
 function renameFilePrompt(fileName) {
   let dotIndex = fileName.lastIndexOf(".");
   let baseName = fileName;
@@ -4783,6 +4901,39 @@ function shareFile(fileName) {
 // Generate a unique ID for sharing
 function generateUniqueId() {
   return 'share_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+}
+
+// Function to show toast notifications
+function showToast(message, type = 'info') {
+  const toastContainer = document.getElementById('toastContainer');
+  
+  // Create toast element
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  // Set icon based on type
+  let icon = 'info-circle';
+  if (type === 'success') icon = 'check-circle';
+  if (type === 'error') icon = 'exclamation-circle';
+  
+  // Set toast content
+  toast.innerHTML = `
+    <div class="toast-icon">
+      <i class="fas fa-${icon}"></i>
+    </div>
+    <div class="toast-message">${message}</div>
+    <div class="toast-progress">
+      <div class="toast-progress-bar"></div>
+    </div>
+  `;
+  
+  // Add toast to container
+  toastContainer.appendChild(toast);
+  
+  // Remove toast after animation completes
+  setTimeout(() => {
+    toast.remove();
+  }, 3000);
 }
 
 </script>
