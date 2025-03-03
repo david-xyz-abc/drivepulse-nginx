@@ -2052,6 +2052,11 @@ button, .btn, .file-row, .folder-item, img, i {
     color: var(--text-color);
 }
 
+/* Red globe icon for Share option */
+.share-globe-icon {
+    color: #e74c3c !important; /* Red color for the globe icon */
+}
+
 .context-menu-divider {
     height: 1px;
     background-color: var(--border-color);
@@ -2183,26 +2188,36 @@ button, .btn, .file-row, .folder-item, img, i {
 /* Add styles for grid view of folder-list */
 .folder-list.grid-view {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 15px;
-  padding: 0;
+  grid-template-columns: repeat(auto-fill, 180px);
+  gap: 30px 30px; /* Explicitly set both row and column gap to be the same */
+  padding: 20px;
   margin: 0;
+  justify-content: center; /* Center the grid */
 }
 
 .folder-list.grid-view .folder-item {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 15px 10px;
-  height: auto;
+  padding: 10px;
+  width: 180px; /* Fixed width */
+  height: 220px; /* Fixed height for all items */
   background: transparent;
   border: 2px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 8px;
   margin: 0;
   position: relative;
   cursor: pointer;
   display: flex;
   overflow: hidden;
+  transition: all 0.2s ease;
+  box-sizing: border-box; /* Include padding in width/height calculation */
+}
+
+.folder-list.grid-view .folder-item:hover {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 10px rgba(var(--accent-color-rgb), 0.4);
+  transform: translateY(-3px);
 }
 
 .folder-list.grid-view .folder-item i {
@@ -2210,15 +2225,28 @@ button, .btn, .file-row, .folder-item, img, i {
   margin: 0 0 10px 0;
   width: auto;
   height: auto;
+  display: block;
+}
+
+/* Ensure icon is visible when no preview is available */
+.folder-list.grid-view .folder-item:not(:has(.image-preview-container)) i:not(.small-dots):not(.fa-ellipsis-v) {
+  font-size: 60px;
+  margin-top: 30px;
+  margin-bottom: 20px;
+  color: var(--accent-color);
+  opacity: 0.8;
+  display: block !important;
 }
 
 .folder-list.grid-view .thumbnail-container {
-  width: 100%;
-  height: 100px;
+  width: 160px; /* Fixed width */
+  height: 140px; /* Fixed height for all thumbnails */
   margin-bottom: 10px;
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
   background-color: rgba(var(--border-color-rgb), 0.1);
+  position: relative;
+  flex-shrink: 0; /* Prevent shrinking */
 }
 
 .folder-list.grid-view .thumbnail {
@@ -2237,12 +2265,27 @@ button, .btn, .file-row, .folder-item, img, i {
   top: 5px;
   right: 5px;
   margin: 0;
+  z-index: 10;
+  width: 28px;
+  height: 28px;
 }
 
 .folder-list.grid-view .folder-more-options-btn {
-  width: 12px;
-  height: 12px;
-  font-size: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  border: none;
+}
+
+.folder-list.grid-view .folder-more-options-btn i {
+  font-size: 14px;
+  margin: 0;
+  color: white;
 }
 
 .content-inner .folder-list .folder-item {
@@ -2418,6 +2461,162 @@ button, .btn, .file-row, .folder-item, img, i {
     max-height: 95vh;
     overflow: hidden;
   }
+
+/* Add text truncation for file names in grid view */
+.folder-list.grid-view .file-name {
+  max-width: 160px;
+  width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  margin-top: auto;
+  padding: 0;
+  font-size: 0.9em;
+  line-height: 1.2;
+  height: 40px; /* Fixed height for file names */
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+/* Apply box-sizing to all elements */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Fix for image-preview-container to ensure consistent display */
+.folder-list.grid-view .image-preview-container {
+  width: 160px !important;
+  height: 140px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Ensure all images maintain aspect ratio but fit within container */
+.folder-list.grid-view .image-preview-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Force consistent dimensions for all folder items */
+.folder-list.grid-view .folder-item {
+  min-width: 180px;
+  max-width: 180px;
+  min-height: 220px;
+  max-height: 220px;
+  flex: 0 0 180px; /* Don't grow or shrink, stay at 180px */
+}
+
+/* Ensure the grid layout is consistent */
+@media (min-width: 768px) {
+  .folder-list.grid-view {
+    grid-template-columns: repeat(auto-fill, 180px);
+    justify-content: space-evenly;
+    column-gap: 30px; /* Explicit column gap */
+    row-gap: 30px; /* Explicit row gap */
+  }
+}
+
+/* Fix for very small screens */
+@media (max-width: 767px) {
+  .folder-list.grid-view {
+    grid-template-columns: repeat(auto-fill, 180px);
+    justify-content: center;
+    column-gap: 30px; /* Explicit column gap */
+    row-gap: 30px; /* Explicit row gap */
+  }
+}
+
+/* Share Modal Styles */
+.share-link-container {
+  display: flex;
+  margin: 15px 0;
+}
+
+.share-link-container input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px 0 0 4px;
+  background-color: var(--content-bg);
+  color: var(--text-color);
+}
+
+.share-link-container button {
+  border-radius: 0 4px 4px 0;
+  border: 1px solid var(--accent-color);
+  background-color: var(--accent-color);
+  color: white;
+  padding: 10px 15px;
+  cursor: pointer;
+}
+
+.share-options {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: rgba(var(--hover-color-rgb), 0.1);
+  border-radius: 4px;
+}
+
+.share-option {
+  margin-bottom: 15px;
+}
+
+.share-option:last-child {
+  margin-bottom: 0;
+}
+
+.share-option label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.share-option select, 
+.share-option input[type="password"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--content-bg);
+  color: var(--text-color);
+}
+
+#generateShareLink {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s;
+}
+
+#generateShareLink:hover {
+  background-color: #27ae60;
+}
+
+/* Responsive adjustments for share modal */
+@media (max-width: 768px) {
+  .share-link-container {
+    flex-direction: column;
+  }
+  
+  .share-link-container input {
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  
+  .share-link-container button {
+    border-radius: 4px;
+  }
+}
   </style>
 </head>
 <body>
@@ -2607,7 +2806,7 @@ button, .btn, .file-row, .folder-item, img, i {
                   <?php else: ?>
                   <i class="<?php echo $iconClass; ?>"></i>
                   <?php endif; ?>
-                  <?php echo htmlspecialchars($fileName); ?>
+                  <span class="file-name"><?php echo htmlspecialchars($fileName); ?></span>
                   <div class="folder-actions">
                     <button class="folder-more-options-btn" title="More options">
                       <i class="fas fa-ellipsis-v small-dots"></i>
@@ -2678,6 +2877,9 @@ button, .btn, .file-row, .folder-item, img, i {
       </div>
       <div class="context-menu-item" id="contextMenuDownload">
           <i class="fas fa-download"></i> Download
+      </div>
+      <div class="context-menu-item" id="contextMenuShare">
+          <i class="fas fa-globe share-globe-icon"></i> Share
       </div>
       <div class="context-menu-divider"></div>
       <div class="context-menu-item" id="contextMenuRename">
@@ -4076,6 +4278,13 @@ document.getElementById('contextMenuDownload').addEventListener('click', functio
   }
 });
 
+document.getElementById('contextMenuShare').addEventListener('click', function() {
+  if (currentFileName) {
+    shareFile(currentFileName);
+    contextMenu.style.display = 'none';
+  }
+});
+
 document.getElementById('contextMenuRename').addEventListener('click', function() {
   if (currentFileName) {
     renameFilePrompt(currentFileName);
@@ -4443,6 +4652,139 @@ downloadSelectedBtn.addEventListener('click', function() {
       }
     });
 // ... existing code ...
+
+function shareFile(fileName) {
+  // Get the current path
+  const currentPath = '<?php echo $currentPath; ?>';
+  const filePath = currentPath + '/' + fileName;
+  
+  // Generate a unique share ID
+  const shareId = generateUniqueId();
+  
+  // Create a modal to show the share link
+  const shareModal = document.createElement('div');
+  shareModal.className = 'modal';
+  shareModal.id = 'shareModal';
+  
+  // Create a unique shareable link
+  const shareLink = window.location.origin + '/selfhostedgdrive/share.php?id=' + shareId;
+  
+  // Modal content
+  shareModal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Share File</h2>
+        <span class="close" id="closeShareModal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p>Share this link to provide access to <strong>${fileName}</strong>:</p>
+        <div class="share-link-container">
+          <input type="text" id="shareLinkInput" value="${shareLink}" readonly>
+          <button id="copyShareLink" class="btn btn-primary">
+            <i class="fas fa-copy"></i> Copy
+          </button>
+        </div>
+        <div class="share-options">
+          <div class="share-option">
+            <label>
+              <input type="checkbox" id="passwordProtect"> Password protect
+            </label>
+            <div id="passwordField" style="display: none; margin-top: 10px;">
+              <input type="password" id="sharePassword" placeholder="Enter password">
+            </div>
+          </div>
+          <div class="share-option">
+            <label>Expires after:</label>
+            <select id="expiryTime">
+              <option value="never">Never</option>
+              <option value="1h">1 hour</option>
+              <option value="24h">24 hours</option>
+              <option value="7d">7 days</option>
+              <option value="30d">30 days</option>
+            </select>
+          </div>
+        </div>
+        <button id="generateShareLink" class="btn btn-success">
+          <i class="fas fa-check"></i> Generate Link
+        </button>
+      </div>
+    </div>
+  `;
+  
+  // Add the modal to the document
+  document.body.appendChild(shareModal);
+  
+  // Show the modal
+  shareModal.style.display = 'block';
+  
+  // Close modal functionality
+  document.getElementById('closeShareModal').addEventListener('click', function() {
+    shareModal.style.display = 'none';
+    setTimeout(() => {
+      document.body.removeChild(shareModal);
+    }, 300);
+  });
+  
+  // Toggle password field
+  document.getElementById('passwordProtect').addEventListener('change', function() {
+    const passwordField = document.getElementById('passwordField');
+    passwordField.style.display = this.checked ? 'block' : 'none';
+  });
+  
+  // Copy link functionality
+  document.getElementById('copyShareLink').addEventListener('click', function() {
+    const shareLinkInput = document.getElementById('shareLinkInput');
+    shareLinkInput.select();
+    document.execCommand('copy');
+    
+    // Show copied notification
+    this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+    setTimeout(() => {
+      this.innerHTML = '<i class="fas fa-copy"></i> Copy';
+    }, 2000);
+  });
+  
+  // Generate share link with options
+  document.getElementById('generateShareLink').addEventListener('click', function() {
+    const passwordProtected = document.getElementById('passwordProtect').checked;
+    const password = passwordProtected ? document.getElementById('sharePassword').value : '';
+    const expiryTime = document.getElementById('expiryTime').value;
+    
+    // AJAX request to save share information
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', 'share_handler.php', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        const response = JSON.parse(xhr.responseText);
+        if (response.success) {
+          // Update the share link with the new ID
+          const shareLinkInput = document.getElementById('shareLinkInput');
+          shareLinkInput.value = window.location.origin + '/selfhostedgdrive/share.php?id=' + response.shareId;
+          
+          // Show success message
+          showToast('Share link generated successfully!', 'success');
+        } else {
+          showToast('Error generating share link: ' + response.message, 'error');
+        }
+      }
+    };
+    
+    // Prepare data
+    const data = 'action=create_share&file_path=' + encodeURIComponent(filePath) + 
+                 '&share_id=' + encodeURIComponent(shareId) + 
+                 '&password=' + encodeURIComponent(password) + 
+                 '&expiry=' + encodeURIComponent(expiryTime);
+    
+    xhr.send(data);
+  });
+}
+
+// Generate a unique ID for sharing
+function generateUniqueId() {
+  return 'share_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+}
+
 </script>
 
 </body>
