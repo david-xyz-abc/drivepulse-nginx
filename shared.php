@@ -588,6 +588,27 @@ function serve_actual_file($filePath, $fileName, $fileType = 'application/octet-
         return;
     }
     
+    // Check if file is readable
+    if (!is_readable($filePath)) {
+        log_debug("File not readable: $filePath");
+        log_debug("File permissions: " . substr(sprintf('%o', fileperms($filePath)), -4));
+        
+        // Get PHP process user if possible
+        if (function_exists('posix_getpwuid') && function_exists('posix_geteuid')) {
+            log_debug("PHP process user: " . posix_getpwuid(posix_geteuid())['name'] ?? 'unknown');
+        } else {
+            log_debug("PHP process user: unknown (posix functions not available)");
+        }
+        
+        // Try to make the file readable
+        @chmod($filePath, 0644);
+        
+        if (!is_readable($filePath)) {
+            display_error("Permission denied: Cannot read the file.");
+            return;
+        }
+    }
+    
     // Get file size
     $fileSize = filesize($filePath);
     log_debug("Serving actual file: $filePath ($fileSize bytes)");
@@ -608,19 +629,54 @@ function serve_actual_file($filePath, $fileName, $fileType = 'application/octet-
         ob_end_clean();
     }
     
-    // Read file and output in chunks
-    $handle = fopen($filePath, 'rb');
-    if ($handle) {
-        while (!feof($handle) && !connection_aborted()) {
-            echo fread($handle, 8192); // 8KB chunks
-            flush();
+    // Try different methods to serve the file
+    
+    // Method 1: readfile (most efficient if it works)
+    if ($fileSize < 10 * 1024 * 1024) { // Less than 10MB
+        try {
+            $success = @readfile($filePath);
+            if ($success !== false) {
+                exit;
+            }
+            log_debug("readfile failed, trying alternative methods");
+        } catch (Exception $e) {
+            log_debug("readfile exception: " . $e->getMessage());
         }
-        fclose($handle);
-    } else {
-        log_debug("Failed to open file: $filePath");
-        display_error("Failed to read file.");
     }
-    exit;
+    
+    // Method 2: fopen/fread in chunks
+    try {
+        $handle = @fopen($filePath, 'rb');
+        if ($handle) {
+            while (!feof($handle) && !connection_aborted()) {
+                echo @fread($handle, 8192); // 8KB chunks
+                flush();
+            }
+            fclose($handle);
+            exit;
+        }
+        log_debug("fopen failed, trying alternative methods");
+    } catch (Exception $e) {
+        log_debug("fopen/fread exception: " . $e->getMessage());
+    }
+    
+    // Method 3: file_get_contents (last resort, not good for large files)
+    try {
+        if ($fileSize < 5 * 1024 * 1024) { // Less than 5MB
+            $content = @file_get_contents($filePath);
+            if ($content !== false) {
+                echo $content;
+                exit;
+            }
+        }
+        log_debug("file_get_contents failed or file too large");
+    } catch (Exception $e) {
+        log_debug("file_get_contents exception: " . $e->getMessage());
+    }
+    
+    // If we get here, all methods failed
+    log_debug("All file serving methods failed");
+    display_error("Failed to read file. Please try again later.");
 }
 
 try {
@@ -656,7 +712,7 @@ try {
     // Find the file path for this share ID
     $filePath = null;
     $username = null;
-
+    
     // First try to find in file storage
     $shares = load_shares();
     foreach ($shares as $key => $id) {
@@ -665,7 +721,7 @@ try {
             break;
         }
     }
-
+    
     // If not found in file storage, try session as fallback
     if (!$filePath) {
         foreach ($_SESSION['file_shares'] as $key => $id) {
@@ -675,7 +731,7 @@ try {
             }
         }
     }
-
+    
     if (!$filePath) {
         log_debug("Share not found for ID: $shareId");
         log_debug("Session shares: " . var_export($_SESSION['file_shares'] ?? [], true));
@@ -688,16 +744,62 @@ try {
     // Get file name from path
     $fileName = basename($filePath);
     
-    // Construct the actual file path
+    // Construct the actual file path - try multiple approaches
     $baseDir = "/var/www/html/webdav/users/$username/Home";
-    $actualFilePath = realpath($baseDir . '/' . $filePath);
     
-    // Security check - make sure the file is within the user's directory
-    if ($actualFilePath === false || strpos($actualFilePath, realpath($baseDir)) !== 0) {
-        log_debug("Security violation - attempted access to: $filePath (Resolved: " . ($actualFilePath ?: "Invalid path") . ")");
-        display_error("Access denied.", 403);
+    // Try different path combinations
+    $possiblePaths = [
+        $baseDir . '/' . $filePath,                    // Standard path
+        $baseDir . '/' . ltrim($filePath, '/'),        // Remove leading slash
+        $baseDir . ltrim($filePath, 'Home/'),          // If path includes 'Home/'
+        $baseDir . ltrim($filePath, '/Home/'),         // If path includes '/Home/'
+        realpath($baseDir) . '/' . ltrim($filePath, '/') // Using realpath for base
+    ];
+    
+    $actualFilePath = null;
+    foreach ($possiblePaths as $path) {
+        log_debug("Trying path: $path");
+        if (file_exists($path)) {
+            $actualFilePath = $path;
+            log_debug("Found file at: $actualFilePath");
+            break;
+        }
     }
     
+    // If file not found, try a more permissive approach
+    if (!$actualFilePath) {
+        log_debug("File not found with standard paths, trying to find file by name");
+        
+        // Try to find the file by name in the user's directory
+        $fileName = basename($filePath);
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($baseDir));
+        
+        foreach ($iterator as $file) {
+            if ($file->isFile() && $file->getFilename() === $fileName) {
+                $actualFilePath = $file->getPathname();
+                log_debug("Found file by name at: $actualFilePath");
+                break;
+            }
+        }
+    }
+    
+    if (!$actualFilePath || !file_exists($actualFilePath)) {
+        log_debug("File not found: Tried multiple paths but couldn't locate the file");
+        display_error("Shared file not found or has been moved.", 404);
+    }
+    
+    // More permissive security check - just make sure it's somewhere in the user's directory
+    $realBaseDir = realpath($baseDir);
+    $realFilePath = realpath($actualFilePath);
+    
+    if ($realFilePath === false || strpos($realFilePath, $realBaseDir) !== 0) {
+        log_debug("Security violation - attempted access outside user directory: $actualFilePath");
+        log_debug("Base directory: $realBaseDir");
+        log_debug("Resolved file path: " . ($realFilePath ?: "Invalid path"));
+        display_error("Access denied: File is outside the allowed directory.", 403);
+    }
+    
+    log_debug("Security check passed - file is within user's directory");
     log_debug("Actual file path: $actualFilePath");
     
     // Check if this is a preview page request or direct download
