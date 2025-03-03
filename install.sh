@@ -43,7 +43,7 @@ fi
 
 # Backup existing PHP files (if any)
 echo "Backing up existing PHP files..."
-FILES=("index.php" "authenticate.php" "explorer.php" "console.php" "logout.php" "share.js" "register.php" "share_handler.php" "shared.php" "drivepulse.svg")
+FILES=("index.php" "authenticate.php" "explorer.php" "console.php" "logout.php" "register.php" "share_handler.php" "shared.php" "drivepulse.svg")
 for file in "${FILES[@]}"; do
   if [ -f "$APP_DIR/$file" ]; then
     cp "$APP_DIR/$file" "$APP_DIR/$file.bak"
