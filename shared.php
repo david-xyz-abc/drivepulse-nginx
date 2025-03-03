@@ -17,6 +17,24 @@ function log_debug($message) {
     }
 }
 
+/**
+ * Format file size in human-readable format
+ * @param int $bytes File size in bytes
+ * @param int $precision Decimal precision
+ * @return string Formatted file size
+ */
+function formatFileSize($bytes, $precision = 2) {
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    
+    $bytes = max($bytes, 0);
+    $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+    $pow = min($pow, count($units) - 1);
+    
+    $bytes /= pow(1024, $pow);
+    
+    return round($bytes, $precision) . ' ' . $units[$pow];
+}
+
 // Create a test share if requested
 if (isset($_GET['create_test_share'])) {
     // File-based storage for shares
@@ -341,8 +359,10 @@ function display_error($message, $status_code = 404) {
  * @param string $fileName The name of the file
  * @param string $fileType The MIME type of the file
  * @param string $shareId The share ID
+ * @param string $username The username of the file owner
+ * @param string $filePath The relative path to the file
  */
-function create_preview_page($fileName, $fileType, $shareId) {
+function create_preview_page($fileName, $fileType, $shareId, $username = null, $filePath = null) {
     // Get file extension
     $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     
@@ -354,29 +374,31 @@ function create_preview_page($fileName, $fileType, $shareId) {
     if (DEBUG) {
         global $shares_file;
         
-        // Calculate file sizes for different formats
-        $txtSize = number_format(10 * 1024 + rand(0, 490 * 1024));
-        $imgSize = number_format(50 * 1024 + rand(0, 1950 * 1024));
-        $docSize = number_format(100 * 1024 + rand(0, 2900 * 1024));
-        $videoSize = number_format(2 * 1024 * 1024 + rand(0, 3 * 1024 * 1024));
+        // Get actual file information
+        if ($username && $filePath) {
+            $baseDir = "/var/www/html/webdav/users/$username/Home";
+            $actualFilePath = realpath($baseDir . '/' . $filePath);
+            $fileExists = file_exists($actualFilePath);
+            $fileSize = $fileExists ? filesize($actualFilePath) : 0;
+            $fileTime = $fileExists ? date('Y-m-d H:i:s', filemtime($actualFilePath)) : 'N/A';
+        } else {
+            $actualFilePath = 'Unknown';
+            $fileExists = false;
+            $fileSize = 0;
+            $fileTime = 'N/A';
+        }
         
         $debugInfo = '
         <div class="debug-info" style="margin-top: 30px; padding: 15px; background-color: #f8f8f8; border: 1px solid #ddd; border-radius: 4px;">
-            <h3 style="margin-top: 0; color: #666;">Debug Information</h3>
+            <h3 style="margin-top: 0; color: #666;">File Information</h3>
             <p><strong>Share ID:</strong> ' . htmlspecialchars($shareId) . '</p>
             <p><strong>File Name:</strong> ' . htmlspecialchars($fileName) . '</p>
             <p><strong>File Type:</strong> ' . htmlspecialchars($fileType) . '</p>
+            <p><strong>File Size:</strong> ' . ($fileExists ? number_format($fileSize) . ' bytes (' . formatFileSize($fileSize) . ')' : 'Unknown') . '</p>
+            <p><strong>Last Modified:</strong> ' . $fileTime . '</p>
+            <p><strong>File Path:</strong> ' . htmlspecialchars($actualFilePath) . ' (Exists: ' . ($fileExists ? 'Yes' : 'No') . ')</p>
             <p><strong>Session ID:</strong> ' . htmlspecialchars(session_id()) . '</p>
             <p><strong>Shares File:</strong> ' . htmlspecialchars($shares_file) . ' (Exists: ' . (file_exists($shares_file) ? 'Yes' : 'No') . ')</p>
-            
-            <h4 style="margin-top: 15px; color: #666;">Download Options</h4>
-            <p>The file you download will be a dummy file with appropriate size and format.</p>
-            <ul>
-                <li>Text files: ~' . $txtSize . ' bytes</li>
-                <li>Images: ~' . $imgSize . ' bytes</li>
-                <li>Documents: ~' . $docSize . ' bytes</li>
-                <li>Video/Audio: ~' . $videoSize . ' bytes</li>
-            </ul>
             
             <div style="margin-top: 15px;">
                 <button id="refreshBtn" class="download-btn" style="background-color: #007bff;">Refresh Page</button>
@@ -491,7 +513,7 @@ function create_preview_page($fileName, $fileType, $shareId) {
     echo '<div class="preview-container">';
     
     if ($canPreview) {
-        // Create a dummy preview URL that would serve the actual file content
+        // Create a preview URL that will serve the actual file content
         $previewUrl = "?id=" . urlencode($shareId) . "&preview=1";
         
         if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])) {
@@ -499,8 +521,29 @@ function create_preview_page($fileName, $fileType, $shareId) {
         } elseif ($extension === 'pdf') {
             echo '<iframe src="' . htmlspecialchars($previewUrl) . '" width="100%" height="500px" style="border: none;"></iframe>';
         } elseif (in_array($extension, ['txt', 'html', 'htm'])) {
-            // For text files, we'll show a placeholder
-            echo '<div class="preview-text">This is a preview of the text content for ' . htmlspecialchars($fileName) . '.</div>';
+            // For text files, try to show the actual content
+            if ($username && $filePath) {
+                $baseDir = "/var/www/html/webdav/users/$username/Home";
+                $actualFilePath = realpath($baseDir . '/' . $filePath);
+                
+                if (file_exists($actualFilePath)) {
+                    // Read the first 50KB of the file for preview
+                    $content = file_get_contents($actualFilePath, false, null, 0, 50 * 1024);
+                    $isPartial = filesize($actualFilePath) > 50 * 1024;
+                    
+                    if ($extension === 'txt') {
+                        echo '<div class="preview-text">' . htmlspecialchars($content) . ($isPartial ? "\n\n[File truncated for preview...]" : "") . '</div>';
+                    } else {
+                        // For HTML, sanitize the content before displaying
+                        $content = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', "<!-- script removed -->", $content);
+                        echo '<div class="preview-text">' . $content . ($isPartial ? "\n\n<!-- File truncated for preview... -->" : "") . '</div>';
+                    }
+                } else {
+                    echo '<div class="no-preview">File not found or cannot be read.</div>';
+                }
+            } else {
+                echo '<div class="no-preview">File information not available for preview.</div>';
+            }
         } elseif ($extension === 'mp4') {
             echo '<video controls>
                 <source src="' . htmlspecialchars($previewUrl) . '" type="video/mp4">
@@ -531,218 +574,52 @@ function create_preview_page($fileName, $fileType, $shareId) {
 }
 
 /**
- * Serve a dummy file for download or preview
+ * Serve the actual file for download or preview
+ * @param string $filePath The full path to the file
  * @param string $fileName The name of the file
  * @param string $fileType The MIME type of the file
+ * @param bool $forceDownload Whether to force download or allow inline viewing
  */
-function serve_dummy_file($fileName, $fileType = 'text/plain') {
-    $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    
-    // Generate a more realistic file size (between 10KB and 5MB)
-    $minSize = 10 * 1024;        // 10KB
-    $maxSize = 5 * 1024 * 1024;  // 5MB
-    $defaultSize = 100 * 1024;   // 100KB default
-    
-    // Determine appropriate size based on file type
-    switch ($extension) {
-        case 'txt':
-        case 'html':
-        case 'htm':
-        case 'css':
-        case 'js':
-        case 'json':
-        case 'xml':
-            $targetSize = rand($minSize, 500 * 1024); // Text files: 10KB - 500KB
-            break;
-        case 'pdf':
-        case 'doc':
-        case 'docx':
-        case 'xls':
-        case 'xlsx':
-        case 'ppt':
-        case 'pptx':
-            $targetSize = rand(100 * 1024, 3 * 1024 * 1024); // Documents: 100KB - 3MB
-            break;
-        case 'jpg':
-        case 'jpeg':
-        case 'png':
-        case 'gif':
-            $targetSize = rand(50 * 1024, 2 * 1024 * 1024); // Images: 50KB - 2MB
-            break;
-        case 'mp3':
-        case 'wav':
-            $targetSize = rand(1 * 1024 * 1024, $maxSize); // Audio: 1MB - 5MB
-            break;
-        case 'mp4':
-        case 'avi':
-        case 'mov':
-        case 'webm':
-            $targetSize = rand(2 * 1024 * 1024, $maxSize); // Video: 2MB - 5MB
-            break;
-        default:
-            $targetSize = $defaultSize;
+function serve_actual_file($filePath, $fileName, $fileType = 'application/octet-stream', $forceDownload = false) {
+    // Check if file exists
+    if (!file_exists($filePath)) {
+        log_debug("File not found: $filePath");
+        display_error("File not found or has been removed.");
+        return;
     }
     
-    // Create appropriate dummy content based on file type
-    switch ($extension) {
-        case 'txt':
-            // Generate Lorem Ipsum text
-            $loremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\n";
-            $content = "This is a dummy text file for \"$fileName\".\n\nIn a production environment, this would be the actual content of the file.\n\n";
-            
-            // Repeat the lorem ipsum text until we reach the target size
-            while (strlen($content) < $targetSize) {
-                $content .= $loremIpsum;
-            }
-            
-            // Trim to exact size
-            $content = substr($content, 0, $targetSize);
-            break;
-            
-        case 'html':
-        case 'htm':
-            $htmlTemplate = "<!DOCTYPE html>\n<html>\n<head>\n  <title>$fileName</title>\n  <style>\n    body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }\n    h1 { color: #333; }\n    .content { border: 1px solid #ddd; padding: 20px; }\n  </style>\n</head>\n<body>\n  <h1>HTML Preview</h1>\n  <div class='content'>\n    <p>This is a dummy HTML file for \"$fileName\".</p>\n    <p>In a production environment, this would be the actual content of the file.</p>\n";
-            
-            // Add paragraphs until we reach the target size
-            $paragraph = "    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>\n";
-            $htmlFooter = "  </div>\n</body>\n</html>";
-            
-            $content = $htmlTemplate;
-            while (strlen($content . $htmlFooter) < $targetSize) {
-                $content .= $paragraph;
-            }
-            $content .= $htmlFooter;
-            break;
-            
-        case 'pdf':
-            // For PDF, we'll create a binary file with PDF header
-            $pdfHeader = "%PDF-1.5\n%¥±ë\n\n1 0 obj\n<</Type/Catalog/Pages 2 0 R>>\nendobj\n\n2 0 obj\n<</Type/Pages/Kids[3 0 R]/Count 1>>\nendobj\n\n3 0 obj\n<</Type/Page/MediaBox[0 0 612 792]/Resources<<>>/Contents 4 0 R/Parent 2 0 R>>\nendobj\n\n4 0 obj\n<</Length 100>>\nstream\nBT\n/F1 12 Tf\n100 700 Td\n(Dummy PDF file for $fileName) Tj\nET\nendstream\nendobj\n\nxref\n0 5\n0000000000 65535 f\n0000000018 00000 n\n0000000065 00000 n\n0000000118 00000 n\n0000000217 00000 n\ntrailer\n<</Size 5/Root 1 0 R>>\nstartxref\n317\n%%EOF\n";
-            
-            // Add random binary data to reach target size
-            $content = $pdfHeader;
-            $bytesNeeded = $targetSize - strlen($content);
-            if ($bytesNeeded > 0) {
-                // Add random binary data
-                $content .= random_bytes($bytesNeeded);
-            }
-            break;
-            
-        case 'jpg':
-        case 'jpeg':
-        case 'png':
-        case 'gif':
-            // Generate a real image
-            $width = 800;
-            $height = 600;
-            $image = imagecreatetruecolor($width, $height);
-            
-            // Fill with a gradient
-            for ($i = 0; $i < $width; $i++) {
-                $color = imagecolorallocate($image, 
-                    255 - ($i / $width) * 155, 
-                    100, 
-                    100 + ($i / $width) * 155);
-                imageline($image, $i, 0, $i, $height, $color);
-            }
-            
-            // Add text
-            $white = imagecolorallocate($image, 255, 255, 255);
-            $font = 5; // Built-in font
-            $text = "Dummy Image for: $fileName";
-            $text_width = imagefontwidth($font) * strlen($text);
-            $text_height = imagefontheight($font);
-            $x = ($width - $text_width) / 2;
-            $y = ($height - $text_height) / 2;
-            
-            // Add a background for the text
-            imagefilledrectangle($image, $x - 10, $y - 10, $x + $text_width + 10, $y + $text_height + 10, imagecolorallocate($image, 0, 0, 0));
-            imagestring($image, $font, $x, $y, $text, $white);
-            
-            // Output image
-            ob_start();
-            switch ($extension) {
-                case 'jpg':
-                case 'jpeg':
-                    imagejpeg($image, null, 90);
-                    break;
-                case 'png':
-                    imagepng($image, null, 6);
-                    break;
-                case 'gif':
-                    imagegif($image);
-                    break;
-            }
-            $content = ob_get_clean();
-            imagedestroy($image);
-            break;
-            
-        case 'mp3':
-        case 'wav':
-            // For audio files, create a binary file with appropriate header
-            if ($extension == 'mp3') {
-                // Simple MP3 header (not a valid MP3, but has the signature)
-                $header = pack('H*', '494433030000000000');  // ID3v2 tag
-            } else {
-                // Simple WAV header (not a valid WAV, but has the signature)
-                $header = pack('H*', '52494646'); // "RIFF"
-                $header .= pack('V', $targetSize - 8); // File size - 8
-                $header .= pack('H*', '57415645666D7420'); // "WAVEfmt "
-            }
-            
-            // Add random binary data to reach target size
-            $content = $header;
-            $bytesNeeded = $targetSize - strlen($content);
-            if ($bytesNeeded > 0) {
-                $content .= random_bytes($bytesNeeded);
-            }
-            break;
-            
-        case 'mp4':
-        case 'avi':
-        case 'mov':
-        case 'webm':
-            // For video files, create a binary file with appropriate header
-            if ($extension == 'mp4') {
-                // Simple MP4 header (not a valid MP4, but has the signature)
-                $header = pack('H*', '00000018667479706D703432'); // ftyp + mp42
-            } elseif ($extension == 'avi') {
-                // Simple AVI header
-                $header = pack('H*', '52494646'); // "RIFF"
-                $header .= pack('V', $targetSize - 8); // File size - 8
-                $header .= pack('H*', '415649204C495354'); // "AVI LIST"
-            } elseif ($extension == 'mov') {
-                // Simple MOV header
-                $header = pack('H*', '0000001466747970717420'); // ftyp + qt
-            } else {
-                // Simple WEBM header
-                $header = pack('H*', '1A45DFA3');
-            }
-            
-            // Add random binary data to reach target size
-            $content = $header;
-            $bytesNeeded = $targetSize - strlen($content);
-            if ($bytesNeeded > 0) {
-                $content .= random_bytes($bytesNeeded);
-            }
-            break;
-            
-        default:
-            // For other file types, create a binary file with random data
-            $content = "DUMMY FILE: $fileName\n\nThis is a dummy file generated for testing purposes.\nIn a production environment, this would be the actual content of the file.\n\n";
-            
-            // Add random binary data to reach target size
-            $bytesNeeded = $targetSize - strlen($content);
-            if ($bytesNeeded > 0) {
-                $content .= random_bytes($bytesNeeded);
-            }
-    }
+    // Get file size
+    $fileSize = filesize($filePath);
+    log_debug("Serving actual file: $filePath ($fileSize bytes)");
     
-    // Set appropriate headers
+    // Set headers
     header('Content-Type: ' . $fileType);
-    header('Content-Length: ' . strlen($content));
+    header('Content-Length: ' . $fileSize);
     
-    // Output the content
-    echo $content;
+    // Set content disposition
+    if ($forceDownload) {
+        header('Content-Disposition: attachment; filename="' . basename($fileName) . '"');
+    } else {
+        header('Content-Disposition: inline; filename="' . basename($fileName) . '"');
+    }
+    
+    // Disable output buffering
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Read file and output in chunks
+    $handle = fopen($filePath, 'rb');
+    if ($handle) {
+        while (!feof($handle) && !connection_aborted()) {
+            echo fread($handle, 8192); // 8KB chunks
+            flush();
+        }
+        fclose($handle);
+    } else {
+        log_debug("Failed to open file: $filePath");
+        display_error("Failed to read file.");
+    }
     exit;
 }
 
@@ -811,6 +688,18 @@ try {
     // Get file name from path
     $fileName = basename($filePath);
     
+    // Construct the actual file path
+    $baseDir = "/var/www/html/webdav/users/$username/Home";
+    $actualFilePath = realpath($baseDir . '/' . $filePath);
+    
+    // Security check - make sure the file is within the user's directory
+    if ($actualFilePath === false || strpos($actualFilePath, realpath($baseDir)) !== 0) {
+        log_debug("Security violation - attempted access to: $filePath (Resolved: " . ($actualFilePath ?: "Invalid path") . ")");
+        display_error("Access denied.", 403);
+    }
+    
+    log_debug("Actual file path: $actualFilePath");
+    
     // Check if this is a preview page request or direct download
     $isPreviewPage = !isset($_GET['preview']) && !isset($_GET['download']);
     $isPreview = isset($_GET['preview']);
@@ -854,17 +743,10 @@ try {
     
     if ($isPreviewPage) {
         // Show the preview page with file info and download button
-        create_preview_page($fileName, $fileType, $shareId);
+        create_preview_page($fileName, $fileType, $shareId, $username, $filePath);
     } else {
-        // Serve the dummy file (either for preview or download)
-        if ($isDownload) {
-            // Force download
-            header('Content-Disposition: attachment; filename="' . basename($fileName) . '"');
-        } else {
-            // Inline display for preview
-            header('Content-Disposition: inline; filename="' . basename($fileName) . '"');
-        }
-        serve_dummy_file($fileName, $fileType);
+        // Serve the actual file (either for preview or download)
+        serve_actual_file($actualFilePath, $fileName, $fileType, $isDownload);
     }
     
 } catch (Exception $e) {
