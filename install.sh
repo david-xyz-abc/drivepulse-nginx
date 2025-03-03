@@ -71,16 +71,31 @@ DrivePulse is a lightweight, self-hosted alternative to Google Drive that allows
 For more information, see the documentation.
 EOF
 
-# Create users.json if it doesn't exist
+# Create users.json if it doesn't exist and set proper permissions
+echo "Setting up users.json file..."
 if [ ! -f "$USERS_JSON" ]; then
   echo "{}" > "$USERS_JSON"
 fi
 
-# Create the WebDAV users directory for file storage
+# Ensure users.json has proper permissions
+echo "Setting proper permissions for users.json..."
+chmod 666 "$USERS_JSON"
+chown www-data:www-data "$USERS_JSON"
+echo "users.json permissions set to: $(stat -c '%a %U:%G' "$USERS_JSON")"
+
+# Create the WebDAV users directory for file storage with proper permissions
 echo "Creating WebDAV users directory at $WEBDAV_USERS_DIR..."
 mkdir -p "$WEBDAV_USERS_DIR"
+
+# Set proper ownership and permissions for the entire WebDAV directory structure
+echo "Setting proper permissions for WebDAV directories..."
 chown -R www-data:www-data "/var/www/html/webdav"
 chmod -R 775 "/var/www/html/webdav"  # 775 to allow group write access
+
+# Ensure the web server can create directories under the WebDAV users directory
+echo "Ensuring web server can create directories under WebDAV users directory..."
+find "/var/www/html/webdav" -type d -exec chmod 775 {} \;
+echo "WebDAV directory permissions set to: $(stat -c '%a %U:%G' "$WEBDAV_USERS_DIR")"
 
 # Determine PHP version
 PHP_VERSION=$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')
@@ -181,10 +196,38 @@ echo "Setting permissions for Nginx configuration..."
 chown -R www-data:www-data /etc/nginx/sites-available
 chown -R www-data:www-data /etc/nginx/sites-enabled
 
+# Ensure PHP-FPM is running as the correct user
+echo "Configuring PHP-FPM to run as www-data..."
+PHP_FPM_POOL="/etc/php/$PHP_VERSION/fpm/pool.d/www.conf"
+if [ -f "$PHP_FPM_POOL" ]; then
+  sed -i 's/^user = .*/user = www-data/' "$PHP_FPM_POOL"
+  sed -i 's/^group = .*/group = www-data/' "$PHP_FPM_POOL"
+  echo "PHP-FPM pool configuration updated."
+else
+  echo "WARNING: PHP-FPM pool configuration not found at $PHP_FPM_POOL"
+fi
+
+# Set proper permissions for the entire application directory
+echo "Setting proper permissions for the application directory..."
+chown -R www-data:www-data "$APP_DIR"
+find "$APP_DIR" -type f -exec chmod 644 {} \;
+find "$APP_DIR" -type d -exec chmod 755 {} \;
+echo "Application directory permissions set."
+
 # Restart Nginx and PHP-FPM to apply changes
 echo "Restarting Nginx and PHP-FPM..."
-systemctl restart nginx
 systemctl restart php${PHP_VERSION}-fpm
+systemctl restart nginx
+
+# Verify services are running
+echo "Verifying services are running..."
+if systemctl is-active --quiet nginx && systemctl is-active --quiet php${PHP_VERSION}-fpm; then
+  echo "Services are running correctly."
+else
+  echo "WARNING: One or more services may not be running correctly."
+  echo "Nginx status: $(systemctl is-active nginx)"
+  echo "PHP-FPM status: $(systemctl is-active php${PHP_VERSION}-fpm)"
+fi
 
 # Fetch the server's public IP address
 echo "Fetching public IP address..."
@@ -198,4 +241,14 @@ echo "======================================"
 echo "Installation Complete!"
 echo "Access your application at: http://$PUBLIC_IP/selfhostedgdrive/"
 echo "If the IP doesn't work, check your server's network settings or use its local IP."
+echo "======================================"
+
+# Add troubleshooting information
+echo ""
+echo "Troubleshooting Information:"
+echo "- If you encounter 'failed to store user data' errors when registering users:"
+echo "  1. Check permissions: ls -la $USERS_JSON"
+echo "  2. Check WebDAV directory permissions: ls -la $WEBDAV_USERS_DIR"
+echo "  3. Verify PHP-FPM is running as www-data: ps aux | grep php-fpm"
+echo "  4. Check PHP error logs: tail -n 50 /var/log/php${PHP_VERSION}-fpm.log"
 echo "======================================"

@@ -1,51 +1,52 @@
 <?php
-// Set error reporting for debugging
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Debug log setup with toggle
+// Test endpoint
+if (isset($_GET['test'])) {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true, 'message' => 'Share handler is working']);
+    exit;
+}
+
+// Set proper content type for JSON responses
+header('Content-Type: application/json');
+
+// Debug logging
 define('DEBUG', true);
 $debug_log = __DIR__ . '/share_debug.log';
 function log_debug($message) {
     global $debug_log;
     if (DEBUG) {
-        // Try to write to the log file
         @file_put_contents($debug_log, date('[Y-m-d H:i:s] ') . $message . "\n", FILE_APPEND);
     }
 }
 
 // Log request details for debugging
-log_debug("=== Share Handler Request ===");
-log_debug("PHP Version: " . PHP_VERSION);
-log_debug("Request Method: " . ($_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN'));
-log_debug("Request URI: " . ($_SERVER['REQUEST_URI'] ?? 'UNKNOWN'));
-log_debug("GET params: " . var_export($_GET ?? [], true));
-if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    log_debug("POST params: " . var_export($_POST ?? [], true));
+log_debug("Request Method: " . $_SERVER['REQUEST_METHOD']);
+log_debug("Request URI: " . $_SERVER['REQUEST_URI']);
+log_debug("GET params: " . json_encode($_GET));
+log_debug("POST params: " . json_encode($_POST));
+if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    log_debug("DELETE input: " . file_get_contents('php://input'));
 }
 
-// Function to send JSON response
-function send_json_response($data, $status_code = 200) {
-    http_response_code($status_code);
-    header('Content-Type: application/json');
-    echo json_encode($data);
+// Check if user is logged in
+if (!isset($_SESSION['username'])) {
+    $response = ['success' => false, 'error' => 'Not logged in'];
+    log_debug("Response: " . json_encode($response));
+    echo json_encode($response);
     exit;
 }
 
-// Initialize shares in session if not exists
-if (!isset($_SESSION['file_shares'])) {
-    $_SESSION['file_shares'] = [];
-}
-
-// File-based storage for shares
+$username = $_SESSION['username'];
 $shares_file = __DIR__ . '/shares.json';
 
-// Function to load shares from file
+// Load existing shares
 function load_shares() {
     global $shares_file;
     if (file_exists($shares_file)) {
@@ -57,155 +58,192 @@ function load_shares() {
     return [];
 }
 
-// Function to save shares to file
+// Save shares
 function save_shares($shares) {
     global $shares_file;
-    file_put_contents($shares_file, json_encode($shares));
+    return file_put_contents($shares_file, json_encode($shares, JSON_PRETTY_PRINT));
 }
 
-// Get username from session or use a default
-$username = $_SESSION['username'] ?? 'default_user';
+// Get request method
+$method = $_SERVER['REQUEST_METHOD'];
 
-// Handle different HTTP methods
-$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-log_debug("Processing method: $method");
-
-try {
-    switch ($method) {
-        case 'GET':
-            // Check if a file is shared
-            if (isset($_GET['action']) && $_GET['action'] === 'check_share' && isset($_GET['file_path'])) {
-                $filePath = $_GET['file_path'];
-                log_debug("Checking share for file: $filePath");
-                
-                // Check if file is shared in file storage
-                $fileKey = $username . ':' . $filePath;
-                $shares = load_shares();
-                
-                if (isset($shares[$fileKey])) {
-                    // File is shared
-                    $shareId = $shares[$fileKey];
-                    log_debug("File is shared with ID: $shareId");
-                    send_json_response([
-                        'success' => true,
-                        'is_shared' => true,
-                        'share_url' => 'shared.php?id=' . $shareId
-                    ]);
-                } else {
-                    // File is not shared
-                    log_debug("File is not shared");
-                    send_json_response([
-                        'success' => true,
-                        'is_shared' => false
-                    ]);
-                }
-            } else {
-                log_debug("Invalid GET request");
-                send_json_response(['success' => false, 'message' => 'Invalid request'], 400);
-            }
-            break;
-            
-        case 'POST':
-            // Create a new share
-            if (isset($_POST['file_path'])) {
-                $filePath = $_POST['file_path'];
-                log_debug("Creating share for file: $filePath");
-                
-                // Generate a unique share ID
-                $shareId = bin2hex(random_bytes(16));
-                
-                // Store in file
-                $fileKey = $username . ':' . $filePath;
-                $shares = load_shares();
-                $shares[$fileKey] = $shareId;
-                save_shares($shares);
-                
-                // Also store in session for backward compatibility
-                $_SESSION['file_shares'][$fileKey] = $shareId;
-                
-                log_debug("File shared successfully with ID: $shareId");
-                send_json_response([
-                    'success' => true,
-                    'message' => 'File shared successfully',
-                    'share_url' => 'shared.php?id=' . $shareId
-                ]);
-            } else {
-                log_debug("Missing file path in POST request");
-                send_json_response(['success' => false, 'message' => 'Missing file path'], 400);
-            }
-            break;
-            
-        case 'DELETE':
-            log_debug("DELETE request received");
-            log_debug("Query string: " . ($_SERVER['QUERY_STRING'] ?? 'NONE'));
-            
-            // Try different methods to get the file path
-            $filePath = null;
-            
-            // Method 1: Parse query string
-            if (isset($_SERVER['QUERY_STRING'])) {
-                parse_str($_SERVER['QUERY_STRING'], $query);
-                if (isset($query['file_path'])) {
-                    $filePath = $query['file_path'];
-                }
-            }
-            
-            // Method 2: Check GET parameters
-            if ($filePath === null && isset($_GET['file_path'])) {
-                $filePath = $_GET['file_path'];
-            }
-            
-            // Method 3: Parse raw input
-            if ($filePath === null) {
-                $input = file_get_contents('php://input');
-                log_debug("Raw input: $input");
-                parse_str($input, $data);
-                if (isset($data['file_path'])) {
-                    $filePath = $data['file_path'];
-                }
-            }
-            
-            if ($filePath !== null) {
-                log_debug("Deleting share for file: $filePath");
-                
-                // Remove from file storage
-                $fileKey = $username . ':' . $filePath;
-                $shares = load_shares();
-                
-                if (isset($shares[$fileKey])) {
-                    unset($shares[$fileKey]);
-                    save_shares($shares);
-                    
-                    // Also remove from session for backward compatibility
-                    if (isset($_SESSION['file_shares'][$fileKey])) {
-                        unset($_SESSION['file_shares'][$fileKey]);
-                    }
-                    
-                    log_debug("File sharing disabled successfully");
-                    send_json_response([
-                        'success' => true,
-                        'message' => 'File sharing disabled'
-                    ]);
-                } else {
-                    log_debug("File was not shared");
-                    send_json_response([
-                        'success' => true,
-                        'message' => 'File was not shared'
-                    ]);
-                }
-            } else {
-                log_debug("Missing file path in DELETE request");
-                send_json_response(['success' => false, 'message' => 'Missing file path'], 400);
-            }
-            break;
-            
-        default:
-            log_debug("Method not allowed: $method");
-            send_json_response(['success' => false, 'message' => 'Method not allowed'], 405);
-            break;
+// Handle different actions based on request method
+if ($method === 'GET') {
+    $action = $_GET['action'] ?? '';
+    if ($action === 'check_share') {
+        check_share();
+    } else {
+        $response = ['success' => false, 'error' => 'Invalid action'];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
     }
-} catch (Exception $e) {
-    // Handle any unexpected errors
-    log_debug("Unexpected error: " . $e->getMessage());
-    send_json_response(['success' => false, 'message' => 'Server error: ' . $e->getMessage()], 500);
+} elseif ($method === 'POST') {
+    $action = $_POST['action'] ?? 'create_share';
+    if ($action === 'create_share') {
+        create_share();
+    } else {
+        $response = ['success' => false, 'error' => 'Invalid action'];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+    }
+} elseif ($method === 'DELETE') {
+    // For DELETE requests, parse the input
+    parse_str(file_get_contents('php://input'), $_DELETE);
+    
+    // Also check query parameters for file_path
+    $filePath = $_GET['file_path'] ?? ($_DELETE['file_path'] ?? '');
+    
+    if (!empty($filePath)) {
+        delete_share($filePath);
+    } else {
+        $response = ['success' => false, 'error' => 'No file specified'];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+    }
+} else {
+    $response = ['success' => false, 'error' => 'Invalid request method'];
+    log_debug("Response: " . json_encode($response));
+    echo json_encode($response);
+}
+
+// Check if a file is shared
+function check_share() {
+    global $username;
+    
+    if (!isset($_GET['file_path']) || empty($_GET['file_path'])) {
+        $response = ['success' => false, 'error' => 'No file specified'];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+        exit;
+    }
+    
+    $filePath = $_GET['file_path'];
+    $fileKey = $username . ':' . $filePath;
+    
+    $shares = load_shares();
+    $sessionShares = $_SESSION['file_shares'] ?? [];
+    
+    $isShared = false;
+    $shareId = null;
+    
+    // Check in persistent shares
+    if (isset($shares[$fileKey])) {
+        $isShared = true;
+        $shareId = $shares[$fileKey];
+    }
+    
+    // Check in session shares
+    if (!$isShared && isset($sessionShares[$fileKey])) {
+        $isShared = true;
+        $shareId = $sessionShares[$fileKey];
+    }
+    
+    if ($isShared && $shareId) {
+        $response = [
+            'success' => true,
+            'is_shared' => true,
+            'share_id' => $shareId,
+            'share_url' => 'shared.php?id=' . urlencode($shareId)
+        ];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+    } else {
+        $response = [
+            'success' => true,
+            'is_shared' => false
+        ];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+    }
+}
+
+// Create a share for a file
+function create_share() {
+    global $username;
+    
+    if (!isset($_POST['file_path']) || empty($_POST['file_path'])) {
+        $response = ['success' => false, 'error' => 'No file specified'];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+        exit;
+    }
+    
+    $filePath = $_POST['file_path'];
+    $fileKey = $username . ':' . $filePath;
+    
+    // Generate a unique share ID
+    $shareId = bin2hex(random_bytes(16));
+    
+    // Save to persistent shares
+    $shares = load_shares();
+    $shares[$fileKey] = $shareId;
+    
+    if (save_shares($shares)) {
+        // Also save to session for redundancy
+        if (!isset($_SESSION['file_shares'])) {
+            $_SESSION['file_shares'] = [];
+        }
+        $_SESSION['file_shares'][$fileKey] = $shareId;
+        
+        $response = [
+            'success' => true,
+            'message' => 'File shared successfully',
+            'share_id' => $shareId,
+            'share_url' => 'shared.php?id=' . urlencode($shareId)
+        ];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+    } else {
+        $response = ['success' => false, 'error' => 'Failed to save share'];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+    }
+}
+
+// Delete a share
+function delete_share($filePath) {
+    global $username;
+    
+    if (empty($filePath)) {
+        $response = ['success' => false, 'error' => 'No file specified'];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+        exit;
+    }
+    
+    $fileKey = $username . ':' . $filePath;
+    
+    $shares = load_shares();
+    $sessionShares = $_SESSION['file_shares'] ?? [];
+    
+    $deleted = false;
+    
+    // Remove from persistent shares
+    if (isset($shares[$fileKey])) {
+        unset($shares[$fileKey]);
+        save_shares($shares);
+        $deleted = true;
+    }
+    
+    // Remove from session shares
+    if (isset($sessionShares[$fileKey])) {
+        unset($_SESSION['file_shares'][$fileKey]);
+        $deleted = true;
+    }
+    
+    if ($deleted) {
+        $response = [
+            'success' => true,
+            'message' => 'Share removed successfully'
+        ];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+    } else {
+        $response = [
+            'success' => false,
+            'error' => 'Share not found'
+        ];
+        log_debug("Response: " . json_encode($response));
+        echo json_encode($response);
+    }
 } 

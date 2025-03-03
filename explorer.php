@@ -4666,32 +4666,33 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
     
     // Helper function to handle response parsing
     const handleResponse = async (response) => {
-      try {
-        // First check if the response is ok
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Server error response:', errorText);
-          throw new Error(`Server responded with status: ${response.status}`);
-        }
-        
-        // Try to parse as JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          const text = await response.text();
-          console.error('Non-JSON response:', text);
-          throw new Error('Server did not return JSON');
-        }
-        
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      
+      // Check if response is ok (status in the range 200-299)
+      if (!response.ok) {
+        console.error('Response not OK:', response.status, response.statusText);
+        return response.text().then(text => {
+          console.error('Error response text:', text);
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            console.error('Failed to parse error response as JSON:', e);
+            throw new Error('Server error: ' + response.status);
+          }
+        });
+      }
+      
+      // Try to parse as JSON
+      return response.text().then(text => {
+        console.log('Response text:', text);
         try {
-          return await response.json();
-        } catch (error) {
-          console.error('JSON parse error:', error);
+          return JSON.parse(text);
+        } catch (e) {
+          console.error('Failed to parse response as JSON:', e, 'Raw response:', text);
           throw new Error('Failed to parse JSON response');
         }
-      } catch (error) {
-        console.error('Response handling error:', error);
-        throw error;
-      }
+      });
     };
     
     // Check if file is shared
@@ -4757,6 +4758,7 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
         // Create share
         const formData = new FormData();
         formData.append('file_path', filePath);
+        formData.append('action', 'create_share');
         
         fetch('share_handler.php', {
           method: 'POST',
@@ -4822,64 +4824,54 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
         
         console.log('Disabling sharing for:', filePath);
         
-        // Delete share - use XMLHttpRequest for better browser compatibility with DELETE
-        const xhr = new XMLHttpRequest();
-        xhr.open('DELETE', `share_handler.php?file_path=${encodeURIComponent(filePath)}`, true);
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        
-        xhr.onload = function() {
-          console.log('Delete share response status:', xhr.status);
+        // Use fetch instead of XMLHttpRequest for better consistency
+        fetch(`share_handler.php?file_path=${encodeURIComponent(filePath)}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+        .then(response => {
+          console.log('Delete share response status:', response.status);
+          return handleResponse(response);
+        })
+        .then(data => {
+          console.log('Delete share response data:', data);
           shareLoading.style.display = 'none';
           
-          try {
-            const data = JSON.parse(xhr.responseText);
-            console.log('Delete share response data:', data);
-            
-            if (data && data.success) {
-              shareStatus.style.display = 'block';
-              shareStatus.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
-              shareLink.style.display = 'none';
-              
-              // Find the file item and remove the share icon
-              const fileItem = document.querySelector(`.folder-item[data-file-name="${currentFileName.replace(/"/g, '\\"')}"]`);
-              if (fileItem) {
-                const shareIcon = fileItem.querySelector('.share-icon');
-                if (shareIcon) {
-                  shareIcon.remove();
-                }
-              }
-            } else {
-              shareStatus.style.display = 'block';
-              shareStatus.innerHTML = `<div class="alert alert-danger">${data.message || 'Unknown error'}</div>`;
-              // Reset toggle if failed
-              shareToggle.checked = true;
-              shareToggleStatus.textContent = 'On';
-              shareToggleStatus.style.color = '#4CAF50';
-            }
-          } catch (error) {
-            console.error('Delete share parse error:', error, xhr.responseText);
+          if (data && data.success) {
             shareStatus.style.display = 'block';
-            shareStatus.innerHTML = `<div class="alert alert-danger">Error parsing response</div>`;
+            shareStatus.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+            shareLink.style.display = 'none';
+            
+            // Find the file item and remove the share icon
+            const fileItem = document.querySelector(`.folder-item[data-file-name="${currentFileName.replace(/"/g, '\\"')}"]`);
+            if (fileItem) {
+              const shareIcon = fileItem.querySelector('.share-icon');
+              if (shareIcon) {
+                shareIcon.remove();
+              }
+            }
+          } else {
+            shareStatus.style.display = 'block';
+            shareStatus.innerHTML = `<div class="alert alert-danger">${data.message || 'Unknown error'}</div>`;
             // Reset toggle if failed
             shareToggle.checked = true;
             shareToggleStatus.textContent = 'On';
             shareToggleStatus.style.color = '#4CAF50';
           }
-        };
-        
-        xhr.onerror = function() {
-          console.error('Delete share network error');
+        })
+        .catch(error => {
+          console.error('Delete share error:', error);
           shareLoading.style.display = 'none';
           shareStatus.style.display = 'block';
-          shareStatus.innerHTML = `<div class="alert alert-danger">Network error</div>`;
+          shareStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
           // Reset toggle if failed
           shareToggle.checked = true;
           shareToggleStatus.textContent = 'On';
           shareToggleStatus.style.color = '#4CAF50';
-        };
-        
-        xhr.send();
+        });
       }
     });
     
