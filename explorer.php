@@ -1370,8 +1370,7 @@ html, body {
 }
 
 .cancel-upload-btn:hover {
-  background: linear-gradient(135deg, #b71c1c, var(--accent-red));
-  transform: scale(1.05);
+  background-color: #b71c1c;
 }
 
 .cancel-upload-btn:active { transform: scale(0.95); }
@@ -2885,6 +2884,17 @@ input:checked + .slider:before {
 .btn-primary:hover {
   background-color: #b71c1c;
 }
+
+.share-icon {
+  color: #ff3333;
+  margin-right: 5px;
+  font-size: 14px;
+}
+
+.folder-actions {
+  display: flex;
+  align-items: center;
+}
   </style>
 </head>
 <body>
@@ -3076,6 +3086,22 @@ input:checked + .slider:before {
                   <?php endif; ?>
                   <span class="file-name"><?php echo htmlspecialchars($fileName); ?></span>
                   <div class="folder-actions">
+                    <?php
+                      // Check if file is shared
+                      $fileKey = $username . ':' . $relativePath;
+                      $shares = [];
+                      $shares_file = __DIR__ . '/shares.json';
+                      if (file_exists($shares_file)) {
+                          $content = file_get_contents($shares_file);
+                          if (!empty($content)) {
+                              $shares = json_decode($content, true) ?: [];
+                          }
+                      }
+                      $isShared = isset($shares[$fileKey]);
+                    ?>
+                    <?php if ($isShared): ?>
+                      <i class="fas fa-globe share-icon" title="This file is shared"></i>
+                    <?php endif; ?>
                     <button class="folder-more-options-btn" title="More options">
                       <i class="fas fa-ellipsis-v small-dots"></i>
                     </button>
@@ -4107,6 +4133,12 @@ function positionContextMenu(x, y) {
     overlay.style.display = 'block';
   } else {
     // On desktop, position near the cursor
+    
+    // First make the menu visible but off-screen to calculate its dimensions
+    contextMenu.style.display = 'block';
+    contextMenu.style.left = '-9999px';
+    contextMenu.style.top = '-9999px';
+    
     const menuWidth = contextMenu.offsetWidth;
     const menuHeight = contextMenu.offsetHeight;
     const windowWidth = window.innerWidth;
@@ -4114,7 +4146,7 @@ function positionContextMenu(x, y) {
     
     // Check if menu goes beyond right edge
     if (x + menuWidth > windowWidth) {
-      x = windowWidth - menuWidth - 5;
+      x = Math.max(5, windowWidth - menuWidth - 5);
     }
     
     // Check if menu goes beyond bottom edge
@@ -4132,8 +4164,6 @@ function positionContextMenu(x, y) {
     // Hide overlay
     overlay.style.display = 'none';
   }
-  
-  contextMenu.style.display = 'block';
 }
 
 // Initialize context menu functionality after DOM is fully loaded
@@ -4589,9 +4619,15 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
           <div id="shareStatus" style="margin: 15px 0; display: none;"></div>
           <div id="shareLink" style="display: none;">
             <p style="margin-bottom: 5px;">Share link:</p>
-            <input type="text" id="shareLinkInput" readonly style="width: 100%; padding: 8px; margin-bottom: 10px;">
-            <button id="copyShareLink" class="btn btn-primary">Copy Link</button>
-            <button id="previewShareLink" class="btn btn-secondary" style="margin-left: 10px;">Preview</button>
+            <input type="text" id="shareLinkInput" readonly style="width: 100%; padding: 8px; margin-bottom: 10px; background-color: var(--content-bg); color: var(--text-color); border: 1px solid var(--border-color); outline: none; border-radius: 4px;">
+            <div style="display: flex; gap: 20px;">
+              <button id="copyShareLink" type="button" class="multi-select-btn" title="Copy Link" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
+                <i class="fas fa-copy" style="margin-right: 8px;"></i>Copy Link
+              </button>
+              <button id="previewShareLink" type="button" class="multi-select-btn" title="Preview Link" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
+                <i class="fas fa-external-link-alt" style="margin-right: 8px;"></i>Preview
+              </button>
+            </div>
           </div>
           <div id="shareLoading" style="display: none;">
             <div class="spinner" style="margin: 0 auto; width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: var(--accent-red); animation: spin 1s linear infinite;"></div>
@@ -4681,6 +4717,18 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
             shareLink.style.display = 'block';
             const fullShareUrl = window.location.origin + window.location.pathname.replace('explorer.php', data.share_url);
             shareLinkInput.value = fullShareUrl;
+            
+            // Find the file item and add the share icon if it doesn't exist
+            const fileItem = document.querySelector(`.folder-item[data-file-name="${currentFileName.replace(/"/g, '\\"')}"]`);
+            if (fileItem) {
+              const folderActions = fileItem.querySelector('.folder-actions');
+              if (folderActions && !folderActions.querySelector('.share-icon')) {
+                const shareIcon = document.createElement('i');
+                shareIcon.className = 'fas fa-globe share-icon';
+                shareIcon.title = 'This file is shared';
+                folderActions.insertBefore(shareIcon, folderActions.firstChild);
+              }
+            }
           }
         } else if (data && data.message) {
           // Show error message
@@ -4729,6 +4777,25 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
             shareLink.style.display = 'block';
             const fullShareUrl = window.location.origin + window.location.pathname.replace('explorer.php', data.share_url);
             shareLinkInput.value = fullShareUrl;
+            
+            // Add share icon to the file item
+            const fileItem = document.querySelector(`.folder-item[data-file-name="${currentFileName.replace(/"/g, '\\"')}"]`);
+            if (fileItem) {
+              const folderActions = fileItem.querySelector('.folder-actions');
+              if (folderActions) {
+                // Remove existing share icon if any
+                const existingIcon = folderActions.querySelector('.share-icon');
+                if (existingIcon) {
+                  existingIcon.remove();
+                }
+                
+                // Add new share icon
+                const shareIcon = document.createElement('i');
+                shareIcon.className = 'fas fa-globe share-icon';
+                shareIcon.title = 'This file is shared';
+                folderActions.insertBefore(shareIcon, folderActions.firstChild);
+              }
+            }
           } else {
             shareStatus.style.display = 'block';
             shareStatus.innerHTML = `<div class="alert alert-danger">${data.message || 'Unknown error'}</div>`;
@@ -4773,6 +4840,15 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
               shareStatus.style.display = 'block';
               shareStatus.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
               shareLink.style.display = 'none';
+              
+              // Find the file item and remove the share icon
+              const fileItem = document.querySelector(`.folder-item[data-file-name="${currentFileName.replace(/"/g, '\\"')}"]`);
+              if (fileItem) {
+                const shareIcon = fileItem.querySelector('.share-icon');
+                if (shareIcon) {
+                  shareIcon.remove();
+                }
+              }
             } else {
               shareStatus.style.display = 'block';
               shareStatus.innerHTML = `<div class="alert alert-danger">${data.message || 'Unknown error'}</div>`;
@@ -4811,9 +4887,10 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
     document.getElementById('copyShareLink').addEventListener('click', function() {
       shareLinkInput.select();
       document.execCommand('copy');
-      this.textContent = 'Copied!';
+      const originalText = this.innerHTML;
+      this.innerHTML = '<i class="fas fa-check" style="margin-right: 8px;"></i>Copied!';
       setTimeout(() => {
-        this.textContent = 'Copy Link';
+        this.innerHTML = originalText;
       }, 2000);
     });
     
