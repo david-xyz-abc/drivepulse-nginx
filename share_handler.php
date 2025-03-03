@@ -1,16 +1,22 @@
 <?php
+// Start output buffering to ensure clean JSON responses
+ob_start();
+
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 if (session_status() === PHP_SESSION_NONE) {
+    // Set secure cookies if using HTTPS
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+        ini_set('session.cookie_secure', 1);
+        ini_set('session.cookie_httponly', 1);
+    }
     session_start();
 }
 
 // Test endpoint
 if (isset($_GET['test'])) {
-    header('Content-Type: application/json');
-    echo json_encode(['success' => true, 'message' => 'Share handler is working']);
-    exit;
+    send_json_response(['success' => true, 'message' => 'Share handler is working']);
 }
 
 // Set proper content type for JSON responses
@@ -26,6 +32,14 @@ function log_debug($message) {
     }
 }
 
+// Helper function to get the base URL with correct protocol
+function get_base_url() {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+    $host = $_SERVER['HTTP_HOST'];
+    $script_name = dirname($_SERVER['SCRIPT_NAME']);
+    return $protocol . $host . $script_name;
+}
+
 // Log request details for debugging
 log_debug("Request Method: " . $_SERVER['REQUEST_METHOD']);
 log_debug("Request URI: " . $_SERVER['REQUEST_URI']);
@@ -37,10 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 
 // Check if user is logged in
 if (!isset($_SESSION['username'])) {
-    $response = ['success' => false, 'error' => 'Not logged in'];
-    log_debug("Response: " . json_encode($response));
-    echo json_encode($response);
-    exit;
+    send_json_response(['success' => false, 'error' => 'Not logged in']);
 }
 
 $username = $_SESSION['username'];
@@ -73,18 +84,14 @@ if ($method === 'GET') {
     if ($action === 'check_share') {
         check_share();
     } else {
-        $response = ['success' => false, 'error' => 'Invalid action'];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
+        send_json_response(['success' => false, 'error' => 'Invalid action']);
     }
 } elseif ($method === 'POST') {
     $action = $_POST['action'] ?? 'create_share';
     if ($action === 'create_share') {
         create_share();
     } else {
-        $response = ['success' => false, 'error' => 'Invalid action'];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
+        send_json_response(['success' => false, 'error' => 'Invalid action']);
     }
 } elseif ($method === 'DELETE') {
     // For DELETE requests, parse the input
@@ -96,14 +103,32 @@ if ($method === 'GET') {
     if (!empty($filePath)) {
         delete_share($filePath);
     } else {
-        $response = ['success' => false, 'error' => 'No file specified'];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
+        send_json_response(['success' => false, 'error' => 'No file specified']);
     }
 } else {
-    $response = ['success' => false, 'error' => 'Invalid request method'];
-    log_debug("Response: " . json_encode($response));
-    echo json_encode($response);
+    send_json_response(['success' => false, 'error' => 'Invalid request method']);
+}
+
+// Helper function to send a JSON response
+function send_json_response($data) {
+    global $debug_log;
+    // Log the response
+    if (DEBUG) {
+        log_debug("Response: " . json_encode($data));
+    }
+    
+    // Clean any previous output
+    ob_clean();
+    
+    // Set headers
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Cache-Control: post-check=0, pre-check=0', false);
+    header('Pragma: no-cache');
+    
+    // Send JSON response
+    echo json_encode($data);
+    exit;
 }
 
 // Check if a file is shared
@@ -111,10 +136,7 @@ function check_share() {
     global $username;
     
     if (!isset($_GET['file_path']) || empty($_GET['file_path'])) {
-        $response = ['success' => false, 'error' => 'No file specified'];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
-        exit;
+        send_json_response(['success' => false, 'error' => 'No file specified']);
     }
     
     $filePath = $_GET['file_path'];
@@ -139,21 +161,17 @@ function check_share() {
     }
     
     if ($isShared && $shareId) {
-        $response = [
+        send_json_response([
             'success' => true,
             'is_shared' => true,
             'share_id' => $shareId,
-            'share_url' => 'shared.php?id=' . urlencode($shareId)
-        ];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
+            'share_url' => get_base_url() . '/shared.php?id=' . urlencode($shareId)
+        ]);
     } else {
-        $response = [
+        send_json_response([
             'success' => true,
             'is_shared' => false
-        ];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
+        ]);
     }
 }
 
@@ -162,10 +180,7 @@ function create_share() {
     global $username;
     
     if (!isset($_POST['file_path']) || empty($_POST['file_path'])) {
-        $response = ['success' => false, 'error' => 'No file specified'];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
-        exit;
+        send_json_response(['success' => false, 'error' => 'No file specified']);
     }
     
     $filePath = $_POST['file_path'];
@@ -185,18 +200,14 @@ function create_share() {
         }
         $_SESSION['file_shares'][$fileKey] = $shareId;
         
-        $response = [
+        send_json_response([
             'success' => true,
             'message' => 'File shared successfully',
             'share_id' => $shareId,
-            'share_url' => 'shared.php?id=' . urlencode($shareId)
-        ];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
+            'share_url' => get_base_url() . '/shared.php?id=' . urlencode($shareId)
+        ]);
     } else {
-        $response = ['success' => false, 'error' => 'Failed to save share'];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
+        send_json_response(['success' => false, 'error' => 'Failed to save share']);
     }
 }
 
@@ -205,10 +216,7 @@ function delete_share($filePath) {
     global $username;
     
     if (empty($filePath)) {
-        $response = ['success' => false, 'error' => 'No file specified'];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
-        exit;
+        send_json_response(['success' => false, 'error' => 'No file specified']);
     }
     
     $fileKey = $username . ':' . $filePath;
@@ -232,18 +240,14 @@ function delete_share($filePath) {
     }
     
     if ($deleted) {
-        $response = [
+        send_json_response([
             'success' => true,
             'message' => 'Share removed successfully'
-        ];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
+        ]);
     } else {
-        $response = [
+        send_json_response([
             'success' => false,
             'error' => 'Share not found'
-        ];
-        log_debug("Response: " . json_encode($response));
-        echo json_encode($response);
+        ]);
     }
 } 

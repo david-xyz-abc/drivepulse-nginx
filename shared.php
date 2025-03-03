@@ -3,6 +3,11 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 if (session_status() === PHP_SESSION_NONE) {
+    // Set secure cookies if using HTTPS
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+        ini_set('session.cookie_secure', 1);
+        ini_set('session.cookie_httponly', 1);
+    }
     session_start();
 }
 
@@ -22,6 +27,13 @@ function formatFileSize($bytes, $precision = 2) {
     $pow = min($pow, count($units) - 1);
     $bytes /= pow(1024, $pow);
     return round($bytes, $precision) . ' ' . $units[$pow];
+}
+
+function get_base_url() {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+    $host = $_SERVER['HTTP_HOST'];
+    $script_name = dirname($_SERVER['PHP_SELF']);
+    return $protocol . $host . $script_name;
 }
 
 if (isset($_GET['create_test_share'])) {
@@ -141,7 +153,7 @@ if (isset($_GET['create_test_share'])) {
         <p><strong>Share Link:</strong></p>
         <div class="link">
             <a href="shared.php?id=<?php echo htmlspecialchars($testShareId); ?>">
-                <?php echo htmlspecialchars($_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . '/shared.php?id=' . $testShareId); ?>
+                <?php echo htmlspecialchars(get_base_url() . '/shared.php?id=' . $testShareId); ?>
             </a>
         </div>
         <a href="shared.php?id=<?php echo htmlspecialchars($testShareId); ?>" class="btn">Open Share</a>

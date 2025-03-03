@@ -4716,8 +4716,8 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
             
             // Show share link
             shareLink.style.display = 'block';
-            const fullShareUrl = window.location.origin + window.location.pathname.replace('explorer.php', data.share_url);
-            shareLinkInput.value = fullShareUrl;
+            // Use the full URL from the server response
+            shareLinkInput.value = data.share_url;
             
             // Find the file item and add the share icon if it doesn't exist
             const fileItem = document.querySelector(`.folder-item[data-file-name="${currentFileName.replace(/"/g, '\\"')}"]`);
@@ -4777,8 +4777,8 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
             shareStatus.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
             
             shareLink.style.display = 'block';
-            const fullShareUrl = window.location.origin + window.location.pathname.replace('explorer.php', data.share_url);
-            shareLinkInput.value = fullShareUrl;
+            // Use the full URL from the server response
+            shareLinkInput.value = data.share_url;
             
             // Add share icon to the file item
             const fileItem = document.querySelector(`.folder-item[data-file-name="${currentFileName.replace(/"/g, '\\"')}"]`);
