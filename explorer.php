@@ -805,7 +805,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download_files'])) {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Explorer with Previews</title>
+  <title>DrivePulse</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -837,6 +837,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download_files'])) {
   --dropzone-border: #d32f2f;
   --texture-color: rgba(255, 255, 255, 0.03);
   --red-glow: rgba(211, 47, 47, 0.05);
+  --share-icon-display: inline-block;
 }
 
 body.light-mode {
@@ -853,6 +854,7 @@ body.light-mode {
   --dropzone-border: #f44336;
   --texture-color: rgba(0, 0, 0, 0.03);
   --red-glow: rgba(244, 67, 54, 0.08);
+  --share-icon-display: none !important;
 }
 
 html, body {
@@ -968,34 +970,82 @@ html, body {
 
 .storage-indicator {
   margin-top: 10px;
-  padding: 10px;
+  padding: 15px;
   background: var(--content-bg);
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: 8px;
+  font-size: 13px;
   color: var(--text-color);
-  width: calc(100% - 22px);
+  width: calc(100% - 32px);
   box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.storage-indicator:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .storage-indicator p {
-  margin: 0 0 5px 0;
+  margin: 0 0 8px 0;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.storage-indicator .storage-icon {
+  color: var(--accent-red);
+  font-size: 14px;
 }
 
 .storage-bar {
   width: 100%;
-  height: 10px;
+  height: 12px;
   background: var(--border-color);
-  border-radius: 5px;
+  border-radius: 6px;
   overflow: hidden;
+  position: relative;
 }
 
 .storage-progress {
   height: 100%;
-  background: var(--accent-red);
-  border-radius: 5px;
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, var(--accent-red), #b71c1c);
+  border-radius: 6px;
+  transition: width 0.5s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.storage-progress::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.storage-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  margin-top: 5px;
+  opacity: 0.8;
 }
 
 .btn {
@@ -2895,6 +2945,62 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
 }
+
+/* Hide share icon in grid view */
+.file-list.grid-view .share-icon,
+.folder-list.grid-view .share-icon,
+.file-list.grid-view .folder-actions .share-icon,
+.folder-list.grid-view .folder-actions .share-icon,
+.grid-view .folder-item .folder-actions .share-icon,
+.grid-view .folder-actions > .share-icon,
+.grid-view .fa-globe.share-icon,
+.folder-list.grid-view .folder-item .folder-actions .fa-globe.share-icon,
+.folder-list.grid-view li.folder-item .folder-actions i.fas.fa-globe.share-icon {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Hide elements with hide-in-grid class when in grid view */
+.grid-view .hide-in-grid {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+  </style>
+  
+  <!-- Additional styles to ensure share icon is hidden in grid view -->
+  <style>
+    /* Super aggressive hiding of share icon in grid view */
+    .grid-view .share-icon,
+    .grid-view .fa-globe,
+    .grid-view .hide-in-grid,
+    .grid-view .folder-actions > i.fas.fa-globe,
+    .grid-view .folder-item .folder-actions i.fas.fa-globe,
+    .grid-view .folder-item .folder-actions .share-icon,
+    .grid-view .folder-item .folder-actions i.fas.fa-globe.share-icon,
+    .grid-view .folder-item .folder-actions i.fas.fa-globe.share-icon.hide-in-grid {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      width: 0 !important;
+      height: 0 !important;
+      position: absolute !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      margin: -1px !important;
+      padding: 0 !important;
+      border: 0 !important;
+      pointer-events: none !important;
+    }
   </style>
 </head>
 <body>
@@ -2938,9 +3044,13 @@ input:checked + .slider:before {
           </ul>
         </div>
         <div class="storage-indicator">
-          <p><?php echo "$usedStorageGB GB used of $totalStorageGB GB"; ?></p>
+          <p><i class="fas fa-database storage-icon"></i> <?php echo "$usedStorageGB GB used of $totalStorageGB GB"; ?></p>
           <div class="storage-bar">
             <div class="storage-progress" style="width: <?php echo $storagePercentage; ?>%;"></div>
+          </div>
+          <div class="storage-details">
+            <span><?php echo $storagePercentage; ?>% used</span>
+            <span><?php echo round($totalStorageGB - $usedStorageGB, 2); ?> GB free</span>
           </div>
         </div>
       </div>
@@ -2954,7 +3064,7 @@ input:checked + .slider:before {
             <i class="fas fa-bars"></i>
           </button>
           <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
-        </div>
+            </div>
         <div style="display: flex; gap: 10px;">
           <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
             <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
@@ -3100,7 +3210,7 @@ input:checked + .slider:before {
                       $isShared = isset($shares[$fileKey]);
                     ?>
                     <?php if ($isShared): ?>
-                      <i class="fas fa-globe share-icon" title="This file is shared"></i>
+                      <i class="fas fa-globe share-icon hide-in-grid" title="This file is shared" style="display: var(--share-icon-display, inline-block);"></i>
                     <?php endif; ?>
                     <button class="folder-more-options-btn" title="More options">
                       <i class="fas fa-ellipsis-v small-dots"></i>
@@ -4004,6 +4114,12 @@ function updateGridView() {
         icon.style.display = isGridView ? 'none' : 'inline-block';
       });
     }
+  });
+  
+  // Hide share icons in grid view
+  const shareIcons = document.querySelectorAll('.share-icon');
+  shareIcons.forEach(icon => {
+    icon.style.display = isGridView ? 'none' : 'inline-block';
   });
 }
 updateGridView();
@@ -5292,6 +5408,21 @@ downloadSelectedBtn.addEventListener('click', function() {
           } catch (e) {
             console.error('Error removing hover effects:', e);
           }
+        });
+      }
+    });
+
+    // Hide share icons in grid view when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      const fileList = document.getElementById('fileList');
+      const isGridView = localStorage.getItem('gridView') === 'true';
+      
+      if (isGridView && fileList) {
+        const shareIcons = document.querySelectorAll('.share-icon, .fa-globe.share-icon, .hide-in-grid');
+        shareIcons.forEach(function(icon) {
+          icon.style.display = 'none';
+          icon.style.visibility = 'hidden';
+          icon.style.opacity = '0';
         });
       }
     });
