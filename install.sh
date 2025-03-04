@@ -41,15 +41,6 @@ if [ ! -d "$APP_DIR" ]; then
   mkdir -p "$APP_DIR"
 fi
 
-# Backup existing PHP files (if any)
-echo "Backing up existing PHP files..."
-FILES=("index.php" "authenticate.php" "explorer.php" "console.php" "logout.php" "register.php" "share_handler.php" "shared.php" "drivepulse.svg")
-for file in "${FILES[@]}"; do
-  if [ -f "$APP_DIR/$file" ]; then
-    cp "$APP_DIR/$file" "$APP_DIR/$file.bak"
-    echo "Backed up $file to $file.bak"
-  fi
-done
 
 # Set the base URL where your PHP files are hosted
 BASE_URL="https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main"
@@ -127,11 +118,11 @@ cp "$FPM_PHP_INI" "${FPM_PHP_INI}.backup"
 update_php_ini() {
   local ini_file="$1"
   echo "Adjusting PHP size limits in $ini_file..."
-  sed -i 's/^\s*upload_max_filesize\s*=.*/upload_max_filesize = 10G/' "$ini_file"
-  sed -i 's/^\s*post_max_size\s*=.*/post_max_size = 11G/' "$ini_file"
-  sed -i 's/^\s*memory_limit\s*=.*/memory_limit = 12G/' "$ini_file"
-  sed -i 's/^\s*max_execution_time\s*=.*/max_execution_time = 3600/' "$ini_file"
-  sed -i 's/^\s*max_input_time\s*=.*/max_input_time = 3600/' "$ini_file"
+  sed -i 's/^\s*upload_max_filesize\s*=.*/upload_max_filesize = 100G/' "$ini_file"
+  sed -i 's/^\s*post_max_size\s*=.*/post_max_size = 110G/' "$ini_file"
+  sed -i 's/^\s*memory_limit\s*=.*/memory_limit = 120G/' "$ini_file"
+  sed -i 's/^\s*max_execution_time\s*=.*/max_execution_time = 36000/' "$ini_file"
+  sed -i 's/^\s*max_input_time\s*=.*/max_input_time = 36000/' "$ini_file"
 }
 
 # Update both php.ini files
