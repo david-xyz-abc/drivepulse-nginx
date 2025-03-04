@@ -262,19 +262,29 @@ if (isset($_GET['view_all_shares']) && DEBUG) {
             font-style: italic;
         }
         .debug-info {
-            margin: 2rem 0;
+            margin-top: 2rem;
             padding: 1.5rem;
-            background: rgba(230, 57, 70, 0.1);
-            border-radius: 10px;
-            animation: fadeIn 0.8s ease-out;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0;
+            animation: slideLeft 0.8s ease-out;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+        .debug-info h3 {
+            color: var(--accent-red);
+            margin-bottom: 1rem;
         }
         @keyframes slideUp {
             from { transform: translateY(50px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        @keyframes slideLeft {
+            from { transform: translateX(30px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes progressBar {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
     </style>
 </head>
@@ -482,13 +492,7 @@ function create_preview_page($fileName, $fileType, $shareId, $username = null, $
             <h3>Details</h3>
             <p><strong>File Name:</strong> ' . htmlspecialchars($fileName) . '</p>
             <p><strong>File Size:</strong> ' . htmlspecialchars($fileSize) . '</p>
-            <div class="debug-buttons">
-                <button id="refreshBtn" class="download-btn debug-btn">Refresh</button>
-            </div>
-        </div>
-        <script>
-            document.getElementById("refreshBtn").addEventListener("click", () => window.location.reload());
-        </script>';
+        </div>';
     }
     
     header('Content-Type: text/html; charset=utf-8');
@@ -664,33 +668,8 @@ function create_preview_page($fileName, $fileType, $shareId, $username = null, $
             color: var(--accent-red);
             margin-bottom: 1rem;
         }
-        .debug-buttons {
-            margin-top: 1rem;
-            display: flex;
-            justify-content: center;
-        }
-        .debug-btn {
-            margin: 0 0.5rem;
-            background: var(--button-bg);
-            border-radius: 0;
-        }
-        .debug-btn:hover {
-            background: var(--button-hover);
-        }
         @keyframes slideUp {
             from { transform: translateY(50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes fadeInDown {
-            from { transform: translateY(-20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes scaleIn {
-            from { transform: scale(0.95); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
             to { opacity: 1; }
         }
         @keyframes slideLeft {
@@ -700,6 +679,18 @@ function create_preview_page($fileName, $fileType, $shareId, $username = null, $
         @keyframes progressBar {
             0% { transform: translateX(-100%); }
             100% { transform: translateX(100%); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        @keyframes fadeInDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
         @media (max-width: 768px) {
             .container {
