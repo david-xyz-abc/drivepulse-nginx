@@ -976,10 +976,12 @@ html, body {
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-color);
-  width: calc(100% - 32px);
+  width: calc(100% - 10px); /* Further increased width by reducing the subtraction */
   box-sizing: border-box;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
+  margin-left: 5px; /* Reduced margin to allow for more width */
+  margin-right: 5px; /* Reduced margin to allow for more width */
 }
 
 .storage-indicator:hover {
@@ -2975,6 +2977,75 @@ input:checked + .slider:before {
   visibility: hidden !important;
   opacity: 0 !important;
 }
+
+    .sr-only {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      margin: -1px !important;
+      padding: 0 !important;
+      border: 0 !important;
+      pointer-events: none !important;
+    }
+    
+    /* Breadcrumb Navigation Styles */
+    .breadcrumb-navigation {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 18px;
+      padding: 5px 0;
+    }
+
+    .breadcrumb-item {
+      color: var(--text-color);
+      text-decoration: none;
+      padding: 5px 8px;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+
+    .breadcrumb-item:hover {
+      background-color: rgba(var(--hover-color-rgb), 0.1);
+      color: var(--accent-red);
+    }
+
+    .breadcrumb-item.current {
+      color: var(--accent-red);
+      font-weight: 600;
+    }
+
+    .breadcrumb-separator {
+      color: var(--text-muted);
+      margin: 0 2px;
+    }
+
+    /* Make breadcrumbs responsive */
+    @media (max-width: 768px) {
+      .breadcrumb-navigation {
+        font-size: 16px;
+      }
+      
+      .breadcrumb-item {
+        padding: 4px 6px;
+      }
+    }
+
+    /* Header layout styles */
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Back button in header */
+    .header-title .btn-back {
+      margin: 0 4px;
+    }
   </style>
   
   <!-- Additional styles to ensure share icon is hidden in grid view -->
@@ -3014,15 +3085,9 @@ input:checked + .slider:before {
         </div>
         <div class="separator-line"></div>
         <div class="top-row">
-          <?php if ($parentLink): ?>
-            <a class="btn-back" href="<?php echo htmlspecialchars($parentLink); ?>" title="Back">
-              <i class="fas fa-arrow-left"></i>
-            </a>
-          <?php endif; ?>
           <button type="button" class="btn" title="Create New Folder" onclick="createFolder()">
             <i class="fas fa-folder-plus"></i>
           </button>
-          
         </div>
         <div class="separator-line"></div>
         <div class="folder-list-container">
@@ -3063,8 +3128,31 @@ input:checked + .slider:before {
           <button class="hamburger" onclick="toggleSidebar()">
             <i class="fas fa-bars"></i>
           </button>
-          <h1><?php echo ($currentRel === 'Home') ? 'Home' : htmlspecialchars($currentRel); ?></h1>
-            </div>
+          <?php if ($parentLink): ?>
+            <a class="btn-back" href="<?php echo htmlspecialchars($parentLink); ?>" title="Back">
+              <i class="fas fa-arrow-left"></i>
+            </a>
+          <?php endif; ?>
+          <div class="breadcrumb-navigation">
+            <a href="/selfhostedgdrive/explorer.php?folder=Home" class="breadcrumb-item">Home</a>
+            <?php if ($currentRel !== 'Home'): ?>
+              <?php
+                $pathParts = explode('/', $currentRel);
+                $currentPath = '';
+                
+                foreach ($pathParts as $index => $part):
+                  $currentPath .= ($index > 0 ? '/' : '') . $part;
+              ?>
+                <span class="breadcrumb-separator">/</span>
+                <?php if ($index === count($pathParts) - 1): ?>
+                  <span class="breadcrumb-item current"><?php echo htmlspecialchars($part); ?></span>
+                <?php else: ?>
+                  <a href="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentPath); ?>" class="breadcrumb-item"><?php echo htmlspecialchars($part); ?></a>
+                <?php endif; ?>
+              <?php endforeach; ?>
+            <?php endif; ?>
+          </div>
+        </div>
         <div style="display: flex; gap: 10px;">
           <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
             <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />

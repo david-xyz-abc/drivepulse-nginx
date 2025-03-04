@@ -873,17 +873,41 @@ try {
     $filePath = null;
     $username = null;
     $shares = load_shares();
+    
+    log_debug("Looking for share ID: $shareId in " . count($shares) . " shares");
+    
+    // First pass: Look for exact match
     foreach ($shares as $key => $id) {
         if ($id === $shareId) {
             list($username, $filePath) = explode(':', $key, 2);
+            log_debug("Found exact match for share ID: $shareId -> $key");
             break;
         }
     }
     
-    if (!$filePath) {
+    // Second pass: Check session shares if not found in persistent shares
+    if (!$filePath && isset($_SESSION['file_shares']) && is_array($_SESSION['file_shares'])) {
+        log_debug("Checking session shares for ID: $shareId");
         foreach ($_SESSION['file_shares'] as $key => $id) {
             if ($id === $shareId) {
                 list($username, $filePath) = explode(':', $key, 2);
+                log_debug("Found match in session shares: $shareId -> $key");
+                
+                // Add to persistent shares for consistency
+                $shares[$key] = $id;
+                @file_put_contents($shares_file, json_encode($shares, JSON_PRETTY_PRINT));
+                break;
+            }
+        }
+    }
+    
+    // If still not found, try case-insensitive comparison as a fallback
+    if (!$filePath) {
+        log_debug("Trying case-insensitive comparison for share ID: $shareId");
+        foreach ($shares as $key => $id) {
+            if (strcasecmp($id, $shareId) === 0) {
+                list($username, $filePath) = explode(':', $key, 2);
+                log_debug("Found case-insensitive match: $id -> $key");
                 break;
             }
         }

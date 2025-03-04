@@ -19,6 +19,66 @@ if (isset($_GET['test'])) {
     send_json_response(['success' => true, 'message' => 'Share handler is working']);
 }
 
+// Debug endpoint to check shares
+if ((isset($_GET['debug_shares']) || isset($_GET['debug'])) && isset($_SESSION['username'])) {
+    $username = $_SESSION['username'];
+    $shares = load_shares();
+    $sessionShares = $_SESSION['file_shares'] ?? [];
+    $inactiveShares = load_inactive_shares();
+    
+    $userShares = [];
+    foreach ($shares as $key => $id) {
+        if (strpos($key, $username . ':') === 0) {
+            $path = substr($key, strlen($username) + 1);
+            $userShares[$path] = [
+                'id' => $id,
+                'filename' => basename($path),
+                'in_session' => isset($sessionShares[$key]),
+                'status' => 'active'
+            ];
+        }
+    }
+    
+    // Add inactive shares
+    $userInactiveShares = [];
+    foreach ($inactiveShares as $key => $id) {
+        if (strpos($key, $username . ':') === 0) {
+            $path = substr($key, strlen($username) + 1);
+            $userInactiveShares[$path] = [
+                'id' => $id,
+                'filename' => basename($path),
+                'status' => 'inactive'
+            ];
+        }
+    }
+    
+    // Check for session shares not in persistent storage
+    $sessionOnlyShares = [];
+    foreach ($sessionShares as $key => $id) {
+        if (strpos($key, $username . ':') === 0 && !isset($shares[$key])) {
+            $path = substr($key, strlen($username) + 1);
+            $sessionOnlyShares[$path] = [
+                'id' => $id,
+                'filename' => basename($path)
+            ];
+        }
+    }
+    
+    send_json_response([
+        'success' => true,
+        'username' => $username,
+        'total_active_shares' => count($shares),
+        'total_inactive_shares' => count($inactiveShares),
+        'active_shares' => $userShares,
+        'inactive_shares' => $userInactiveShares,
+        'session_only_shares' => $sessionOnlyShares,
+        'shares_file' => $shares_file,
+        'inactive_shares_file' => __DIR__ . '/inactive_shares.json',
+        'shares_file_exists' => file_exists($shares_file),
+        'inactive_shares_file_exists' => file_exists(__DIR__ . '/inactive_shares.json')
+    ]);
+}
+
 // Set proper content type for JSON responses
 header('Content-Type: application/json');
 
@@ -73,6 +133,24 @@ function load_shares() {
 function save_shares($shares) {
     global $shares_file;
     return file_put_contents($shares_file, json_encode($shares, JSON_PRETTY_PRINT));
+}
+
+// Add a new function to store inactive shares
+function load_inactive_shares() {
+    $inactive_shares_file = __DIR__ . '/inactive_shares.json';
+    if (file_exists($inactive_shares_file)) {
+        $content = file_get_contents($inactive_shares_file);
+        if (!empty($content)) {
+            return json_decode($content, true) ?: [];
+        }
+    }
+    return [];
+}
+
+// Save inactive shares
+function save_inactive_shares($shares) {
+    $inactive_shares_file = __DIR__ . '/inactive_shares.json';
+    return file_put_contents($inactive_shares_file, json_encode($shares, JSON_PRETTY_PRINT));
 }
 
 // Get request method
@@ -141,6 +219,9 @@ function check_share() {
     
     $filePath = $_GET['file_path'];
     $fileKey = $username . ':' . $filePath;
+    $fileName = basename($filePath);
+    
+    log_debug("Checking share for file: $filePath (filename: $fileName)");
     
     $shares = load_shares();
     $sessionShares = $_SESSION['file_shares'] ?? [];
@@ -148,16 +229,84 @@ function check_share() {
     $isShared = false;
     $shareId = null;
     
-    // Check in persistent shares
+    // FIRST PRIORITY: Check in persistent shares - exact match
     if (isset($shares[$fileKey])) {
         $isShared = true;
         $shareId = $shares[$fileKey];
+        log_debug("Found share with exact key: $fileKey -> $shareId");
     }
     
-    // Check in session shares
+    // SECOND PRIORITY: Check if the same filename is already shared by this user
+    if (!$isShared) {
+        log_debug("Checking if file with name '$fileName' is already shared by user '$username'");
+        
+        foreach ($shares as $key => $id) {
+            // Only check shares belonging to this user
+            if (strpos($key, $username . ':') === 0) {
+                $path = substr($key, strlen($username) + 1);
+                $existingFileName = basename($path);
+                
+                if ($existingFileName === $fileName) {
+                    $isShared = true;
+                    $shareId = $id;
+                    log_debug("Found existing share for same filename: $existingFileName (ID: $shareId, Key: $key)");
+                    
+                    // Update with the current key format for consistency
+                    $shares[$fileKey] = $shareId;
+                    save_shares($shares);
+                    
+                    // Update session
+                    if (!isset($_SESSION['file_shares'])) {
+                        $_SESSION['file_shares'] = [];
+                    }
+                    $_SESSION['file_shares'][$fileKey] = $shareId;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // THIRD PRIORITY: Check alternate path formats
+    if (!$isShared) {
+        $normalizedFilePath = ltrim($filePath, '/');
+        $alternateKeys = [
+            $username . ':/' . $normalizedFilePath,
+            $username . ':Home/' . $normalizedFilePath,
+            $username . ':/Home/' . $normalizedFilePath,
+            $username . ':' . 'Home/' . $normalizedFilePath
+        ];
+        
+        log_debug("Checking alternate keys: " . json_encode($alternateKeys));
+        
+        foreach ($alternateKeys as $altKey) {
+            if (isset($shares[$altKey])) {
+                $isShared = true;
+                $shareId = $shares[$altKey];
+                log_debug("Found share with alternate key: $altKey -> $shareId");
+                
+                // Update with the current key format for consistency
+                $shares[$fileKey] = $shareId;
+                save_shares($shares);
+                
+                // Update session
+                if (!isset($_SESSION['file_shares'])) {
+                    $_SESSION['file_shares'] = [];
+                }
+                $_SESSION['file_shares'][$fileKey] = $shareId;
+                break;
+            }
+        }
+    }
+    
+    // FOURTH PRIORITY: Check in session shares
     if (!$isShared && isset($sessionShares[$fileKey])) {
         $isShared = true;
         $shareId = $sessionShares[$fileKey];
+        log_debug("Found share in session: $fileKey -> $shareId");
+        
+        // Save to persistent shares for consistency
+        $shares[$fileKey] = $shareId;
+        save_shares($shares);
     }
     
     if ($isShared && $shareId) {
@@ -185,16 +334,199 @@ function create_share() {
     
     $filePath = $_POST['file_path'];
     $fileKey = $username . ':' . $filePath;
+    $fileName = basename($filePath);
     
-    // Generate a unique share ID
+    log_debug("Creating share for file: $filePath (filename: $fileName)");
+    
+    // Load all shares
+    $shares = load_shares();
+    $inactiveShares = load_inactive_shares();
+    log_debug("Loaded " . count($shares) . " active shares and " . count($inactiveShares) . " inactive shares");
+    
+    // HIGHEST PRIORITY: Check if this file was previously shared and is now inactive
+    if (isset($inactiveShares[$fileKey])) {
+        $shareId = $inactiveShares[$fileKey];
+        log_debug("Found inactive share with ID: $shareId (exact match)");
+        
+        // Move from inactive to active shares
+        $shares[$fileKey] = $shareId;
+        unset($inactiveShares[$fileKey]);
+        
+        // Save both share lists
+        save_shares($shares);
+        save_inactive_shares($inactiveShares);
+        
+        // Update session
+        if (!isset($_SESSION['file_shares'])) {
+            $_SESSION['file_shares'] = [];
+        }
+        $_SESSION['file_shares'][$fileKey] = $shareId;
+        
+        send_json_response([
+            'success' => true,
+            'message' => 'File sharing re-enabled',
+            'share_id' => $shareId,
+            'share_url' => get_base_url() . '/shared.php?id=' . urlencode($shareId)
+        ]);
+        return;
+    }
+    
+    // Check if any file with the same name has an inactive share
+    foreach ($inactiveShares as $key => $id) {
+        if (strpos($key, $username . ':') === 0) {
+            $path = substr($key, strlen($username) + 1);
+            if (basename($path) === $fileName) {
+                $shareId = $id;
+                log_debug("Found inactive share for same filename: $key -> $shareId");
+                
+                // Move from inactive to active shares
+                $shares[$fileKey] = $shareId;
+                unset($inactiveShares[$key]);
+                
+                // Save both share lists
+                save_shares($shares);
+                save_inactive_shares($inactiveShares);
+                
+                // Update session
+                if (!isset($_SESSION['file_shares'])) {
+                    $_SESSION['file_shares'] = [];
+                }
+                $_SESSION['file_shares'][$fileKey] = $shareId;
+                
+                send_json_response([
+                    'success' => true,
+                    'message' => 'File sharing re-enabled',
+                    'share_id' => $shareId,
+                    'share_url' => get_base_url() . '/shared.php?id=' . urlencode($shareId)
+                ]);
+                return;
+            }
+        }
+    }
+    
+    // FIRST PRIORITY: Check if this exact file is already shared
+    if (isset($shares[$fileKey])) {
+        $shareId = $shares[$fileKey];
+        log_debug("File already shared with ID: $shareId (exact match)");
+        
+        // Ensure it's in the session
+        if (!isset($_SESSION['file_shares'])) {
+            $_SESSION['file_shares'] = [];
+        }
+        $_SESSION['file_shares'][$fileKey] = $shareId;
+        
+        send_json_response([
+            'success' => true,
+            'message' => 'File is already shared',
+            'share_id' => $shareId,
+            'share_url' => get_base_url() . '/shared.php?id=' . urlencode($shareId)
+        ]);
+        return;
+    }
+    
+    // SECOND PRIORITY: Check if the same filename is already shared by this user
+    log_debug("Checking if file with name '$fileName' is already shared by user '$username'");
+    $existingShareId = null;
+    
+    foreach ($shares as $key => $id) {
+        // Only check shares belonging to this user
+        if (strpos($key, $username . ':') === 0) {
+            $path = substr($key, strlen($username) + 1);
+            $existingFileName = basename($path);
+            
+            if ($existingFileName === $fileName) {
+                $existingShareId = $id;
+                $existingKey = $key;
+                log_debug("Found existing share for same filename: $existingFileName (ID: $existingShareId, Key: $existingKey)");
+                break;
+            }
+        }
+    }
+    
+    if ($existingShareId) {
+        // Use the existing share ID for this file
+        $shares[$fileKey] = $existingShareId;
+        save_shares($shares);
+        
+        // Update session
+        if (!isset($_SESSION['file_shares'])) {
+            $_SESSION['file_shares'] = [];
+        }
+        $_SESSION['file_shares'][$fileKey] = $existingShareId;
+        
+        send_json_response([
+            'success' => true,
+            'message' => 'File is already shared',
+            'share_id' => $existingShareId,
+            'share_url' => get_base_url() . '/shared.php?id=' . urlencode($existingShareId)
+        ]);
+        return;
+    }
+    
+    // THIRD PRIORITY: Check alternate path formats
+    $normalizedFilePath = ltrim($filePath, '/');
+    $alternateKeys = [
+        $username . ':/' . $normalizedFilePath,
+        $username . ':Home/' . $normalizedFilePath,
+        $username . ':/Home/' . $normalizedFilePath,
+        $username . ':' . 'Home/' . $normalizedFilePath
+    ];
+    
+    log_debug("Checking alternate keys: " . json_encode($alternateKeys));
+    
+    foreach ($alternateKeys as $altKey) {
+        if (isset($shares[$altKey])) {
+            $shareId = $shares[$altKey];
+            log_debug("File already shared with ID: $shareId (alternate path: $altKey)");
+            
+            // Update with the current key format for consistency
+            $shares[$fileKey] = $shareId;
+            save_shares($shares);
+            
+            // Update session
+            if (!isset($_SESSION['file_shares'])) {
+                $_SESSION['file_shares'] = [];
+            }
+            $_SESSION['file_shares'][$fileKey] = $shareId;
+            
+            send_json_response([
+                'success' => true,
+                'message' => 'File is already shared',
+                'share_id' => $shareId,
+                'share_url' => get_base_url() . '/shared.php?id=' . urlencode($shareId)
+            ]);
+            return;
+        }
+    }
+    
+    // FOURTH PRIORITY: Check session shares
+    $sessionShares = $_SESSION['file_shares'] ?? [];
+    if (isset($sessionShares[$fileKey])) {
+        $shareId = $sessionShares[$fileKey];
+        log_debug("File already shared in session with ID: $shareId");
+        
+        // Save to persistent shares
+        $shares[$fileKey] = $shareId;
+        save_shares($shares);
+        
+        send_json_response([
+            'success' => true,
+            'message' => 'File is already shared',
+            'share_id' => $shareId,
+            'share_url' => get_base_url() . '/shared.php?id=' . urlencode($shareId)
+        ]);
+        return;
+    }
+    
+    // If we get here, the file is not shared yet, so create a new share
     $shareId = bin2hex(random_bytes(16));
+    log_debug("Creating new share with ID: $shareId for file: $filePath");
     
     // Save to persistent shares
-    $shares = load_shares();
     $shares[$fileKey] = $shareId;
     
     if (save_shares($shares)) {
-        // Also save to session for redundancy
+        // Also save to session
         if (!isset($_SESSION['file_shares'])) {
             $_SESSION['file_shares'] = [];
         }
@@ -211,7 +543,7 @@ function create_share() {
     }
 }
 
-// Delete a share
+// Delete a share (now just marks it as inactive)
 function delete_share($filePath) {
     global $username;
     
@@ -220,17 +552,51 @@ function delete_share($filePath) {
     }
     
     $fileKey = $username . ':' . $filePath;
+    $fileName = basename($filePath);
+    
+    log_debug("Disabling share for file: $filePath (key: $fileKey)");
     
     $shares = load_shares();
     $sessionShares = $_SESSION['file_shares'] ?? [];
+    $inactiveShares = load_inactive_shares();
     
     $deleted = false;
+    $shareId = null;
     
-    // Remove from persistent shares
+    // Check if the file is shared with exact key
     if (isset($shares[$fileKey])) {
+        $shareId = $shares[$fileKey];
+        log_debug("Found share to disable: $fileKey -> $shareId");
+        
+        // Store in inactive shares before removing
+        $inactiveShares[$fileKey] = $shareId;
+        save_inactive_shares($inactiveShares);
+        
+        // Remove from active shares
         unset($shares[$fileKey]);
         save_shares($shares);
         $deleted = true;
+    } else {
+        // Check if any file with the same name is shared
+        foreach ($shares as $key => $id) {
+            if (strpos($key, $username . ':') === 0) {
+                $path = substr($key, strlen($username) + 1);
+                if (basename($path) === $fileName) {
+                    $shareId = $id;
+                    log_debug("Found share with same filename to disable: $key -> $shareId");
+                    
+                    // Store in inactive shares
+                    $inactiveShares[$fileKey] = $shareId;
+                    save_inactive_shares($inactiveShares);
+                    
+                    // Remove from active shares
+                    unset($shares[$key]);
+                    save_shares($shares);
+                    $deleted = true;
+                    break;
+                }
+            }
+        }
     }
     
     // Remove from session shares
