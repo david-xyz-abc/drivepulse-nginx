@@ -8,6 +8,9 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+# Base GitHub URL
+GITHUB_BASE_URL="https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main"
+
 # Function to display the menu
 show_menu() {
     clear
@@ -26,49 +29,29 @@ show_menu() {
 # Function to handle the installation
 handle_install() {
     echo "Starting DrivePulse installation..."
-    if [ -f "./install.sh" ]; then
-        bash ./install.sh
-        return 0
-    else
-        echo "ERROR: install.sh not found in the current directory!"
-        return 1
-    fi
+    curl -sSL "${GITHUB_BASE_URL}/install.sh" | tr -d '\r' | sudo bash
+    return $?
 }
 
 # Function to handle the update
 handle_update() {
     echo "Starting DrivePulse update..."
-    if [ -f "./update.sh" ]; then
-        bash ./update.sh
-        return 0
-    else
-        echo "ERROR: update.sh not found in the current directory!"
-        return 1
-    fi
+    curl -sSL "${GITHUB_BASE_URL}/update.sh" | tr -d '\r' | sudo bash
+    return $?
 }
 
 # Function to handle the uninstallation
 handle_uninstall() {
     echo "Starting DrivePulse uninstallation..."
-    if [ -f "./uninstall.sh" ]; then
-        bash ./uninstall.sh
-        return 0
-    else
-        echo "ERROR: uninstall.sh not found in the current directory!"
-        return 1
-    fi
+    curl -sSL "${GITHUB_BASE_URL}/uninstall.sh" | tr -d '\r' | sudo bash
+    return $?
 }
 
 # Function to handle admin password change
 handle_admin_password() {
     echo "Starting admin password change..."
-    if [ -f "./adminpass.sh" ]; then
-        bash ./adminpass.sh
-        return 0
-    else
-        echo "ERROR: adminpass.sh not found in the current directory!"
-        return 1
-    fi
+    curl -sSL "${GITHUB_BASE_URL}/adminpass.sh" | tr -d '\r' | sudo bash
+    return $?
 }
 
 # Main loop
