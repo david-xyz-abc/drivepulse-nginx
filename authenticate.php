@@ -1,4 +1,9 @@
 <?php
+// Configure session for persistent login
+ini_set('session.gc_maxlifetime', 30 * 24 * 60 * 60); // 30 days
+ini_set('session.cookie_lifetime', 30 * 24 * 60 * 60); // 30 days
+session_set_cookie_params(30 * 24 * 60 * 60); // 30 days
+
 session_start();
 
 $usersFile = __DIR__ . '/users.json';

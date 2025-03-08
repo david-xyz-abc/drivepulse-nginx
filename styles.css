@@ -1,0 +1,2848 @@
+/* Animation Keyframes - All consolidated at the top */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-50px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  to { transform: translateX(200%); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes loading {
+  to { transform: translateX(100%); }
+}
+
+:root {
+  --background: #121212;
+  --text-color: #fff;
+  --sidebar-bg: linear-gradient(135deg, #1e1e1e, #2a2a2a);
+  --content-bg: #1e1e1e;
+  --border-color: #333;
+  --border-color-rgb: 51, 51, 51; /* Added RGB values for border color */
+  --button-bg: linear-gradient(135deg, #555, #777);
+  --button-hover: linear-gradient(135deg, #777, #555);
+  --accent-red: #d32f2f;
+  --dropzone-bg: rgba(211, 47, 47, 0.1);
+  --dropzone-border: #d32f2f;
+  --texture-color: rgba(255, 255, 255, 0.03);
+  --red-glow: rgba(211, 47, 47, 0.05);
+  --share-icon-display: inline-block;
+  --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.light-mode {
+  --background: #f5f5f5;
+  --text-color: #333;
+  --sidebar-bg: linear-gradient(135deg, #e0e0e0, #fafafa);
+  --content-bg: #fff;
+  --border-color: #ccc;
+  --border-color-rgb: 204, 204, 204; /* Added RGB values for border color in light mode */
+  --button-bg: linear-gradient(135deg, #888, #aaa);
+  --button-hover: linear-gradient(135deg, #aaa, #888);
+  --accent-red: #f44336;
+  --dropzone-bg: rgba(244, 67, 54, 0.1);
+  --dropzone-border: #f44336;
+  --texture-color: rgba(0, 0, 0, 0.03);
+  --red-glow: rgba(244, 67, 54, 0.08);
+  --share-icon-display: none !important;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--background);
+  color: var(--text-color);
+  font-family: 'Poppins', sans-serif;
+  overflow: hidden;
+  transition: background-color 0.3s var(--transition-smooth),
+              color 0.3s var(--transition-smooth);
+}
+
+.app-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.sidebar {
+  width: 270px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  z-index: 9998;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  transform: translateX(-100%);
+  transition: transform 0.3s var(--transition-smooth),
+              box-shadow 0.3s var(--transition-smooth);
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+@media (min-width: 1024px) {
+  .sidebar { transform: none; }
+}
+
+.sidebar.open { transform: translateX(0); box-shadow: 5px 0 25px rgba(0, 0, 0, 0.2); }
+
+@media (max-width: 1023px) {
+  .sidebar { position: fixed; top: 0; left: 0; height: 100%; }
+}
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 9997;
+}
+
+.sidebar-overlay.show { display: block; }
+
+@media (min-width: 1024px) { .sidebar-overlay { display: none !important; } }
+
+.folders-container {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.folder-list-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  margin-bottom: 10px;
+  /* Custom scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-red) var(--background);
+}
+
+/* For Webkit browsers (Chrome, Safari, etc.) */
+.folder-list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.folder-list-container::-webkit-scrollbar-track {
+  background: var(--background);
+  border-radius: 4px;
+}
+
+.folder-list-container::-webkit-scrollbar-thumb {
+  background: var(--accent-red);
+  border-radius: 4px;
+}
+
+.folder-list-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+}
+
+.top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top:2px;
+  margin-bottom: 2px;
+  justify-content: flex-start;
+}
+
+.top-row h2 {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0;
+  color: var(--text-color);
+}
+
+.storage-indicator {
+  margin-top: 10px;
+  padding: 15px;
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-color);
+  width: calc(100% - 10px); /* Further increased width by reducing the subtraction */
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s var(--transition-smooth),
+              box-shadow 0.3s var(--transition-smooth);
+  margin-left: 5px; /* Reduced margin to allow for more width */
+  margin-right: 5px; /* Reduced margin to allow for more width */
+}
+
+.storage-indicator:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.storage-indicator p {
+  margin: 0 0 8px 0;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.storage-indicator .storage-icon {
+  color: var(--accent-red);
+  font-size: 14px;
+}
+
+.storage-bar {
+  width: 100%;
+  height: 12px;
+  background: var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.storage-progress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-red), #b71c1c);
+  border-radius: 6px;
+  transition: width 0.5s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.storage-progress::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+.storage-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  margin-top: 5px;
+  opacity: 0.8;
+}
+
+.btn {
+  background: var(--button-bg);
+  color: var(--text-color);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s var(--transition-smooth);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.5s var(--transition-smooth),
+              opacity 0.3s var(--transition-smooth);
+}
+
+.btn:hover::after {
+  transform: translate(-50%, -50%) scale(2);
+  opacity: 1;
+}
+
+.btn:active { transform: scale(0.95); }
+
+.btn i { color: var(--text-color); margin: 0; }
+
+.logout-btn {
+  background: linear-gradient(135deg, var(--accent-red), #b71c1c) !important;
+}
+
+.logout-btn:hover {
+  background: linear-gradient(135deg, #b71c1c, var(--accent-red)) !important;
+}
+
+.folder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.folder-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  margin-bottom: 0;
+  position: relative;
+  background-color: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(var(--border-color-rgb), 0.3);
+  box-shadow: none;
+  transition: all 0.2s var(--transition-smooth);
+  animation: fadeInUp 0.3s var(--transition-smooth);
+  animation-fill-mode: both;
+}
+
+.folder-item:hover {
+  background-color: rgba(var(--hover-color-rgb), 0.1);
+  transform: translateX(5px);
+  border-bottom-color: var(--accent-red);
+  border-bottom-width: 2px;
+  padding-left: 17px;
+}
+
+.folder-item i { margin-right: 6px; }
+
+.folder-item.selected {
+  background: rgba(var(--border-color-rgb), 0.2); /* Changed to semi-transparent selection */
+}
+
+/* Add styles for folder actions */
+.folder-actions {
+  display: flex;
+  margin-left: auto;
+}
+
+.folder-more-options-btn {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.folder-more-options-btn:hover {
+  background-color: var(--border-color);
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.header-area {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background);
+  z-index: 10;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-area h1 {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0;
+  color: var(--text-color);
+}
+
+.hamburger {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+@media (min-width: 1024px) { .hamburger { display: none; } }
+
+.content-inner {
+  flex: 1;
+  overflow-y: auto;
+  padding: 5px 20px;
+  position: relative;
+  background-color: var(--content-bg);
+  background-image: 
+    linear-gradient(to bottom, var(--red-glow) 0%, transparent 70%),
+    linear-gradient(var(--texture-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--texture-color) 1px, transparent 1px);
+  background-size: 100% 100%, 20px 20px, 20px 20px;
+  background-position: center top;
+  padding-bottom: 150px;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-list.grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  margin-bottom: 0;
+  position: relative;
+  background-color: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(var(--border-color-rgb), 0.3);
+  box-shadow: none;
+  transition: all 0.2s var(--transition-smooth);
+  animation: fadeInUp 0.3s var(--transition-smooth);
+  animation-fill-mode: both;
+}
+
+.file-row:hover {
+  background-color: rgba(var(--hover-color-rgb), 0.1);
+  transform: translateY(-5px);
+  border-bottom-color: var(--accent-red);
+  border-bottom-width: 2px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.file-list.grid-view .file-row {
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  height: 180px;
+  text-align: center;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  background: transparent;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  margin: 0;
+  animation: fadeInUp 0.3s var(--transition-smooth);
+}
+
+.file-icon {
+  font-size: 20px;
+  margin-right: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.file-list.grid-view .file-icon {
+  font-size: 20px;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  margin: 0;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 5px;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+}
+
+.file-icon-large {
+  font-size: 60px;
+  margin-bottom: 10px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 120px;
+  color: var(--text-color);
+}
+
+.file-list.grid-view .file-icon-large {
+  display: flex;
+}
+
+.file-preview {
+  display: none;
+}
+
+.file-list.grid-view .file-preview {
+  display: block;
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.file-list.grid-view .file-icon:not(.no-preview) {
+  display: none;
+}
+
+.file-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 20px;
+  cursor: pointer;
+}
+
+.file-list.grid-view .file-name {
+  margin: 0;
+  font-size: 14px;
+  white-space: normal;
+  word-wrap: break-word;
+  max-height: 40px;
+  overflow: hidden;
+}
+
+.file-name:hover { 
+  /* Remove the border-bottom that's causing the double red line */
+  border-bottom: none; 
+}
+
+.file-list.grid-view .file-name:hover { border-bottom: none; }
+
+.file-actions {
+  display: flex;
+  margin-left: auto;
+}
+
+.more-options-btn {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.more-options-btn:hover {
+  background-color: var(--border-color);
+}
+
+.file-list.grid-view .file-actions {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+}
+
+.file-list.grid-view .more-options-btn {
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+}
+
+#fileInput { display: none; }
+
+#uploadProgressContainer {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 300px;
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  padding: 10px;
+  border-radius: 4px;
+  z-index: 9999;
+}
+
+#uploadProgressBar {
+  height: 20px;
+  width: 0%;
+  background: var(--accent-red);
+  border-radius: 4px;
+  transition: width 0.1s ease;
+}
+
+#uploadProgressPercent {
+  text-align: center;
+  margin-top: 5px;
+  font-weight: 500;
+}
+
+.cancel-upload-btn {
+  margin-top: 5px;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+  color: var(--text-color);
+}
+
+.cancel-upload-btn:hover {
+  background-color: #b71c1c;
+}
+
+.cancel-upload-btn:active { transform: scale(0.95); }
+
+#previewModal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  justify-content: center;
+  align-items: center;
+  z-index: 9998;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+#previewContent {
+  position: relative;
+  width: auto;
+  max-width: 90vw;
+  height: auto;
+  max-height: 90vh;
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  margin: 0 auto;
+}
+
+#previewContent.image-preview {
+  background: none;
+  border: none;
+  padding: 0;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0 auto;
+}
+
+#previewContent.pdf-preview {
+  background: none;
+  border: none;
+  padding: 0;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0 auto;
+}
+
+#previewNav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100vw;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 20px;
+  box-sizing: border-box;
+  z-index: 9999;
+}
+
+#previewNav button {
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+#previewNav button:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+#previewNav button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#previewClose {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  cursor: pointer;
+  font-size: 30px;
+  color: #fff;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.5);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s;
+}
+
+#previewClose:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+#iconPreviewContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+#iconPreviewContainer i {
+  font-size: 100px;
+  color: var(--text-color);
+}
+
+#imagePreviewContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+#imagePreviewContainer img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Add media query for desktop screens */
+@media (min-width: 769px) {
+  #previewModal {
+    padding: 0; /* Remove padding from modal */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  #previewContent.image-preview {
+    max-height: none; /* Remove height restriction on desktop */
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+  }
+  
+  #imagePreviewContainer {
+    max-height: none; /* Remove height restriction on desktop */
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+  }
+  
+  #imagePreviewContainer img {
+    max-height: 90vh; /* Use viewport height instead of calc */
+    object-fit: contain;
+    width: auto;
+    height: auto;
+    margin: 0 auto;
+  }
+  
+  #pdfPreviewContainer {
+    max-height: none; /* Remove height restriction on desktop */
+    height: 95vh;
+    width: 95vw; /* Make it wider */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1001;
+  }
+  
+  #pdfViewer {
+    max-height: 95vh;
+    max-width: 95vw; /* Make it wider */
+    height: 100%;
+    width: 100%;
+    border: none; /* Remove border */
+    outline: none; /* Remove outline that might be causing the second line */
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4); /* Add stronger shadow */
+    border-radius: 4px; /* Add rounded corners */
+    transform: scale(1); /* Ensure no scaling is applied */
+  }
+}
+
+#dialogModal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.8);
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+
+#dialogModal.show { display: flex; }
+
+#dialogModal .dialog-content {
+    animation: slideIn 0.3s ease;
+}
+
+.dialog-content {
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 90%;
+  width: 400px;
+  text-align: center;
+}
+
+.dialog-message {
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.dialog-button {
+  background: var(--button-bg);
+  color: var(--text-color);
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.dialog-button:hover {
+  background: var(--button-hover);
+  transform: scale(1.05);
+}
+
+.dialog-button:active { transform: scale(0.95); }
+
+.theme-toggle-btn i { color: var(--text-color); }
+
+#dropZone {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--dropzone-bg);
+  border: 3px dashed var(--dropzone-border);
+  z-index: 5;
+  justify-content: center;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--accent-red);
+  text-align: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+#dropZone.active { display: flex; }
+
+@media (max-width: 768px) {
+  .file-list.grid-view { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .file-list.grid-view .file-row { height: 150px; }
+  .file-list.grid-view .file-preview { height: 100px; }
+  .file-list.grid-view .file-icon { font-size: 16px; }
+  .file-list.grid-view .file-icon-large { font-size: 50px; height: 100px; }
+  #iconPreviewContainer i { font-size: 80px; }
+  #previewNav button { width: 30px; height: 30px; font-size: 16px; }
+  #previewClose { top: 10px; right: 10px; font-size: 25px; }
+}
+#videoPreviewContainer {
+  display: none;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  cursor: default;
+}
+
+#videoPlayer {
+  width: 100%;
+  height: 100%;
+  max-width: 100vw;
+  max-height: 100vh;
+  object-fit: contain;
+}
+
+#pdfPreviewContainer {
+  display: none;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--content-bg);
+  z-index: 1001;
+}
+
+#pdfViewer {
+  max-height: 95vh;
+  max-width: 95vw; /* Make it wider */
+  height: 100%;
+  width: 100%;
+  border: none; /* Remove border */
+  outline: none; /* Remove outline that might be causing the second line */
+  /* Add custom scrollbar styling for the iframe */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-red) rgba(0, 0, 0, 0.1);
+}
+
+/* Style the iframe scrollbars for webkit browsers */
+#pdfViewer::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#pdfViewer::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+#pdfViewer::-webkit-scrollbar-thumb {
+  background: var(--accent-red);
+  border-radius: 4px;
+}
+
+#pdfViewer::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+}
+
+#pdfLoadingIndicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+#pdfLoadingIndicator .loading-text {
+  color: white;
+  margin-top: 10px;
+  font-size: 16px;
+}
+
+.video-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.video-controls.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+}
+
+/* Ensure controls are visible on touch devices */
+@media (hover: none) {
+  .video-controls {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: all;
+  }
+}
+
+.video-controls-inner {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px;
+}
+
+#videoProgress {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2.5px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+#videoProgressBar {
+  height: 100%;
+  background: var(--accent-red);
+  border-radius: 2.5px;
+  width: 0%;
+  transition: width 0.1s linear, transform 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+#videoProgress:hover #videoProgressBar {
+  transform: scaleY(1.5);
+}
+
+.video-controls button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  opacity: 0.8;
+}
+
+.video-controls button:hover {
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+.duration-display {
+  color: #fff;
+  font-size: 14px;
+  min-width: 100px;
+  text-align: center;
+  font-family: monospace;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 768px) {
+  .duration-display {
+    font-size: 12px;
+    min-width: 80px;
+  }
+  
+  .video-controls-inner {
+    padding: 15px 5px;
+  }
+  
+  .video-controls button {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  #videoProgress {
+    height: 8px;
+  }
+}
+
+/* General transitions for all interactive elements */
+button, .btn, .file-row, .folder-item, img, i {
+    transition: all 0.3s ease;
+}
+
+/* Smooth preview transitions */
+#previewContent {
+    transition: opacity 0.3s ease;
+}
+
+#previewContent.fade-out {
+    opacity: 0;
+}
+
+#previewContent.fade-in {
+    opacity: 1;
+}
+
+/* Image preview animations */
+#imagePreviewContainer img {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#imagePreviewContainer img.loaded {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Video preview animations */
+#videoPreviewContainer {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#videoPreviewContainer.loaded {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Navigation button animations */
+#previewNav button {
+    transform: translateX(0);
+    transition: transform 0.3s ease, background 0.3s ease;
+}
+
+#previewNav button:hover {
+    transform: scale(1.1);
+}
+
+#prevBtn.slide-out {
+    transform: translateX(-100px);
+}
+
+#nextBtn.slide-out {
+    transform: translateX(100px);
+}
+
+/* File list animations */
+.file-row {
+    animation: fadeIn 0.3s ease;
+}
+
+.file-row:hover {
+    transform: translateY(-2px);
+    border-bottom-color: var(--accent-red);
+}
+
+.file-list.grid-view .file-row:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-red);
+    border-width: 2px;
+}
+
+/* Modal animations */
+#previewModal {
+    transition: background-color 0.3s ease;
+}
+
+#previewClose {
+    transition: transform 0.3s ease, background 0.3s ease;
+}
+
+#previewClose:hover {
+    transform: rotate(90deg);
+}
+
+/* Progress bar animation */
+#videoProgressBar {
+    transition: width 0.1s linear, transform 0.3s ease;
+}
+
+/* Dialog modal animations */
+#dialogModal .dialog-content {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#bufferingIndicator {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  z-index: 100;
+  justify-content: center;
+  align-items: center;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--accent-red);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+#videoBufferBar {
+  position: absolute;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2.5px;
+  width: 0%;
+  pointer-events: none;
+}
+
+#videoProgress {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2.5px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+#videoProgressBar {
+  height: 100%;
+  background: var(--accent-red);
+  border-radius: 2.5px;
+  width: 0%;
+  transition: width 0.1s linear, transform 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+#videoProgress:hover #videoProgressBar {
+  transform: scaleY(1.5);
+}
+
+/* Improve video controls for mobile devices */
+@media (max-width: 768px) {
+  .video-controls-inner {
+    padding: 15px 5px;
+  }
+  
+  .video-controls button {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  #videoProgress {
+    height: 8px;
+  }
+}
+
+/* Context Menu Styles */
+.context-menu {
+    position: absolute;
+    background-color: var(--content-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 10000;
+    min-width: 150px;
+    display: none;
+    animation: fadeInUp 0.2s var(--transition-smooth);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.context-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 2px solid rgba(var(--border-color-rgb), 0.3);
+    background-color: transparent;
+    transition: all 0.2s var(--transition-smooth);
+}
+
+.context-menu-item:last-child {
+    border-bottom: none;
+}
+
+.context-menu-item:hover {
+    transform: translateX(5px);
+    background: rgba(var(--border-color-rgb), 0.1);
+    border-bottom-color: var(--accent-red);
+    border-bottom-width: 2px;
+}
+
+.context-menu-item i {
+    margin-right: 10px;
+    width: 20px;
+    text-align: center;
+    color: var(--text-color);
+}
+
+.context-menu-divider {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Make context menu items more touch-friendly on mobile */
+@media (max-width: 768px) {
+  .context-menu-item {
+    padding: 15px;
+    font-size: 16px;
+  }
+  
+  .context-menu-item i {
+    font-size: 18px;
+    margin-right: 15px;
+  }
+}
+
+/* Particles styles for sidebar */
+#sidebar-particles-js {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.folders-container {
+  position: relative;
+  z-index: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.folder-list-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  margin-bottom: 10px;
+  /* Custom scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-red) var(--background);
+}
+
+/* For Webkit browsers (Chrome, Safari, etc.) */
+.folder-list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.folder-list-container::-webkit-scrollbar-track {
+  background: var(--background);
+  border-radius: 4px;
+}
+
+.folder-list-container::-webkit-scrollbar-thumb {
+  background: var(--accent-red);
+  border-radius: 4px;
+}
+
+.folder-list-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+}
+
+.top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+  justify-content: flex-start;
+}
+
+.drivepulse-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  margin-top: 0px; /* Changed from 10px to 0px to move the logo and text upward */
+  justify-content: center;
+  animation: fadeInUp 0.5s var(--transition-smooth);
+}
+
+.drivepulse-logo {
+  font-size: 24px;
+  color: var(--accent-red);
+  transition: transform 0.3s var(--transition-smooth);
+}
+
+.drivepulse-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.separator-line {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 10px 0;
+}
+
+.content-inner .folder-list .folder-item {
+  border-bottom: 2px solid var(--border-color);
+  padding: 12px 0;
+  margin: 0 10px;
+  font-size: 16px;
+  background: transparent;
+}
+
+.content-inner .folder-list .folder-item i {
+  font-size: 24px;
+  margin-right: 12px;
+  width: 30px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.content-inner .folder-list .folder-item:last-child {
+  border-bottom: none;
+}
+
+/* Add styles for grid view of folder-list */
+.folder-list.grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 180px);
+  gap: 30px 30px; /* Explicitly set both row and column gap to be the same */
+  padding: 20px;
+  margin: 0;
+  justify-content: center; /* Center the grid */
+}
+
+.folder-list.grid-view .folder-item {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 10px;
+  width: 180px; /* Fixed width */
+  height: 220px; /* Fixed height for all items */
+  background: transparent;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  margin: 0;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  box-sizing: border-box; /* Include padding in width/height calculation */
+}
+
+.folder-list.grid-view .folder-item:hover {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 10px rgba(var(--accent-color-rgb), 0.4);
+  transform: translateY(-3px);
+}
+
+.folder-list.grid-view .folder-item i {
+  font-size: 40px;
+  margin: 0 0 10px 0;
+  width: auto;
+  height: auto;
+  display: block;
+}
+
+/* Ensure icon is visible when no preview is available */
+.folder-list.grid-view .folder-item:not(:has(.image-preview-container)) i:not(.small-dots):not(.fa-ellipsis-v) {
+  font-size: 60px;
+  margin-top: 30px;
+  margin-bottom: 20px;
+  color: var(--accent-color);
+  opacity: 0.8;
+  display: block !important;
+}
+
+.folder-list.grid-view .thumbnail-container {
+  width: 160px; /* Fixed width */
+  height: 140px; /* Fixed height for all thumbnails */
+  margin-bottom: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: rgba(var(--border-color-rgb), 0.1);
+  position: relative;
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.folder-list.grid-view .thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.folder-list.grid-view .folder-item:hover .thumbnail {
+  transform: scale(1.05);
+}
+
+.folder-list.grid-view .folder-actions {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  margin: 0;
+  z-index: 10;
+  width: 28px;
+  height: 28px;
+}
+
+.folder-list.grid-view .folder-more-options-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  border: none;
+}
+
+.folder-list.grid-view .folder-more-options-btn i {
+  font-size: 14px;
+  margin: 0;
+  color: white;
+}
+
+.content-inner .folder-list .folder-item {
+  border-bottom: 2px solid var(--border-color);
+  padding: 12px 0;
+  margin: 0 10px;
+  font-size: 16px;
+  background: transparent;
+}
+
+.content-inner .folder-list .folder-item:hover {
+  border-bottom-color: var(--accent-red);
+  border-bottom-width: 2px;
+}
+
+.content-inner .folder-list.grid-view .folder-item {
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  margin: 0;
+  padding: 15px 10px;
+}
+
+.content-inner .folder-list.grid-view .folder-item:hover {
+  border-color: var(--accent-red);
+  border-width: 2px;
+}
+
+/* Custom class for smaller ellipsis dots */
+.small-dots {
+  font-size: 1.2em !important;
+  transform: scale(1.2);
+  display: inline-block;
+}
+
+.thumbnail-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  display: none; /* Hide by default in stacked view */
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Show thumbnails only in grid view */
+.folder-list.grid-view .thumbnail-container {
+  display: block;
+}
+
+/* Make sure icons are visible in stacked view */
+.folder-item i {
+  margin-right: 6px;
+  display: inline-block;
+}
+
+/* Hide icons in grid view when there's a thumbnail */
+.folder-list.grid-view .folder-item i:not(.small-dots):not(.fa-ellipsis-v) {
+  display: none;
+}
+
+/* We'll handle the specific case in JavaScript instead of using :has() */
+
+
+/* Hide image previews in stacked view */
+.image-preview-container {
+  display: none;
+}
+
+/* Show image previews only in grid view */
+.folder-list.grid-view .image-preview-container {
+  display: block;
+}
+
+/* Make sure icons are visible for images in stacked view */
+.folder-item:has(.image-preview-container) i {
+  display: inline-block !important;
+}
+
+/* In grid view, hide icons for items with image previews */
+.folder-list.grid-view .folder-item:has(.image-preview-container) i:not(.small-dots):not(.fa-ellipsis-v) {
+  display: none !important;
+}
+
+
+/* Hide image previews in stacked view */
+.image-preview-container {
+  display: none;
+}
+
+/* Show image previews only in grid view */
+.folder-list.grid-view .image-preview-container {
+  display: block;
+}
+
+/* Ensure icons are properly displayed in stacked view */
+.folder-item i {
+  display: inline-block;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+/* Remove any conflicting rules */
+.folder-list.grid-view .folder-item i:not(.fa-ellipsis-v) {
+  display: none;
+}
+
+/* Ensure the ellipsis icon in the more options button is always visible */
+.folder-more-options-btn i {
+  display: inline-block !important;
+}
+
+/* Ensure icons are properly displayed in stacked view */
+.folder-item i:not(.fa-ellipsis-v) {
+  display: inline-block;
+  margin-right: 10px;
+  vertical-align: middle;
+  font-size: 20px;
+}
+
+/* In grid view, hide file type icons for items with thumbnails */
+.folder-list.grid-view .folder-item .image-preview-container + i {
+  display: none;
+}
+
+/* Ensure the ellipsis icon in the more options button is always visible */
+.folder-more-options-btn i {
+  display: inline-block !important;
+  margin-right: 0;
+}
+
+/* PDF preview animations */
+#pdfPreviewContainer {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#pdfPreviewContainer.loaded {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Navigation button animations */
+#previewNav button {
+    transform: translateX(0);
+    transition: transform 0.3s ease, background 0.3s ease;
+}
+
+#previewNav button:hover {
+    transform: scale(1.1);
+}
+
+#prevBtn.slide-out {
+    transform: translateX(-100px);
+}
+
+#nextBtn.slide-out {
+    transform: translateX(100px);
+}
+
+#previewContent.pdf-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    max-width: 95vw;
+    max-height: 95vh;
+    overflow: hidden;
+  }
+
+/* Add text truncation for file names in grid view */
+.folder-list.grid-view .file-name {
+  max-width: 160px;
+  width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  margin-top: auto;
+  padding: 0;
+  font-size: 0.9em;
+  line-height: 1.2;
+  height: 40px; /* Fixed height for file names */
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+/* Apply box-sizing to all elements */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Fix for image-preview-container to ensure consistent display */
+.folder-list.grid-view .image-preview-container {
+  width: 160px !important;
+  height: 140px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Ensure all images maintain aspect ratio but fit within container */
+.folder-list.grid-view .image-preview-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Force consistent dimensions for all folder items */
+.folder-list.grid-view .folder-item {
+  min-width: 180px;
+  max-width: 180px;
+  min-height: 220px;
+  max-height: 220px;
+  flex: 0 0 180px; /* Don't grow or shrink, stay at 180px */
+}
+
+/* Ensure the grid layout is consistent */
+@media (min-width: 768px) {
+  .folder-list.grid-view {
+    grid-template-columns: repeat(auto-fill, 180px);
+    justify-content: space-evenly;
+    column-gap: 30px; /* Explicit column gap */
+    row-gap: 30px; /* Explicit row gap */
+  }
+}
+
+/* Fix for very small screens */
+@media (max-width: 767px) {
+  .folder-list.grid-view {
+    grid-template-columns: repeat(auto-fill, 180px);
+    justify-content: center;
+    column-gap: 30px; /* Explicit column gap */
+    row-gap: 30px; /* Explicit row gap */
+  }
+}
+
+.file-list.grid-view .file-name {
+  margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 20px;
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  text-align: center;
+}
+
+/* Add text truncation for file names in grid view */
+.folder-list.grid-view .file-name {
+  max-width: 160px;
+  width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  padding: 0;
+  font-size: 0.9em;
+  line-height: 1.2;
+  height: 20px; /* Reduced height for single line */
+  flex-shrink: 0; /* Prevent shrinking */
+  text-align: center;
+}
+
+/* Modal styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.3s;
+}
+
+.modal-content {
+  background-color: #fefefe;
+  margin: 10% auto;
+  padding: 0;
+  border: 1px solid #888;
+  border-radius: 5px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  max-width: 80%;
+  animation: slideDown 0.3s;
+}
+
+.modal-header {
+  padding: 15px;
+  border-bottom: 1px solid #e9e9e9;
+  background-color: #f8f9fa;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.modal-body {
+  padding: 15px;
+}
+
+.close {
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+  color: black;
+  text-decoration: none;
+}
+
+.alert {
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.alert-success {
+  color: #155724;
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+}
+
+.alert-danger {
+  color: #721c24;
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+  border: 1px solid #0069d9;
+}
+
+.btn-primary:hover {
+  background-color: #0069d9;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+  border: 1px solid #c82333;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-50px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Toggle Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #4CAF50;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #4CAF50;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.slider.round {
+  border-radius: 24px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ... existing styles ... */
+
+/* Share Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background-color: var(--background);
+  margin: 10% auto;
+  padding: 0;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  animation: modalFadeIn 0.3s ease;
+  border: 1px solid var(--border-color);
+}
+
+@keyframes modalFadeIn {
+  from {opacity: 0; transform: translateY(-20px);}
+  to {opacity: 1; transform: translateY(0);}
+}
+
+.modal-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--sidebar-bg);
+  border-radius: 8px 8px 0 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-color);
+}
+
+.modal-body {
+  padding: 20px;
+  color: var(--text-color);
+}
+
+.close {
+  color: var(--text-color);
+  float: right;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close:hover {
+  color: var(--accent-red);
+}
+
+/* Toggle Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #4CAF50;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #4CAF50;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.slider.round {
+  border-radius: 24px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+/* Alert styles */
+.alert {
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.alert-success {
+  background-color: rgba(76, 175, 80, 0.2);
+  border: 1px solid #4CAF50;
+  color: #4CAF50;
+}
+
+.alert-danger {
+  background-color: rgba(244, 67, 54, 0.2);
+  border: 1px solid #F44336;
+  color: #F44336;
+}
+
+/* Button styles */
+.btn-primary {
+  background-color: var(--accent-red);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+  background-color: #b71c1c;
+}
+
+.share-icon {
+  color: #ff3333;
+  margin-right: 5px;
+  font-size: 14px;
+}
+
+.folder-actions {
+  display: flex;
+  align-items: center;
+}
+
+/* Hide share icon in grid view */
+.file-list.grid-view .share-icon,
+.folder-list.grid-view .share-icon,
+.file-list.grid-view .folder-actions .share-icon,
+.folder-list.grid-view .folder-actions .share-icon,
+.grid-view .folder-item .folder-actions .share-icon,
+.grid-view .folder-actions > .share-icon,
+.grid-view .fa-globe.share-icon,
+.folder-list.grid-view .folder-item .folder-actions .fa-globe.share-icon,
+.folder-list.grid-view li.folder-item .folder-actions i.fas.fa-globe.share-icon {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Hide elements with hide-in-grid class when in grid view */
+.grid-view .hide-in-grid {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+    .sr-only {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      margin: -1px !important;
+      padding: 0 !important;
+      border: 0 !important;
+      pointer-events: none !important;
+    }
+    
+    /* Breadcrumb Navigation Styles */
+    .breadcrumb-navigation {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 18px;
+      padding: 5px 0;
+    }
+
+    .breadcrumb-item {
+      color: var(--text-color);
+      text-decoration: none;
+      padding: 5px 8px;
+      border-radius: 4px;
+      transition: all 0.2s var(--transition-smooth);
+      white-space: nowrap;
+      font-weight: 500;
+    }
+
+    .breadcrumb-item:hover {
+      background-color: rgba(var(--hover-color-rgb), 0.1);
+      color: var(--accent-red);
+    }
+
+    .breadcrumb-item.current {
+      color: var(--accent-red);
+      font-weight: 600;
+    }
+
+    .breadcrumb-separator {
+      color: var(--text-muted);
+      margin: 0 2px;
+    }
+
+    /* Make breadcrumbs responsive */
+    @media (max-width: 768px) {
+      .breadcrumb-navigation {
+        font-size: 16px;
+      }
+      
+      .breadcrumb-item {
+        padding: 4px 6px;
+      }
+    }
+
+    /* Header layout styles */
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Remove back button style */
+
+    /* Super aggressive hiding of share icon in grid view */
+    .grid-view .share-icon,
+    .grid-view .fa-globe,
+    .grid-view .hide-in-grid,
+    .grid-view .folder-actions > i.fas.fa-globe,
+    .grid-view .folder-item .folder-actions i.fas.fa-globe,
+    .grid-view .folder-item .folder-actions .share-icon,
+    .grid-view .folder-item .folder-actions i.fas.fa-globe.share-icon,
+    .grid-view .folder-item .folder-actions i.fas.fa-globe.share-icon.hide-in-grid {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      width: 0 !important;
+      height: 0 !important;
+      position: absolute !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      margin: -1px !important;
+      padding: 0 !important;
+      border: 0 !important;
+      pointer-events: none !important;
+    }
+  
+  
+            /* Hover and active states for multi-select buttons */
+            #selectAllBtn:hover {
+              border-color: var(--accent-red);
+              background: rgba(var(--border-color-rgb), 0.3);
+            }
+            
+            #deleteSelectedBtn:hover {
+              background: var(--accent-red);
+              color: white !important;
+            }
+            
+            #downloadSelectedBtn:hover {
+              background: var(--border-color);
+              color: var(--text-color);
+            }
+            
+            .multi-select-btn:active {
+              transform: scale(0.98);
+            }
+            
+            /* Ensure text is visible in both modes */
+            body.light-mode .multi-select-btn {
+              text-shadow: none;
+            }
+            
+            body.light-mode #deleteSelectedBtn {
+              color: var(--accent-red);
+            }
+          
+          
+            /* Custom scrollbar styling for files container */
+            .files-container::-webkit-scrollbar {
+              width: 8px;
+            }
+            
+            .files-container::-webkit-scrollbar-track {
+              background: var(--background);
+              border-radius: 4px;
+            }
+            
+            .files-container::-webkit-scrollbar-thumb {
+              background: var(--accent-red);
+              border-radius: 4px;
+            }
+            
+            .files-container::-webkit-scrollbar-thumb:hover {
+              background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+            }
+          
+.dock {
+  position: fixed;
+  bottom: 5px;
+  left: calc(50% + 125px);
+  transform: translateX(-50%);
+  background: rgba(30, 30, 30, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 6px 16px;
+  display: flex;
+  gap: 8px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3),
+              0 0 15px rgba(211, 47, 47, 0.1);
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+/* Add responsive positioning for the dock */
+@media (max-width: 1023px) {
+  .dock {
+    left: 50%; /* Center the dock on mobile */
+  }
+}
+
+.dock .btn {
+  width: 42px;
+  height: 42px;
+  font-size: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.dock:hover {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4),
+              0 0 20px rgba(211, 47, 47, 0.2);
+}
+
+.dock .btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, var(--accent-red), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 12px;
+}
+
+.dock .btn i {
+  position: relative;
+  z-index: 1;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dock .btn:hover {
+  transform: translateY(-5px);
+  border-color: var(--accent-red);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.dock .btn:hover::before {
+  opacity: 0.15;
+}
+
+.dock .btn:hover i {
+  transform: scale(1.1);
+}
+
+.dock .btn:active {
+  transform: translateY(-2px);
+}
+
+body.light-mode .dock {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1),
+              0 0 15px rgba(211, 47, 47, 0.05);
+}
+
+body.light-mode .dock .btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .dock .btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+  
+/* Global animation for page load */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth transitions for theme switching */
+body {
+  transition: background-color 0.3s var(--transition-smooth),
+              color 0.3s var(--transition-smooth);
+}
+
+/* Enhance sidebar appearance and animations */
+.sidebar {
+  transition: transform 0.3s var(--transition-smooth),
+              box-shadow 0.3s var(--transition-smooth);
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar.open {
+  box-shadow: 5px 0 25px rgba(0, 0, 0, 0.2);
+}
+
+.drivepulse-header {
+  animation: fadeInUp 0.5s var(--transition-smooth);
+}
+
+.drivepulse-logo {
+  transition: transform 0.3s var(--transition-smooth);
+}
+
+.drivepulse-header:hover .drivepulse-logo {
+  transform: scale(1.1) rotate(-10deg);
+}
+
+/* Enhance folder list animations */
+.folder-item {
+  transition: all 0.2s var(--transition-smooth);
+  animation: fadeInUp 0.3s var(--transition-smooth);
+  animation-fill-mode: both;
+}
+
+.folder-list > *:nth-child(1) { animation-delay: 0.1s; }
+.folder-list > *:nth-child(2) { animation-delay: 0.15s; }
+.folder-list > *:nth-child(3) { animation-delay: 0.2s; }
+.folder-list > *:nth-child(4) { animation-delay: 0.25s; }
+.folder-list > *:nth-child(5) { animation-delay: 0.3s; }
+
+.folder-item:hover {
+  transform: translateX(5px);
+  background: rgba(var(--border-color-rgb), 0.1);
+  border-left: 3px solid var(--accent-red);
+  padding-left: 17px;
+}
+
+/* Enhance storage indicator */
+.storage-indicator {
+  transition: transform 0.3s var(--transition-smooth),
+              box-shadow 0.3s var(--transition-smooth);
+}
+
+.storage-indicator:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.storage-progress {
+  position: relative;
+  overflow: hidden;
+}
+
+.storage-progress::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(200%);
+  }
+}
+
+/* Enhance buttons */
+.btn {
+  transition: all 0.2s var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.5s var(--transition-smooth),
+              opacity 0.3s var(--transition-smooth);
+}
+
+.btn:hover::after {
+  transform: translate(-50%, -50%) scale(2);
+  opacity: 1;
+}
+
+/* Enhance file list */
+.file-row {
+  transition: all 0.2s var(--transition-smooth);
+  animation: fadeInUp 0.3s var(--transition-smooth);
+  animation-fill-mode: both;
+}
+
+.file-list.grid-view .file-row {
+  animation: fadeInUp 0.3s var(--transition-smooth);
+}
+
+.file-list.grid-view .file-row:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Enhance breadcrumb navigation */
+.breadcrumb-item {
+  transition: all 0.2s var(--transition-smooth);
+  position: relative;
+}
+
+.breadcrumb-item::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--accent-red);
+  transform: scaleX(0);
+  transition: transform 0.2s var(--transition-smooth);
+  transform-origin: right;
+}
+
+.breadcrumb-item:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* Enhance context menu */
+.context-menu {
+  animation: fadeInUp 0.2s var(--transition-smooth);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.context-menu-item {
+  transition: all 0.2s var(--transition-smooth);
+}
+
+.context-menu-item:hover {
+  transform: translateX(5px);
+  background: rgba(var(--border-color-rgb), 0.1);
+}
+
+/* Enhance modal animations */
+.modal {
+  transition: opacity 0.3s var(--transition-smooth);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  animation: fadeInUp 0.3s var(--transition-smooth);
+}
+
+/* Enhance scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent-red);
+  border-radius: 4px;
+  transition: background 0.3s var(--transition-smooth);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
+}
+
+/* Loading states */
+.loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Enhance multi-select controls */
+.multi-select-controls-container {
+  animation: fadeInUp 0.3s var(--transition-smooth);
+  transition: transform 0.3s var(--transition-smooth),
+              box-shadow 0.3s var(--transition-smooth);
+}
+
+.multi-select-btn {
+  transition: all 0.2s var(--transition-smooth);
+}
+
+/* Performance optimizations */
+* {
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Improve mobile grid view - consolidated styles */
+@media (max-width: 768px) {
+  /* File grid view */
+  .file-list.grid-view {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .file-list.grid-view .file-row {
+    height: 140px;
+    padding: 8px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .file-list.grid-view .file-preview {
+    height: 90px;
+    margin-bottom: 5px;
+  }
+
+  .file-list.grid-view .file-name {
+    font-size: 12px;
+    line-height: 1.2;
+    max-height: 28px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .file-list.grid-view .file-icon-large {
+    font-size: 40px;
+    height: 90px;
+  }
+
+  .file-list.grid-view .more-options-btn {
+    width: 32px;
+    height: 32px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 50%;
+  }
+
+  .file-list.grid-view .file-actions {
+    top: 4px;
+    right: 4px;
+  }
+
+  /* Folder grid view */
+  .folder-list.grid-view {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .folder-list.grid-view .folder-item {
+    min-width: 100px;
+    max-width: 100%;
+    min-height: 140px;
+    max-height: 140px;
+    padding: 8px;
+  }
+
+  .folder-list.grid-view .thumbnail-container {
+    width: 100% !important;
+    height: 90px !important;
+  }
+
+  .folder-list.grid-view .file-name {
+    font-size: 12px;
+    line-height: 1.2;
+    max-height: 28px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+  }
+
+  .folder-list.grid-view .folder-more-options-btn {
+    width: 32px;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  .folder-list.grid-view .folder-actions {
+    top: 4px;
+    right: 4px;
+  }
+
+  /* Other mobile-specific styles */
+  #iconPreviewContainer i { font-size: 80px; }
+  #previewNav button { width: 30px; height: 30px; font-size: 16px; }
+  #previewClose { top: 10px; right: 10px; font-size: 25px; }
+}
+
+.video-controls-inner {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px;
+}
+
+.duration-display {
+  color: #fff;
+  font-size: 14px;
+  min-width: 100px;
+  text-align: center;
+  font-family: monospace;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 768px) {
+  .duration-display {
+    font-size: 12px;
+    min-width: 80px;
+  }
+}
+  

@@ -18,14 +18,72 @@ function getDirSize($dir) {
     return $size;
 }
 
+// Function to get system stats
+function getSystemStats() {
+    $stats = [];
+    
+    // CPU Usage
+    $load = sys_getloadavg();
+    $stats['cpu'] = $load[0];
+    
+    // Memory Usage
+    $free = shell_exec('free');
+    $free = (string)trim($free);
+    $free_arr = explode("\n", $free);
+    $mem = explode(" ", $free_arr[1]);
+    $mem = array_filter($mem);
+    $mem = array_merge($mem);
+    $stats['memory_used'] = $mem[2];
+    $stats['memory_total'] = $mem[1];
+    
+    // Disk Usage
+    $disk_total = disk_total_space("/");
+    $disk_free = disk_free_space("/");
+    $stats['disk_used'] = $disk_total - $disk_free;
+    $stats['disk_total'] = $disk_total;
+    
+    return $stats;
+}
+
+// Handle AJAX request for system stats
+if (isset($_GET['get_stats'])) {
+    header('Content-Type: application/json');
+    echo json_encode(getSystemStats());
+    exit;
+}
+
 // Handle user deletion if requested
 if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
     $userToDelete = $_POST['delete_user'];
     $userDir = "/var/www/html/webdav/users/" . $userToDelete;
-    if (is_dir($userDir)) {
-        // Delete user directory and all contents
-        shell_exec("rm -rf " . escapeshellarg($userDir));
+    $usersFile = __DIR__ . '/users.json';
+
+    // Remove user from users.json
+    if (file_exists($usersFile)) {
+        $users = json_decode(file_get_contents($usersFile), true);
+        if (isset($users[$userToDelete])) {
+            unset($users[$userToDelete]);
+            file_put_contents($usersFile, json_encode($users, JSON_PRETTY_PRINT));
+        }
     }
+
+    // Delete user directory and all contents
+    if (is_dir($userDir)) {
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($userDir, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($files as $file) {
+            if ($file->isDir()) {
+                rmdir($file->getRealPath());
+            } else {
+                unlink($file->getRealPath());
+            }
+        }
+        // Remove the empty directory itself
+        rmdir($userDir);
+    }
+
     // Redirect to refresh the page
     header("Location: /selfhostedgdrive/console.php");
     exit;
@@ -230,7 +288,66 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
                 grid-template-columns: 1fr;
             }
         }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            transition: var(--transition);
+        }
+
+        .stat-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
     </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function formatBytes(bytes) {
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            if (bytes === 0) return '0 B';
+            const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+            return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+        }
+
+        function updateSystemStats() {
+            $.get('?get_stats', function(data) {
+                // Update CPU
+                $('#cpu-value').text(data.cpu.toFixed(2) + '%');
+                $('#cpu-bar').css('width', Math.min(data.cpu * 10, 100) + '%');
+                
+                // Update RAM
+                const ramUsedGB = data.memory_used / 1024 / 1024;
+                const ramTotalGB = data.memory_total / 1024 / 1024;
+                const ramPercent = (ramUsedGB / ramTotalGB) * 100;
+                $('#ram-value').text(ramUsedGB.toFixed(1) + ' GB');
+                $('#ram-total').text('/ ' + ramTotalGB.toFixed(1) + ' GB');
+                $('#ram-bar').css('width', ramPercent + '%');
+                
+                // Update Disk
+                const diskUsedGB = data.disk_used / 1024 / 1024 / 1024;
+                const diskTotalGB = data.disk_total / 1024 / 1024 / 1024;
+                const diskPercent = (diskUsedGB / diskTotalGB) * 100;
+                $('#disk-value').text(diskUsedGB.toFixed(1) + ' GB');
+                $('#disk-total').text('/ ' + diskTotalGB.toFixed(1) + ' GB');
+                $('#disk-bar').css('width', diskPercent + '%');
+            });
+        }
+
+        // Update stats every 5 seconds
+        $(document).ready(function() {
+            updateSystemStats();
+            setInterval(updateSystemStats, 5000);
+        });
+    </script>
 </head>
 <body>
     <div class="admin-container">
@@ -240,10 +357,41 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
 
         <div class="stats-grid">
             <div class="stat-card">
+                <div class="stat-title"><i class="fas fa-microchip"></i> CPU Usage</div>
+                <div class="stat-value" id="cpu-value">0%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="cpu-bar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title"><i class="fas fa-memory"></i> RAM Usage</div>
+                <div class="stat-value">
+                    <span id="ram-value">0 GB</span>
+                    <span class="stat-subtitle" id="ram-total">/ 0 GB</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="ram-bar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title"><i class="fas fa-hdd"></i> Disk Usage</div>
+                <div class="stat-value">
+                    <span id="disk-value">0 GB</span>
+                    <span class="stat-subtitle" id="disk-total">/ 0 GB</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="disk-bar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="stat-card">
                 <div class="stat-title"><i class="fas fa-users"></i> Total Users</div>
                 <div class="stat-value">
                     <?php
-                    $users = glob("/var/www/html/webdav/users/*", GLOB_ONLYDIR);
+                    $usersFile = __DIR__ . '/users.json';
+                    $users = file_exists($usersFile) ? json_decode(file_get_contents($usersFile), true) : [];
                     $userCount = count($users);
                     echo $userCount;
                     ?>
@@ -255,8 +403,11 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
                 <div class="stat-value">
                     <?php
                     $totalSize = 0;
-                    foreach ($users as $userDir) {
-                        $totalSize += getDirSize($userDir);
+                    foreach ($users as $username => $hash) {
+                        $userDir = "/var/www/html/webdav/users/" . $username;
+                        if (is_dir($userDir)) {
+                            $totalSize += getDirSize($userDir);
+                        }
                     }
                     echo round($totalSize / (1024 * 1024 * 1024), 2) . " GB";
                     ?>
@@ -285,15 +436,15 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($users as $userDir): ?>
+                    <?php foreach ($users as $username => $hash): ?>
                         <?php
-                        $username = basename($userDir);
-                        $userSize = getDirSize($userDir);
+                        $userDir = "/var/www/html/webdav/users/" . $username;
+                        $userSize = is_dir($userDir) ? getDirSize($userDir) : 0;
                         $userSizeGB = round($userSize / (1024 * 1024 * 1024), 2);
-                        $fileCount = iterator_count(new RecursiveIteratorIterator(
+                        $fileCount = is_dir($userDir) ? iterator_count(new RecursiveIteratorIterator(
                             new RecursiveDirectoryIterator($userDir, FilesystemIterator::SKIP_DOTS)
-                        ));
-                        $storagePercentage = ($userSize / $totalSize) * 100;
+                        )) : 0;
+                        $storagePercentage = $totalSize > 0 ? ($userSize / $totalSize) * 100 : 0;
                         ?>
                         <tr>
                             <td data-label="User"><?php echo htmlspecialchars($username); ?></td>

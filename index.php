@@ -4,9 +4,51 @@ session_start();
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Critical styles to prevent flash - must be first in head -->
+  <style>
+    /* Immediate dark background application */
+    html, body {
+      background-color: #121212 !important;
+      color: #e0e0e0 !important;
+      transition: none !important;
+    }
+    /* Hide content until fully loaded */
+    body > * {
+      opacity: 0;
+    }
+    /* Only preloader should be visible */
+    .preloader {
+      opacity: 1 !important;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #121212;
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .preloader-spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      border-top-color: #ff4444;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
   <meta charset="UTF-8">
   <title>DrivePulse - Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Prevent white flash during page loads -->
+  <meta name="theme-color" content="#121212">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -19,8 +61,6 @@ session_start();
   <!-- MS Tile Icon -->
   <meta name="msapplication-TileImage" content="drivepulse.svg">
   <meta name="msapplication-TileColor" content="#ff4444">
-  <!-- Theme Color -->
-  <meta name="theme-color" content="#ff4444">
 
   <style>
     :root {
@@ -48,15 +88,18 @@ session_start();
       font-family: 'Poppins', sans-serif;
     }
     body {
-      background: var(--background);
+      background-color: var(--background);
       color: var(--text-color);
+      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      transition: background 0.3s, color 0.3s;
+      transition: background-color 0.3s ease;
+    }
+    
+    .container {
       position: relative;
-      overflow: hidden;
+      z-index: 1;
     }
     #particles-js {
       position: fixed;
@@ -81,8 +124,6 @@ session_start();
       opacity: 0;
       animation: containerEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
       transition: transform 0.3s, box-shadow 0.3s;
-      position: relative;
-      z-index: 1;
     }
     body.light-mode .login-container {
       background: rgba(255, 255, 255, 0.9);
@@ -271,178 +312,242 @@ session_start();
   </style>
 </head>
 <body class="light-mode">
-  <div id="particles-js"></div>
-  
-  <div class="login-container">
-    <i class="fas fa-cloud-upload-alt logo-icon"></i>
-    <div class="project-name">DrivePulse</div>
-
-    <?php 
-      if (isset($_SESSION['error'])) {
-          echo '<div class="error">' . htmlspecialchars($_SESSION['error']) . '</div>';
-          unset($_SESSION['error']);
-      }
-      if (isset($_SESSION['message'])) {
-          echo '<div class="system-message">' . $_SESSION['message'] . '</div>';
-          unset($_SESSION['message']);
-      }
-    ?>
-
-    <!-- Login Form -->
-    <form action="authenticate.php" method="post" id="loginForm">
-      <div class="form-group">
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" required>
-      </div>
-
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
-      </div>
-
-      <button type="submit" class="button">Sign In</button>
-    </form>
-
-    <span class="toggle-link" onclick="toggleForms()">Need an account? Register here</span>
-
-    <!-- Registration Form -->
-    <form action="register.php" method="post" id="registerForm" class="hidden">
-      <div class="form-group">
-        <label for="reg_username">Username</label>
-        <input type="text" id="reg_username" name="username" required>
-      </div>
-
-      <div class="form-group">
-        <label for="reg_password">Password</label>
-        <input type="password" id="reg_password" name="password" required>
-      </div>
-
-      <button type="submit" class="button register-button">Register</button>
-    </form>
-
-    <span class="toggle-link hidden" onclick="toggleForms()" id="loginLink">Already have an account? Sign in</span>
+  <!-- Preloader -->
+  <div class="preloader">
+    <div class="preloader-spinner"></div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-  <script>
-    // Enhanced particle configuration
-    particlesJS('particles-js', {
-      particles: {
-        number: { 
-          value: 120,
-          density: { 
-            enable: true, 
-            value_area: 1500
-          }
-        },
-        color: { 
-          value: "#f44336"
-        },
-        shape: {
-          type: "circle",
-          stroke: {
-            width: 0,
-            color: "#ff0000"
-          }
-        },
-        opacity: {
-          value: 0.6,
-          random: true,
-          anim: {
-            enable: true,
-            speed: 0.8,
-            opacity_min: 0.3,
-            sync: false
-          }
-        },
-        size: {
-          value: 4,
-          random: {
-            enable: true,
-            minimumValue: 2
-          }
-        },
-        line_linked: {
-          enable: true,
-          distance: 120,
-          color: "#f44336",
-          opacity: 0.4,
-          width: 1.5
-        },
-        move: {
-          enable: true,
-          speed: 3.5,
-          direction: "none",
-          random: true,
-          straight: false,
-          out_mode: "out",
-          bounce: false,
-          attract: {
-            enable: true,
-            rotateX: 600,
-            rotateY: 1200
-          }
+  <div id="particles-js"></div>
+  <div class="container">
+    <div class="login-container">
+      <i class="fas fa-cloud-upload-alt logo-icon"></i>
+      <div class="project-name">DrivePulse</div>
+
+      <?php 
+        if (isset($_SESSION['error'])) {
+            echo '<div class="error">' . htmlspecialchars($_SESSION['error']) . '</div>';
+            unset($_SESSION['error']);
         }
-      },
-      interactivity: {
-        detect_on: "canvas",
-        events: {
-          onhover: {
-            enable: true,
-            mode: "repulse"
-          },
-          onclick: {
-            enable: true,
-            mode: "push"
-          },
-          resize: true
+        if (isset($_SESSION['message'])) {
+            echo '<div class="system-message">' . $_SESSION['message'] . '</div>';
+            unset($_SESSION['message']);
         }
-      },
-      retina_detect: true
-    });
+      ?>
 
-    function toggleForms() {
-      const loginForm = document.getElementById('loginForm');
-      const registerForm = document.getElementById('registerForm');
-      const loginLink = document.getElementById('loginLink');
-      
-      loginForm.classList.toggle('hidden');
-      registerForm.classList.toggle('hidden');
-      loginLink.classList.toggle('hidden');
-      document.querySelectorAll('.toggle-link')[0].classList.toggle('hidden');
-    }
+      <!-- Login Form -->
+      <form action="authenticate.php" method="post" id="loginForm">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required>
+        </div>
 
-    // Secret admin access
-    let clicks = 0;
-    let lastClick = 0;
-    const CLICK_TIMEOUT = 3000;
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required>
+        </div>
 
-    document.querySelector('.logo-icon').addEventListener('click', function(e) {
-        const now = Date.now();
-        if (now - lastClick > CLICK_TIMEOUT) clicks = 0;
-        
-        clicks++;
-        lastClick = now;
+        <button type="submit" class="button">Sign In</button>
+      </form>
 
-        if (clicks === 3) {
-            const password = prompt("Enter admin password:");
-            if (password === "2254") {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = 'console.php';
-                
-                const passwordInput = document.createElement('input');
-                passwordInput.type = 'hidden';
-                passwordInput.name = 'password';
-                passwordInput.value = password;
-                
-                form.appendChild(passwordInput);
-                document.body.appendChild(form);
-                form.submit();
+      <span class="toggle-link" onclick="toggleForms()">Need an account? Register here</span>
+
+      <!-- Registration Form -->
+      <form action="register.php" method="post" id="registerForm" class="hidden">
+        <div class="form-group">
+          <label for="reg_username">Username</label>
+          <input type="text" id="reg_username" name="username" required>
+        </div>
+
+        <div class="form-group">
+          <label for="reg_password">Password</label>
+          <input type="password" id="reg_password" name="password" required>
+        </div>
+
+        <button type="submit" class="button register-button">Register</button>
+      </form>
+
+      <span class="toggle-link hidden" onclick="toggleForms()" id="loginLink">Already have an account? Sign in</span>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script>
+      // Enhanced particle configuration
+      particlesJS('particles-js', {
+        particles: {
+          number: { 
+            value: 120,
+            density: { 
+              enable: true, 
+              value_area: 1500
             }
-            clicks = 0;
+          },
+          color: { 
+            value: "#f44336"
+          },
+          shape: {
+            type: "circle",
+            stroke: {
+              width: 0,
+              color: "#ff0000"
+            }
+          },
+          opacity: {
+            value: 0.6,
+            random: true,
+            anim: {
+              enable: true,
+              speed: 0.8,
+              opacity_min: 0.3,
+              sync: false
+            }
+          },
+          size: {
+            value: 4,
+            random: {
+              enable: true,
+              minimumValue: 2
+            }
+          },
+          line_linked: {
+            enable: true,
+            distance: 120,
+            color: "#f44336",
+            opacity: 0.4,
+            width: 1.5
+          },
+          move: {
+            enable: true,
+            speed: 3.5,
+            direction: "none",
+            random: true,
+            straight: false,
+            out_mode: "out",
+            bounce: false,
+            attract: {
+              enable: true,
+              rotateX: 600,
+              rotateY: 1200
+            }
+          }
+        },
+        interactivity: {
+          detect_on: "canvas",
+          events: {
+            onhover: {
+              enable: true,
+              mode: "repulse"
+            },
+            onclick: {
+              enable: true,
+              mode: "push"
+            },
+            resize: true
+          }
+        },
+        retina_detect: true
+      });
+
+      function toggleForms() {
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const loginLink = document.getElementById('loginLink');
+        
+        loginForm.classList.toggle('hidden');
+        registerForm.classList.toggle('hidden');
+        loginLink.classList.toggle('hidden');
+        document.querySelectorAll('.toggle-link')[0].classList.toggle('hidden');
+      }
+
+      // Secret admin access
+      let clicks = 0;
+      let lastClick = 0;
+      const CLICK_TIMEOUT = 3000;
+
+      document.querySelector('.logo-icon').addEventListener('click', function(e) {
+          const now = Date.now();
+          if (now - lastClick > CLICK_TIMEOUT) clicks = 0;
+          
+          clicks++;
+          lastClick = now;
+
+          if (clicks === 3) {
+              const password = prompt("Enter admin password:");
+              if (password === "123") {
+                  const form = document.createElement('form');
+                  form.method = 'POST';
+                  form.action = 'console.php';
+                  
+                  const passwordInput = document.createElement('input');
+                  passwordInput.type = 'hidden';
+                  passwordInput.name = 'password';
+                  passwordInput.value = password;
+                  
+                  form.appendChild(passwordInput);
+                  document.body.appendChild(form);
+                  form.submit();
+              }
+              clicks = 0;
+          }
+      });
+
+      // Handle preloader and prevent white flash
+      document.addEventListener('DOMContentLoaded', function() {
+        // First make sure the background color is applied
+        document.documentElement.style.backgroundColor = '#121212';
+        document.body.style.backgroundColor = '#121212';
+        
+        // Prepare to show content
+        setTimeout(function() {
+          // Fade out preloader
+          const preloader = document.querySelector('.preloader');
+          if (preloader) {
+            preloader.classList.add('fade-out');
+          }
+          
+          // Reveal content
+          const container = document.querySelector('.container');
+          if (container) {
+            container.style.opacity = '1';
+            container.style.transition = 'opacity 0.3s ease';
+          }
+          
+          // Remove preloader after animation completes
+          setTimeout(function() {
+            if (preloader) {
+              preloader.style.display = 'none';
+            }
+            
+            // Make all content visible
+            const allElements = document.querySelectorAll('body > *');
+            allElements.forEach(function(element) {
+              element.style.opacity = '1';
+              element.style.transition = 'opacity 0.3s ease';
+            });
+          }, 500);
+        }, 100);
+      });
+      
+      // Prevent white flash during navigation
+      window.addEventListener('beforeunload', function() {
+        // Show preloader before navigating away
+        const preloader = document.querySelector('.preloader');
+        if (preloader) {
+          preloader.classList.remove('fade-out');
+          preloader.style.display = 'flex';
+          preloader.style.opacity = '1';
         }
-    });
-  </script>
+        
+        // Hide content to prevent flash
+        const allElements = document.querySelectorAll('body > *:not(.preloader)');
+        allElements.forEach(function(element) {
+          element.style.opacity = '0';
+        });
+        
+        // Force background color
+        document.documentElement.style.backgroundColor = '#121212';
+        document.body.style.backgroundColor = '#121212';
+      });
+    </script>
+  </div>
 </body>
 </html>

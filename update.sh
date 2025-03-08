@@ -33,7 +33,7 @@ fi
 BASE_URL="https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main"
 
 # Define files to update
-FILES=("index.php" "authenticate.php" "explorer.php" "console.php" "logout.php" "register.php" "share_handler.php" "shared.php" "drivepulse.svg")
+FILES=("index.php" "authenticate.php" "explorer.php" "console.php" "logout.php" "register.php" "share_handler.php" "shared.php" "drivepulse.svg" "styles.css" "shared_folder.php" "folder_share_handler.php")
 
 # Download PHP files from GitHub into the application directory
 echo "Downloading PHP files from GitHub..."

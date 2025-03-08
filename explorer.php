@@ -1,6 +1,11 @@
 <?php
 session_start();
 
+// Configure session for persistent login
+ini_set('session.gc_maxlifetime', 30 * 24 * 60 * 60); // 30 days
+ini_set('session.cookie_lifetime', 30 * 24 * 60 * 60); // 30 days
+session_set_cookie_params(30 * 24 * 60 * 60); // 30 days
+
 // Debug log setup with toggle
 define('DEBUG', false);
 $debug_log = '/var/www/html/selfhostedgdrive/debug.log';
@@ -811,6 +816,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download_files'])) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
+  <link href="styles.css" rel="stylesheet"/>
   
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="drivepulse.svg">
@@ -822,2259 +828,113 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download_files'])) {
   <!-- Theme Color -->
   <meta name="theme-color" content="#ff4444">
   
-  <style>
-:root {
-  --background: #121212;
-  --text-color: #fff;
-  --sidebar-bg: linear-gradient(135deg, #1e1e1e, #2a2a2a);
-  --content-bg: #1e1e1e;
-  --border-color: #333;
-  --border-color-rgb: 51, 51, 51; /* Added RGB values for border color */
-  --button-bg: linear-gradient(135deg, #555, #777);
-  --button-hover: linear-gradient(135deg, #777, #555);
-  --accent-red: #d32f2f;
-  --dropzone-bg: rgba(211, 47, 47, 0.1);
-  --dropzone-border: #d32f2f;
-  --texture-color: rgba(255, 255, 255, 0.03);
-  --red-glow: rgba(211, 47, 47, 0.05);
-  --share-icon-display: inline-block;
-}
-
-body.light-mode {
-  --background: #f5f5f5;
-  --text-color: #333;
-  --sidebar-bg: linear-gradient(135deg, #e0e0e0, #fafafa);
-  --content-bg: #fff;
-  --border-color: #ccc;
-  --border-color-rgb: 204, 204, 204; /* Added RGB values for border color in light mode */
-  --button-bg: linear-gradient(135deg, #888, #aaa);
-  --button-hover: linear-gradient(135deg, #aaa, #888);
-  --accent-red: #f44336;
-  --dropzone-bg: rgba(244, 67, 54, 0.1);
-  --dropzone-border: #f44336;
-  --texture-color: rgba(0, 0, 0, 0.03);
-  --red-glow: rgba(244, 67, 54, 0.08);
-  --share-icon-display: none !important;
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  background: var(--background);
-  color: var(--text-color);
-  font-family: 'Poppins', sans-serif;
-  overflow: hidden;
-  transition: background 0.3s, color 0.3s;
-}
-
-.app-container {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.sidebar {
-  width: 270px;
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  z-index: 9998;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  transform: translateX(-100%);
-  transition: transform 0.3s ease;
-}
-
-@media (min-width: 1024px) {
-  .sidebar { transform: none; }
-}
-
-.sidebar.open { transform: translateX(0); }
-
-@media (max-width: 1023px) {
-  .sidebar { position: fixed; top: 0; left: 0; height: 100%; }
-}
-
-.sidebar-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  z-index: 9997;
-}
-
-.sidebar-overlay.show { display: block; }
-
-@media (min-width: 1024px) { .sidebar-overlay { display: none !important; } }
-
-.folders-container {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  box-sizing: border-box;
-}
-
-.folder-list-container {
-  overflow-y: auto;
-  overflow-x: hidden;
-  flex: 1;
-  margin-bottom: 10px;
-  /* Custom scrollbar styling */
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-red) var(--background);
-}
-
-/* For Webkit browsers (Chrome, Safari, etc.) */
-.folder-list-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.folder-list-container::-webkit-scrollbar-track {
-  background: var(--background);
-  border-radius: 4px;
-}
-
-.folder-list-container::-webkit-scrollbar-thumb {
-  background: var(--accent-red);
-  border-radius: 4px;
-}
-
-.folder-list-container::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
-}
-
-.top-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top:2px;
-  margin-bottom: 2px;
-  justify-content: flex-start;
-}
-
-.top-row h2 {
-  font-size: 18px;
-  font-weight: 500;
-  margin: 0;
-  color: var(--text-color);
-}
-
-.storage-indicator {
-  margin-top: 10px;
-  padding: 15px;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 13px;
-  color: var(--text-color);
-  width: calc(100% - 10px); /* Further increased width by reducing the subtraction */
-  box-sizing: border-box;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  margin-left: 5px; /* Reduced margin to allow for more width */
-  margin-right: 5px; /* Reduced margin to allow for more width */
-}
-
-.storage-indicator:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.storage-indicator p {
-  margin: 0 0 8px 0;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.storage-indicator .storage-icon {
-  color: var(--accent-red);
-  font-size: 14px;
-}
-
-.storage-bar {
-  width: 100%;
-  height: 12px;
-  background: var(--border-color);
-  border-radius: 6px;
-  overflow: hidden;
-  position: relative;
-}
-
-.storage-progress {
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent-red), #b71c1c);
-  border-radius: 6px;
-  transition: width 0.5s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.storage-progress::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.2) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.storage-details {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  margin-top: 5px;
-  opacity: 0.8;
-}
-
-.btn {
-  background: var(--button-bg);
-  color: var(--text-color);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  text-decoration: none;
-}
-
-.btn:hover {
-  background: var(--button-hover);
-  transform: scale(1.05);
-}
-
-.btn:active { transform: scale(0.95); }
-
-.btn i { color: var(--text-color); margin: 0; }
-
-.btn-back {
-  background: var(--button-bg);
-  color: var(--text-color);
-  border: none;
-  border-radius: 4px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.3s, transform 0.2s;
-  text-decoration: none;
-}
-
-.btn-back i { color: var(--text-color); margin: 0; }
-
-.btn-back:hover {
-  background: var(--button-hover);
-  transform: scale(1.05);
-}
-
-.btn-back:active { transform: scale(0.95); }
-
-.logout-btn {
-  background: linear-gradient(135deg, var(--accent-red), #b71c1c) !important;
-}
-
-.logout-btn:hover {
-  background: linear-gradient(135deg, #b71c1c, var(--accent-red)) !important;
-}
-
-.folder-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.folder-item {
-  display: flex;
-  align-items: center;
-  padding: 8px 12px;
-  margin-bottom: 0;
-  position: relative;
-  background-color: transparent;
-  border: none;
-  border-bottom: 2px solid rgba(var(--border-color-rgb), 0.3);
-  box-shadow: none;
-  transition: all 0.2s ease;
-}
-
-.folder-item:hover {
-  background-color: rgba(var(--hover-color-rgb), 0.1);
-  transform: translateY(-1px);
-  border-bottom-color: var(--accent-red);
-  border-bottom-width: 2px;
-}
-
-.folder-item i { margin-right: 6px; }
-
-.folder-item.selected {
-  background: rgba(var(--border-color-rgb), 0.2); /* Changed to semi-transparent selection */
-}
-
-/* Add styles for folder actions */
-.folder-actions {
-  display: flex;
-  margin-left: auto;
-}
-
-.folder-more-options-btn {
-  background: none;
-  border: none;
-  color: var(--text-color);
-  cursor: pointer;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
-}
-
-.folder-more-options-btn:hover {
-  background-color: var(--border-color);
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-}
-
-.header-area {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--background);
-  z-index: 10;
-}
-
-.header-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.header-area h1 {
-  font-size: 18px;
-  font-weight: 500;
-  margin: 0;
-  color: var(--text-color);
-}
-
-.hamburger {
-  background: none;
-  border: none;
-  color: var(--text-color);
-  font-size: 24px;
-  cursor: pointer;
-}
-
-@media (min-width: 1024px) { .hamburger { display: none; } }
-
-.content-inner {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-  position: relative;
-  background-color: var(--content-bg);
-  background-image: 
-    linear-gradient(to bottom, var(--red-glow) 0%, transparent 70%),
-    linear-gradient(var(--texture-color) 1px, transparent 1px),
-    linear-gradient(90deg, var(--texture-color) 1px, transparent 1px);
-  background-size: 100% 100%, 20px 20px, 20px 20px;
-  background-position: center top;
-}
-
-.file-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.file-list.grid-view {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 15px;
-}
-
-.file-row {
-  display: flex;
-  align-items: center;
-  padding: 8px 12px;
-  margin-bottom: 0;
-  position: relative;
-  background-color: transparent;
-  border: none;
-  border-bottom: 2px solid rgba(var(--border-color-rgb), 0.3);
-  box-shadow: none;
-  transition: all 0.2s ease;
-}
-
-.file-row:hover {
-  background-color: rgba(var(--hover-color-rgb), 0.1);
-  transform: translateY(-1px);
-  border-bottom-color: var(--accent-red);
-  border-bottom-width: 2px;
-}
-
-.file-list.grid-view .file-row {
-  flex-direction: column;
-  align-items: center;
-  padding: 10px;
-  height: 180px;
-  text-align: center;
-  overflow: hidden;
-  position: relative;
-  cursor: pointer;
-  background: transparent;
-  border: 2px solid var(--border-color);
-  border-radius: 4px;
-  margin: 0;
-}
-
-.file-icon {
-  font-size: 20px;
-  margin-right: 10px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-}
-
-.file-list.grid-view .file-icon {
-  font-size: 20px;
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  margin: 0;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 5px;
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-}
-
-.file-icon-large {
-  font-size: 60px;
-  margin-bottom: 10px;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 120px;
-  color: var(--text-color);
-}
-
-.file-list.grid-view .file-icon-large {
-  display: flex;
-}
-
-.file-preview {
-  display: none;
-}
-
-.file-list.grid-view .file-preview {
-  display: block;
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 4px;
-  margin-bottom: 10px;
-}
-
-.file-list.grid-view .file-icon:not(.no-preview) {
-  display: none;
-}
-
-.file-name {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-right: 20px;
-  cursor: pointer;
-}
-
-.file-list.grid-view .file-name {
-  margin: 0;
-  font-size: 14px;
-  white-space: normal;
-  word-wrap: break-word;
-  max-height: 40px;
-  overflow: hidden;
-}
-
-.file-name:hover { 
-  /* Remove the border-bottom that's causing the double red line */
-  border-bottom: none; 
-}
-
-.file-list.grid-view .file-name:hover { border-bottom: none; }
-
-.file-actions {
-  display: flex;
-  margin-left: auto;
-}
-
-.more-options-btn {
-  background: none;
-  border: none;
-  color: var(--text-color);
-  cursor: pointer;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
-}
-
-.more-options-btn:hover {
-  background-color: var(--border-color);
-}
-
-.file-list.grid-view .file-actions {
-  position: absolute;
-  top: 5px;
-  left: 5px;
-}
-
-.file-list.grid-view .more-options-btn {
-  width: 18px;
-  height: 18px;
-  font-size: 10px;
-}
-
-#fileInput { display: none; }
-
-#uploadProgressContainer {
-  display: none;
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 300px;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  padding: 10px;
-  border-radius: 4px;
-  z-index: 9999;
-}
-
-#uploadProgressBar {
-  height: 20px;
-  width: 0%;
-  background: var(--accent-red);
-  border-radius: 4px;
-  transition: width 0.1s ease;
-}
-
-#uploadProgressPercent {
-  text-align: center;
-  margin-top: 5px;
-  font-weight: 500;
-}
-
-.cancel-upload-btn {
-  margin-top: 5px;
-  padding: 6px 10px;
-  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
-  color: var(--text-color);
-}
-
-.cancel-upload-btn:hover {
-  background-color: #b71c1c;
-}
-
-.cancel-upload-btn:active { transform: scale(0.95); }
-
-#previewModal {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.8);
-  justify-content: center;
-  align-items: center;
-  z-index: 9998;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-#previewContent {
-  position: relative;
-  width: auto;
-  max-width: 90vw;
-  height: auto;
-  max-height: 90vh;
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  margin: 0 auto;
-}
-
-#previewContent.image-preview {
-  background: none;
-  border: none;
-  padding: 0;
-  max-width: 100vw;
-  max-height: 100vh;
-  margin: 0 auto;
-}
-
-#previewContent.pdf-preview {
-  background: none;
-  border: none;
-  padding: 0;
-  max-width: 100vw;
-  max-height: 100vh;
-  margin: 0 auto;
-}
-
-#previewNav {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 100vw;
-  display: flex;
-  justify-content: space-between;
-  padding: 0 20px;
-  box-sizing: border-box;
-  z-index: 9999;
-}
-
-#previewNav button {
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-#previewNav button:hover {
-  background: rgba(0, 0, 0, 0.7);
-}
-
-#previewNav button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-#previewClose {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  cursor: pointer;
-  font-size: 30px;
-  color: #fff;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.5);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.3s;
-}
-
-#previewClose:hover {
-  background: rgba(0, 0, 0, 0.8);
-}
-
-#iconPreviewContainer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  max-width: 90vw;
-  max-height: 90vh;
-}
-
-#iconPreviewContainer i {
-  font-size: 100px;
-  color: var(--text-color);
-}
-
-#imagePreviewContainer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  max-width: 90vw;
-  max-height: 90vh;
-  overflow: hidden;
-  margin: 0 auto;
-}
-
-#imagePreviewContainer img {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  display: block;
-  margin: 0 auto;
-}
-
-/* Add media query for desktop screens */
-@media (min-width: 769px) {
-  #previewModal {
-    padding: 0; /* Remove padding from modal */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
   
-  #previewContent.image-preview {
-    max-height: none; /* Remove height restriction on desktop */
-    height: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto;
-  }
-  
-  #imagePreviewContainer {
-    max-height: none; /* Remove height restriction on desktop */
-    height: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto;
-  }
-  
-  #imagePreviewContainer img {
-    max-height: 90vh; /* Use viewport height instead of calc */
-    object-fit: contain;
-    width: auto;
-    height: auto;
-    margin: 0 auto;
-  }
-  
-  #pdfPreviewContainer {
-    max-height: none; /* Remove height restriction on desktop */
-    height: 95vh;
-    width: 95vw; /* Make it wider */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto;
-    position: relative;
-    z-index: 1001;
-  }
-  
-  #pdfViewer {
-    max-height: 95vh;
-    max-width: 95vw; /* Make it wider */
-    height: 100%;
-    width: 100%;
-    border: none; /* Remove border */
-    outline: none; /* Remove outline that might be causing the second line */
-    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4); /* Add stronger shadow */
-    border-radius: 4px; /* Add rounded corners */
-    transform: scale(1); /* Ensure no scaling is applied */
-  }
-}
-
-#dialogModal {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.8);
-  justify-content: center;
-  align-items: center;
-  z-index: 10000;
-}
-
-#dialogModal.show { display: flex; }
-
-.dialog-content {
-  background: var(--content-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 20px;
-  max-width: 90%;
-  width: 400px;
-  text-align: center;
-}
-
-.dialog-message {
-  margin-bottom: 20px;
-  font-size: 16px;
-}
-
-.dialog-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-.dialog-button {
-  background: var(--button-bg);
-  color: var(--text-color);
-  border: none;
-  border-radius: 4px;
-  padding: 6px 10px;
-  cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
-}
-
-.dialog-button:hover {
-  background: var(--button-hover);
-  transform: scale(1.05);
-}
-
-.dialog-button:active { transform: scale(0.95); }
-
-.theme-toggle-btn i { color: var(--text-color); }
-
-#dropZone {
-  display: none;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: var(--dropzone-bg);
-  border: 3px dashed var(--dropzone-border);
-  z-index: 5;
-  justify-content: center;
-  align-items: center;
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--accent-red);
-  text-align: center;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-#dropZone.active { display: flex; }
-
-@media (max-width: 768px) {
-  .file-list.grid-view { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-  .file-list.grid-view .file-row { height: 150px; }
-  .file-list.grid-view .file-preview { height: 100px; }
-  .file-list.grid-view .file-icon { font-size: 16px; }
-  .file-list.grid-view .file-icon-large { font-size: 50px; height: 100px; }
-  #iconPreviewContainer i { font-size: 80px; }
-  #previewNav button { width: 30px; height: 30px; font-size: 16px; }
-  #previewClose { top: 10px; right: 10px; font-size: 25px; }
-}
-#videoPreviewContainer {
-  display: none;
-  width: 100%;
-  height: 100%;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #000;
-}
-
-#videoPlayer {
-  width: 100%;
-  height: 100%;
-  max-width: 100vw;
-  max-height: 100vh;
-  object-fit: contain;
-}
-
-#pdfPreviewContainer {
-  display: none;
-  width: 100%;
-  height: 100%;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--content-bg);
-  z-index: 1001;
-}
-
-#pdfViewer {
-  max-height: 95vh;
-  max-width: 95vw; /* Make it wider */
-  height: 100%;
-  width: 100%;
-  border: none; /* Remove border */
-  outline: none; /* Remove outline that might be causing the second line */
-  /* Add custom scrollbar styling for the iframe */
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-red) rgba(0, 0, 0, 0.1);
-}
-
-/* Style the iframe scrollbars for webkit browsers */
-#pdfViewer::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-#pdfViewer::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-}
-
-#pdfViewer::-webkit-scrollbar-thumb {
-  background: var(--accent-red);
-  border-radius: 4px;
-}
-
-#pdfViewer::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
-}
-
-#pdfLoadingIndicator {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 2;
-}
-
-#pdfLoadingIndicator .loading-text {
-  color: white;
-  margin-top: 10px;
-  font-size: 16px;
-}
-
-.video-controls {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 20px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.7));
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-#videoPreviewContainer:hover .video-controls {
-  opacity: 1;
-}
-
-.video-controls-inner {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 10px;
-}
-
-.video-controls button {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
-}
-
-.video-controls button:hover {
-  transform: scale(1.1);
-}
-
-#videoProgress {
-  flex: 1;
-  height: 5px;
-  background: rgba(255,255,255,0.3);
-  border-radius: 2.5px;
-  cursor: pointer;
-  position: relative;
-}
-
-#videoProgressBar {
-  height: 100%;
-  background: var(--accent-red);
-  border-radius: 2.5px;
-  width: 0%;
-  transition: width 0.1s linear, transform 0.3s ease;
-  position: relative;
-}
-
-#videoProgress:hover #videoProgressBar {
-  transform: scaleY(1.5);
-}
-
-#previewContent.video-preview {
-  background: none;
-  border: none;
-  padding: 0;
-  max-width: 100vw;
-  max-height: 100vh;
-}
-
-/* General transitions for all interactive elements */
-button, .btn, .file-row, .folder-item, img, i {
-    transition: all 0.3s ease;
-}
-
-/* Smooth preview transitions */
-#previewContent {
-    transition: opacity 0.3s ease;
-}
-
-#previewContent.fade-out {
-    opacity: 0;
-}
-
-#previewContent.fade-in {
-    opacity: 1;
-}
-
-/* Image preview animations */
-#imagePreviewContainer img {
-    opacity: 0;
-    transform: scale(0.95);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-#imagePreviewContainer img.loaded {
-    opacity: 1;
-    transform: scale(1);
-}
-
-/* Video preview animations */
-#videoPreviewContainer {
-    opacity: 0;
-    transform: scale(0.95);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-#videoPreviewContainer.loaded {
-    opacity: 1;
-    transform: scale(1);
-}
-
-/* Navigation button animations */
-#previewNav button {
-    transform: translateX(0);
-    transition: transform 0.3s ease, background 0.3s ease;
-}
-
-#previewNav button:hover {
-    transform: scale(1.1);
-}
-
-#prevBtn.slide-out {
-    transform: translateX(-100px);
-}
-
-#nextBtn.slide-out {
-    transform: translateX(100px);
-}
-
-/* File list animations */
-.file-row {
-    animation: fadeIn 0.3s ease;
-}
-
-.file-row:hover {
-    transform: translateY(-2px);
-    border-bottom-color: var(--accent-red);
-}
-
-.file-list.grid-view .file-row:hover {
-    transform: translateY(-2px);
-    border-color: var(--accent-red);
-    border-width: 2px;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Modal animations */
-#previewModal {
-    transition: background-color 0.3s ease;
-}
-
-#previewClose {
-    transition: transform 0.3s ease, background 0.3s ease;
-}
-
-#previewClose:hover {
-    transform: rotate(90deg);
-}
-
-/* Progress bar animation */
-#videoProgressBar {
-    transition: width 0.1s linear, transform 0.3s ease;
-}
-
-/* Dialog modal animations */
-#dialogModal .dialog-content {
-    animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-#bufferingIndicator {
-  display: none;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 80px;
-  height: 80px;
-  z-index: 100;
-  justify-content: center;
-  align-items: center;
-}
-
-.spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: var(--accent-red);
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-#videoBufferBar {
-  position: absolute;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2.5px;
-  width: 0%;
-  pointer-events: none;
-}
-
-#videoProgress {
-  flex: 1;
-  height: 5px;
-  background: rgba(255,255,255,0.3);
-  border-radius: 2.5px;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-}
-
-#videoProgressBar {
-  height: 100%;
-  background: var(--accent-red);
-  border-radius: 2.5px;
-  width: 0%;
-  transition: width 0.1s linear, transform 0.3s ease;
-  position: relative;
-  z-index: 2;
-}
-
-#videoProgress:hover #videoProgressBar {
-  transform: scaleY(1.5);
-}
-
-/* Improve video controls for mobile devices */
-@media (max-width: 768px) {
-  .video-controls-inner {
-    padding: 15px 5px;
-  }
-  
-  .video-controls button {
-    width: 32px;
-    height: 32px;
-    font-size: 16px;
-  }
-  
-  #videoProgress {
-    height: 8px;
-  }
-}
-
-/* Context Menu Styles */
-.context-menu {
-    position: absolute;
-    background-color: var(--content-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    z-index: 10000;
-    min-width: 150px;
-    display: none;
-}
-
-.context-menu-item {
-    padding: 8px 12px;
-    cursor: pointer;
-    border-bottom: 2px solid rgba(var(--border-color-rgb), 0.3);
-    background-color: transparent;
-}
-
-.context-menu-item:last-child {
-    border-bottom: none;
-}
-
-.context-menu-item:hover {
-    background-color: rgba(var(--hover-color-rgb), 0.1);
-    border-bottom-color: var(--accent-red);
-    border-bottom-width: 2px;
-}
-
-.context-menu-item i {
-    margin-right: 10px;
-    width: 20px;
-    text-align: center;
-    color: var(--text-color);
-}
-
-.context-menu-divider {
-    height: 1px;
-    background-color: var(--border-color);
-    margin: 0; /* Changed from 5px 0 to 0 */
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Make context menu items more touch-friendly on mobile */
-@media (max-width: 768px) {
-  .context-menu-item {
-    padding: 15px;
-    font-size: 16px;
-  }
-  
-  .context-menu-item i {
-    font-size: 18px;
-    margin-right: 15px;
-  }
-}
-
-/* Particles styles for sidebar */
-#sidebar-particles-js {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  opacity: 0.9;
-  pointer-events: none;
-}
-
-.folders-container {
-  position: relative;
-  z-index: 1;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.folder-list-container {
-  overflow-y: auto;
-  overflow-x: hidden;
-  flex: 1;
-  margin-bottom: 10px;
-  /* Custom scrollbar styling */
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-red) var(--background);
-}
-
-/* For Webkit browsers (Chrome, Safari, etc.) */
-.folder-list-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.folder-list-container::-webkit-scrollbar-track {
-  background: var(--background);
-  border-radius: 4px;
-}
-
-.folder-list-container::-webkit-scrollbar-thumb {
-  background: var(--accent-red);
-  border-radius: 4px;
-}
-
-.folder-list-container::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, var(--accent-red), #b71c1c);
-}
-
-.top-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 2px;
-  justify-content: flex-start;
-}
-
-.drivepulse-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
-  margin-top: 0px; /* Changed from 10px to 0px to move the logo and text upward */
-  justify-content: center;
-}
-
-.drivepulse-logo {
-  font-size: 24px;
-  color: var(--accent-red);
-}
-
-.drivepulse-title {
-  font-size: 20px;
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.separator-line {
-  height: 1px;
-  background-color: var(--border-color);
-  margin: 10px 0;
-}
-
-.content-inner .folder-list .folder-item {
-  border-bottom: 2px solid var(--border-color);
-  padding: 12px 0;
-  margin: 0 10px;
-  font-size: 16px;
-  background: transparent;
-}
-
-.content-inner .folder-list .folder-item i {
-  font-size: 24px;
-  margin-right: 12px;
-  width: 30px;
-  text-align: center;
-  vertical-align: middle;
-}
-
-.content-inner .folder-list .folder-item:last-child {
-  border-bottom: none;
-}
-
-/* Add styles for grid view of folder-list */
-.folder-list.grid-view {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 180px);
-  gap: 30px 30px; /* Explicitly set both row and column gap to be the same */
-  padding: 20px;
-  margin: 0;
-  justify-content: center; /* Center the grid */
-}
-
-.folder-list.grid-view .folder-item {
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 10px;
-  width: 180px; /* Fixed width */
-  height: 220px; /* Fixed height for all items */
-  background: transparent;
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  margin: 0;
-  position: relative;
-  cursor: pointer;
-  display: flex;
-  overflow: hidden;
-  transition: all 0.2s ease;
-  box-sizing: border-box; /* Include padding in width/height calculation */
-}
-
-.folder-list.grid-view .folder-item:hover {
-  border-color: var(--accent-color);
-  box-shadow: 0 0 10px rgba(var(--accent-color-rgb), 0.4);
-  transform: translateY(-3px);
-}
-
-.folder-list.grid-view .folder-item i {
-  font-size: 40px;
-  margin: 0 0 10px 0;
-  width: auto;
-  height: auto;
-  display: block;
-}
-
-/* Ensure icon is visible when no preview is available */
-.folder-list.grid-view .folder-item:not(:has(.image-preview-container)) i:not(.small-dots):not(.fa-ellipsis-v) {
-  font-size: 60px;
-  margin-top: 30px;
-  margin-bottom: 20px;
-  color: var(--accent-color);
-  opacity: 0.8;
-  display: block !important;
-}
-
-.folder-list.grid-view .thumbnail-container {
-  width: 160px; /* Fixed width */
-  height: 140px; /* Fixed height for all thumbnails */
-  margin-bottom: 10px;
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: rgba(var(--border-color-rgb), 0.1);
-  position: relative;
-  flex-shrink: 0; /* Prevent shrinking */
-}
-
-.folder-list.grid-view .thumbnail {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.folder-list.grid-view .folder-item:hover .thumbnail {
-  transform: scale(1.05);
-}
-
-.folder-list.grid-view .folder-actions {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  margin: 0;
-  z-index: 10;
-  width: 28px;
-  height: 28px;
-}
-
-.folder-list.grid-view .folder-more-options-btn {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 50%;
-  border: none;
-}
-
-.folder-list.grid-view .folder-more-options-btn i {
-  font-size: 14px;
-  margin: 0;
-  color: white;
-}
-
-.content-inner .folder-list .folder-item {
-  border-bottom: 2px solid var(--border-color);
-  padding: 12px 0;
-  margin: 0 10px;
-  font-size: 16px;
-  background: transparent;
-}
-
-.content-inner .folder-list .folder-item:hover {
-  border-bottom-color: var(--accent-red);
-  border-bottom-width: 2px;
-}
-
-.content-inner .folder-list.grid-view .folder-item {
-  border: 2px solid var(--border-color);
-  border-radius: 4px;
-  margin: 0;
-  padding: 15px 10px;
-}
-
-.content-inner .folder-list.grid-view .folder-item:hover {
-  border-color: var(--accent-red);
-  border-width: 2px;
-}
-
-/* Custom class for smaller ellipsis dots */
-.small-dots {
-  font-size: 1.2em !important;
-  transform: scale(1.2);
-  display: inline-block;
-}
-
-.thumbnail-container {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  border-radius: 4px;
-  margin-bottom: 10px;
-  display: none; /* Hide by default in stacked view */
-}
-
-.thumbnail {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Show thumbnails only in grid view */
-.folder-list.grid-view .thumbnail-container {
-  display: block;
-}
-
-/* Make sure icons are visible in stacked view */
-.folder-item i {
-  margin-right: 6px;
-  display: inline-block;
-}
-
-/* Hide icons in grid view when there's a thumbnail */
-.folder-list.grid-view .folder-item i:not(.small-dots):not(.fa-ellipsis-v) {
-  display: none;
-}
-
-/* We'll handle the specific case in JavaScript instead of using :has() */
-// ... existing code ...
-
-/* Hide image previews in stacked view */
-.image-preview-container {
-  display: none;
-}
-
-/* Show image previews only in grid view */
-.folder-list.grid-view .image-preview-container {
-  display: block;
-}
-
-/* Make sure icons are visible for images in stacked view */
-.folder-item:has(.image-preview-container) i {
-  display: inline-block !important;
-}
-
-/* In grid view, hide icons for items with image previews */
-.folder-list.grid-view .folder-item:has(.image-preview-container) i:not(.small-dots):not(.fa-ellipsis-v) {
-  display: none !important;
-}
-// ... existing code ...
-
-/* Hide image previews in stacked view */
-.image-preview-container {
-  display: none;
-}
-
-/* Show image previews only in grid view */
-.folder-list.grid-view .image-preview-container {
-  display: block;
-}
-
-/* Ensure icons are properly displayed in stacked view */
-.folder-item i {
-  display: inline-block;
-  margin-right: 10px;
-  vertical-align: middle;
-}
-
-/* Remove any conflicting rules */
-.folder-list.grid-view .folder-item i:not(.fa-ellipsis-v) {
-  display: none;
-}
-
-/* Ensure the ellipsis icon in the more options button is always visible */
-.folder-more-options-btn i {
-  display: inline-block !important;
-}
-
-/* Ensure icons are properly displayed in stacked view */
-.folder-item i:not(.fa-ellipsis-v) {
-  display: inline-block;
-  margin-right: 10px;
-  vertical-align: middle;
-  font-size: 20px;
-}
-
-/* In grid view, hide file type icons for items with thumbnails */
-.folder-list.grid-view .folder-item .image-preview-container + i {
-  display: none;
-}
-
-/* Ensure the ellipsis icon in the more options button is always visible */
-.folder-more-options-btn i {
-  display: inline-block !important;
-  margin-right: 0;
-}
-
-/* PDF preview animations */
-#pdfPreviewContainer {
-    opacity: 0;
-    transform: scale(0.95);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-#pdfPreviewContainer.loaded {
-    opacity: 1;
-    transform: scale(1);
-}
-
-/* Navigation button animations */
-#previewNav button {
-    transform: translateX(0);
-    transition: transform 0.3s ease, background 0.3s ease;
-}
-
-#previewNav button:hover {
-    transform: scale(1.1);
-}
-
-#prevBtn.slide-out {
-    transform: translateX(-100px);
-}
-
-#nextBtn.slide-out {
-    transform: translateX(100px);
-}
-
-#previewContent.pdf-preview {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    max-width: 95vw;
-    max-height: 95vh;
-    overflow: hidden;
-  }
-
-/* Add text truncation for file names in grid view */
-.folder-list.grid-view .file-name {
-  max-width: 160px;
-  width: 160px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-  margin-top: auto;
-  padding: 0;
-  font-size: 0.9em;
-  line-height: 1.2;
-  height: 40px; /* Fixed height for file names */
-  flex-shrink: 0; /* Prevent shrinking */
-}
-
-/* Apply box-sizing to all elements */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-/* Fix for image-preview-container to ensure consistent display */
-.folder-list.grid-view .image-preview-container {
-  width: 160px !important;
-  height: 140px !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-/* Ensure all images maintain aspect ratio but fit within container */
-.folder-list.grid-view .image-preview-container img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-
-/* Force consistent dimensions for all folder items */
-.folder-list.grid-view .folder-item {
-  min-width: 180px;
-  max-width: 180px;
-  min-height: 220px;
-  max-height: 220px;
-  flex: 0 0 180px; /* Don't grow or shrink, stay at 180px */
-}
-
-/* Ensure the grid layout is consistent */
-@media (min-width: 768px) {
-  .folder-list.grid-view {
-    grid-template-columns: repeat(auto-fill, 180px);
-    justify-content: space-evenly;
-    column-gap: 30px; /* Explicit column gap */
-    row-gap: 30px; /* Explicit row gap */
-  }
-}
-
-/* Fix for very small screens */
-@media (max-width: 767px) {
-  .folder-list.grid-view {
-    grid-template-columns: repeat(auto-fill, 180px);
-    justify-content: center;
-    column-gap: 30px; /* Explicit column gap */
-    row-gap: 30px; /* Explicit row gap */
-  }
-}
-
-.file-list.grid-view .file-name {
-  margin: 0;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-height: 20px;
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  right: 10px;
-  text-align: center;
-}
-
-/* Add text truncation for file names in grid view */
-.folder-list.grid-view .file-name {
-  max-width: 160px;
-  width: 160px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  right: 10px;
-  padding: 0;
-  font-size: 0.9em;
-  line-height: 1.2;
-  height: 20px; /* Reduced height for single line */
-  flex-shrink: 0; /* Prevent shrinking */
-  text-align: center;
-}
-
-/* Modal styles */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 9999;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0, 0, 0, 0.5);
-  animation: fadeIn 0.3s;
-}
-
-.modal-content {
-  background-color: #fefefe;
-  margin: 10% auto;
-  padding: 0;
-  border: 1px solid #888;
-  border-radius: 5px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  max-width: 80%;
-  animation: slideDown 0.3s;
-}
-
-.modal-header {
-  padding: 15px;
-  border-bottom: 1px solid #e9e9e9;
-  background-color: #f8f9fa;
-  border-top-left-radius: 5px;
-  border-top-right-radius: 5px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.modal-body {
-  padding: 15px;
-}
-
-.close {
-  color: #aaa;
-  font-size: 28px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.close:hover,
-.close:focus {
-  color: black;
-  text-decoration: none;
-}
-
-.alert {
-  padding: 12px 15px;
-  margin-bottom: 15px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-}
-
-.alert-success {
-  color: #155724;
-  background-color: #d4edda;
-  border-color: #c3e6cb;
-}
-
-.alert-danger {
-  color: #721c24;
-  background-color: #f8d7da;
-  border-color: #f5c6cb;
-}
-
-.btn-primary {
-  background-color: #007bff;
-  color: white;
-  border: 1px solid #0069d9;
-}
-
-.btn-primary:hover {
-  background-color: #0069d9;
-}
-
-.btn-danger {
-  background-color: #dc3545;
-  color: white;
-  border: 1px solid #c82333;
-}
-
-.btn-danger:hover {
-  background-color: #c82333;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideDown {
-  from { transform: translateY(-50px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-/* Toggle Switch */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 24px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 16px;
-  width: 16px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: .4s;
-}
-
-input:checked + .slider {
-  background-color: #4CAF50;
-}
-
-input:focus + .slider {
-  box-shadow: 0 0 1px #4CAF50;
-}
-
-input:checked + .slider:before {
-  transform: translateX(26px);
-}
-
-.slider.round {
-  border-radius: 24px;
-}
-
-.slider.round:before {
-  border-radius: 50%;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* ... existing styles ... */
-
-/* Share Modal Styles */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 9999;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-}
-
-.modal-content {
-  background-color: var(--background);
-  margin: 10% auto;
-  padding: 0;
-  border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-  max-width: 500px;
-  animation: modalFadeIn 0.3s ease;
-  border: 1px solid var(--border-color);
-}
-
-@keyframes modalFadeIn {
-  from {opacity: 0; transform: translateY(-20px);}
-  to {opacity: 1; transform: translateY(0);}
-}
-
-.modal-header {
-  padding: 15px 20px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: var(--sidebar-bg);
-  border-radius: 8px 8px 0 0;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 18px;
-  color: var(--text-color);
-}
-
-.modal-body {
-  padding: 20px;
-  color: var(--text-color);
-}
-
-.close {
-  color: var(--text-color);
-  float: right;
-  font-size: 24px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.close:hover {
-  color: var(--accent-red);
-}
-
-/* Toggle Switch */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 24px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 16px;
-  width: 16px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: .4s;
-}
-
-input:checked + .slider {
-  background-color: #4CAF50;
-}
-
-input:focus + .slider {
-  box-shadow: 0 0 1px #4CAF50;
-}
-
-input:checked + .slider:before {
-  transform: translateX(26px);
-}
-
-.slider.round {
-  border-radius: 24px;
-}
-
-.slider.round:before {
-  border-radius: 50%;
-}
-
-/* Alert styles */
-.alert {
-  padding: 10px 15px;
-  border-radius: 4px;
-  margin-bottom: 10px;
-}
-
-.alert-success {
-  background-color: rgba(76, 175, 80, 0.2);
-  border: 1px solid #4CAF50;
-  color: #4CAF50;
-}
-
-.alert-danger {
-  background-color: rgba(244, 67, 54, 0.2);
-  border: 1px solid #F44336;
-  color: #F44336;
-}
-
-/* Button styles */
-.btn-primary {
-  background-color: var(--accent-red);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.btn-primary:hover {
-  background-color: #b71c1c;
-}
-
-.share-icon {
-  color: #ff3333;
-  margin-right: 5px;
-  font-size: 14px;
-}
-
-.folder-actions {
-  display: flex;
-  align-items: center;
-}
-
-/* Hide share icon in grid view */
-.file-list.grid-view .share-icon,
-.folder-list.grid-view .share-icon,
-.file-list.grid-view .folder-actions .share-icon,
-.folder-list.grid-view .folder-actions .share-icon,
-.grid-view .folder-item .folder-actions .share-icon,
-.grid-view .folder-actions > .share-icon,
-.grid-view .fa-globe.share-icon,
-.folder-list.grid-view .folder-item .folder-actions .fa-globe.share-icon,
-.folder-list.grid-view li.folder-item .folder-actions i.fas.fa-globe.share-icon {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-  position: absolute !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  margin: -1px !important;
-  padding: 0 !important;
-  border: 0 !important;
-}
-
-/* Hide elements with hide-in-grid class when in grid view */
-.grid-view .hide-in-grid {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-}
-
-    .sr-only {
-      position: absolute !important;
-      width: 1px !important;
-      height: 1px !important;
-      overflow: hidden !important;
-      clip: rect(0, 0, 0, 0) !important;
-      margin: -1px !important;
-      padding: 0 !important;
-      border: 0 !important;
-      pointer-events: none !important;
-    }
-    
-    /* Breadcrumb Navigation Styles */
-    .breadcrumb-navigation {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      font-size: 18px;
-      padding: 5px 0;
-    }
-
-    .breadcrumb-item {
-      color: var(--text-color);
-      text-decoration: none;
-      padding: 5px 8px;
-      border-radius: 4px;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-      font-weight: 500;
-    }
-
-    .breadcrumb-item:hover {
-      background-color: rgba(var(--hover-color-rgb), 0.1);
-      color: var(--accent-red);
-    }
-
-    .breadcrumb-item.current {
-      color: var(--accent-red);
-      font-weight: 600;
-    }
-
-    .breadcrumb-separator {
-      color: var(--text-muted);
-      margin: 0 2px;
-    }
-
-    /* Make breadcrumbs responsive */
-    @media (max-width: 768px) {
-      .breadcrumb-navigation {
-        font-size: 16px;
-      }
-      
-      .breadcrumb-item {
-        padding: 4px 6px;
-      }
-    }
-
-    /* Header layout styles */
-    .header-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* Back button in header */
-    .header-title .btn-back {
-      margin: 0 4px;
-    }
-  </style>
-  
-  <!-- Additional styles to ensure share icon is hidden in grid view -->
-  <style>
-    /* Super aggressive hiding of share icon in grid view */
-    .grid-view .share-icon,
-    .grid-view .fa-globe,
-    .grid-view .hide-in-grid,
-    .grid-view .folder-actions > i.fas.fa-globe,
-    .grid-view .folder-item .folder-actions i.fas.fa-globe,
-    .grid-view .folder-item .folder-actions .share-icon,
-    .grid-view .folder-item .folder-actions i.fas.fa-globe.share-icon,
-    .grid-view .folder-item .folder-actions i.fas.fa-globe.share-icon.hide-in-grid {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-      width: 0 !important;
-      height: 0 !important;
-      position: absolute !important;
-      overflow: hidden !important;
-      clip: rect(0, 0, 0, 0) !important;
-      margin: -1px !important;
-      padding: 0 !important;
-      border: 0 !important;
-      pointer-events: none !important;
-    }
-  </style>
 </head>
 <body>
+  <div id="popupOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 99998;"></div>
+  
+  <div id="popupMenu" style="display: none; position: fixed; bottom: -100%; left: 0; right: 0; background: #1e1e1e; z-index: 99999; transition: bottom 0.3s ease; border-radius: 15px 15px 0 0;">
+    <div style="padding: 20px;">
+      <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: white; font-size: 18px;">Options</span>
+        <button onclick="hidePopup()" style="background: none; border: none; color: white; font-size: 20px;">×</button>
+      </div>
+      
+      <button onclick="handlePopupAction('open')" style="width: 100%; padding: 15px; margin: 5px 0; background: none; border: 1px solid #333; color: white; text-align: left; font-size: 16px; border-radius: 8px;">
+        <i class="fas fa-eye" style="margin-right: 10px;"></i> Open
+      </button>
+      
+      <button onclick="handlePopupAction('download')" style="width: 100%; padding: 15px; margin: 5px 0; background: none; border: 1px solid #333; color: white; text-align: left; font-size: 16px; border-radius: 8px;">
+        <i class="fas fa-download" style="margin-right: 10px;"></i> Download
+      </button>
+      
+      <button onclick="handlePopupAction('share')" style="width: 100%; padding: 15px; margin: 5px 0; background: none; border: 1px solid #333; color: white; text-align: left; font-size: 16px; border-radius: 8px;">
+        <i class="fas fa-share" style="margin-right: 10px;"></i> Share
+      </button>
+      
+      <button onclick="handlePopupAction('rename')" style="width: 100%; padding: 15px; margin: 5px 0; background: none; border: 1px solid #333; color: white; text-align: left; font-size: 16px; border-radius: 8px;">
+        <i class="fas fa-edit" style="margin-right: 10px;"></i> Rename
+      </button>
+      
+      <button onclick="handlePopupAction('delete')" style="width: 100%; padding: 15px; margin: 5px 0; background: none; border: 1px solid #333; color: red; text-align: left; font-size: 16px; border-radius: 8px;">
+        <i class="fas fa-trash" style="margin-right: 10px;"></i> Delete
+      </button>
+    </div>
+  </div>
+
+  <script>
+  let selectedItem = null;
+  const popup = document.getElementById('popupMenu');
+  const overlay = document.getElementById('popupOverlay');
+
+  function showPopup(item) {
+    selectedItem = item;
+    overlay.style.display = 'block';
+    popup.style.display = 'block';
+    setTimeout(() => popup.style.bottom = '0', 10);
+  }
+
+  function hidePopup() {
+    popup.style.bottom = '-100%';
+    overlay.style.display = 'none';
+    setTimeout(() => popup.style.display = 'none', 300);
+    selectedItem = null;
+  }
+
+  function handlePopupAction(action) {
+    if (!selectedItem) return;
+    
+    switch(action) {
+      case 'open':
+        if (selectedItem.classList.contains('file-item')) {
+          openFile(selectedItem);
+        } else {
+          openFolder(selectedItem);
+        }
+        break;
+      case 'download':
+        downloadFile(selectedItem);
+        break;
+      case 'share':
+        if (selectedItem.classList.contains('file-item')) {
+          shareFile(selectedItem);
+        } else {
+          shareFolder(selectedItem);
+        }
+        break;
+      case 'rename':
+        if (selectedItem.classList.contains('file-item')) {
+          renameFile(selectedItem);
+        } else {
+          renameFolder(selectedItem);
+        }
+        break;
+      case 'delete':
+        if (selectedItem.classList.contains('file-item')) {
+          deleteFile(selectedItem);
+        } else {
+          deleteFolder(selectedItem);
+        }
+        break;
+    }
+    hidePopup();
+  }
+
+  // Show popup when clicking three dots
+  document.addEventListener('click', function(e) {
+    const threeDots = e.target.closest('.three-dots, .more-options-btn, .folder-more-options-btn');
+    if (threeDots) {
+      e.preventDefault();
+      e.stopPropagation();
+      const item = threeDots.closest('.file-item, .folder-item');
+      if (item) showPopup(item);
+    }
+  });
+
+  // Hide popup when clicking overlay
+  overlay.addEventListener('click', hidePopup);
+  </script>
+
   <div class="app-container">
     <div class="sidebar" id="sidebar">
       <div id="sidebar-particles-js"></div>
@@ -3124,136 +984,62 @@ input:checked + .slider:before {
 
     <div class="main-content">
       <div class="header-area">
-        <div class="header-title">
-          <button class="hamburger" onclick="toggleSidebar()">
+        <div class="header-title" style="display: flex; flex: 1; width: 100%; gap: 20px; align-items: center; padding: 8px 20px;">
+          <!-- Hamburger menu button -->
+          <button type="button" class="btn" id="sidebarToggle" onclick="toggleSidebar()" style="display: none; margin-right: 10px;">
             <i class="fas fa-bars"></i>
           </button>
-          <?php if ($parentLink): ?>
-            <a class="btn-back" href="<?php echo htmlspecialchars($parentLink); ?>" title="Back">
-              <i class="fas fa-arrow-left"></i>
-            </a>
-          <?php endif; ?>
-          <div class="breadcrumb-navigation">
-            <a href="/selfhostedgdrive/explorer.php?folder=Home" class="breadcrumb-item">Home</a>
-            <?php if ($currentRel !== 'Home'): ?>
-              <?php
-                $pathParts = explode('/', $currentRel);
-                $currentPath = '';
-                
-                foreach ($pathParts as $index => $part):
-                  $currentPath .= ($index > 0 ? '/' : '') . $part;
-              ?>
-                <span class="breadcrumb-separator">/</span>
-                <?php if ($index === count($pathParts) - 1): ?>
-                  <span class="breadcrumb-item current"><?php echo htmlspecialchars($part); ?></span>
-                <?php else: ?>
-                  <a href="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentPath); ?>" class="breadcrumb-item"><?php echo htmlspecialchars($part); ?></a>
-                <?php endif; ?>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </div>
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
-            <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
-            <button type="button" class="btn" id="uploadBtn" title="Upload" style="width:36px; height:36px;">
-              <i class="fas fa-cloud-upload-alt"></i>
-            </button>
-          </form>
-          <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View" style="width:36px; height:36px;">
-            <i class="fas fa-th"></i>
-          </button>
-          <button type="button" class="btn theme-toggle-btn" id="themeToggleBtn" title="Toggle Theme" style="width:36px; height:36px;">
-            <i class="fas fa-moon"></i>
-          </button>
-          <a href="/selfhostedgdrive/logout.php" class="btn logout-btn" title="Logout">
-            <i class="fa fa-sign-out" aria-hidden="true"></i>
-          </a>
-          <div id="uploadProgressContainer">
-            <div style="background:var(--border-color); width:100%; height:20px; border-radius:4px; overflow:hidden;">
-              <div id="uploadProgressBar"></div>
+
+          <!-- Fixed multi-select controls container -->
+          <div class="multi-select-controls-container" style="display: flex; flex: 1; background: var(--sidebar-bg); opacity: 0.8; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border-radius: 8px; padding: 8px 15px; margin-bottom: 0; margin-top: 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            <div class="multi-select-controls" style="display: flex; align-items: center; width: 100%; justify-content: space-between; flex-wrap: nowrap;">
+              <!-- Left side - Select All button -->
+              <button type="button" class="multi-select-btn" id="selectAllBtn" title="Select All Files" style="font-size: 13px; padding: 8px 16px; min-width: 80px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; flex-shrink: 0;">
+                <i class="fas fa-check-square" style="margin-right: 8px;"></i>All
+              </button>
+              
+              <!-- Right side - Delete and Download buttons -->
+              <div style="display: flex; gap: 20px; flex-shrink: 0;">
+                <button type="button" class="multi-select-btn" id="deleteSelectedBtn" title="Delete Selected Files" style="font-size: 13px; padding: 8px; width: 36px; height: 36px; background: rgba(211, 47, 47, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; display: flex; align-items: center; justify-content: center;">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+                <button type="button" class="multi-select-btn" id="downloadSelectedBtn" title="Download Selected Files" style="font-size: 13px; padding: 8px; width: 36px; height: 36px; background: rgba(0, 0, 0, 0.1); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; display: flex; align-items: center; justify-content: center;">
+                  <i class="fas fa-download"></i>
+                </button>
+              </div>
             </div>
-            <div id="uploadProgressPercent">0.0%</div>
-            <button class="cancel-upload-btn" id="cancelUploadBtn">Cancel</button>
+          </div>
+          <div style="display: flex; gap: 10px; margin-right: 20px;">
+            <a href="/selfhostedgdrive/logout.php" class="btn logout-btn" title="Logout">
+              <i class="fa fa-sign-out" aria-hidden="true"></i>
+            </a>
           </div>
         </div>
       </div>
       <div class="content-inner" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding-top: 20px; padding-bottom: 50px; display: flex; flex-direction: column; overflow: hidden;">
-        <!-- Fixed multi-select controls container -->
-        <div class="multi-select-controls-container" style="background: var(--sidebar-bg); opacity: 0.8; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); flex-shrink: 0;">
-          <div class="multi-select-controls" style="display: flex; align-items: center; justify-content: space-between;">
-            <!-- Left side - Select All button -->
-            <button type="button" class="multi-select-btn" id="selectAllBtn" title="Select All Files" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
-              <i class="fas fa-check-square" style="margin-right: 8px;"></i>Select All
-            </button>
-            
-            <!-- Right side - Delete and Download buttons -->
-            <div style="display: flex; gap: 20px;">
-              <button type="button" class="multi-select-btn" id="deleteSelectedBtn" title="Delete Selected Files" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: rgba(211, 47, 47, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
-                <i class="fas fa-trash-alt" style="margin-right: 8px;"></i>Delete
-              </button>
-              <button type="button" class="multi-select-btn" id="downloadSelectedBtn" title="Download Selected Files" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: rgba(0, 0, 0, 0.1); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
-                <i class="fas fa-download" style="margin-right: 8px;"></i>Download
-              </button>
-            </div>
-          </div>
-          
-          <style>
-            /* Hover and active states for multi-select buttons */
-            #selectAllBtn:hover {
-              border-color: var(--accent-red);
-              background: rgba(var(--border-color-rgb), 0.3);
-            }
-            
-            #deleteSelectedBtn:hover {
-              background: var(--accent-red);
-              color: white !important;
-            }
-            
-            #downloadSelectedBtn:hover {
-              background: var(--border-color);
-              color: var(--text-color);
-            }
-            
-            .multi-select-btn:active {
-              transform: scale(0.98);
-            }
-            
-            /* Ensure text is visible in both modes */
-            body.light-mode .multi-select-btn {
-              text-shadow: none;
-            }
-            
-            body.light-mode #deleteSelectedBtn {
-              color: var(--accent-red);
-            }
-          </style>
+        <div class="breadcrumb-navigation">
+          <a href="/selfhostedgdrive/explorer.php?folder=Home" class="breadcrumb-item">Home</a>
+          <?php if ($currentRel !== 'Home'): ?>
+            <?php
+              $pathParts = explode('/', $currentRel);
+              $currentPath = '';
+              
+              foreach ($pathParts as $index => $part):
+                $currentPath .= ($index > 0 ? '/' : '') . $part;
+            ?>
+              <span class="breadcrumb-separator">/</span>
+              <?php if ($index === count($pathParts) - 1): ?>
+                <span class="breadcrumb-item current"><?php echo htmlspecialchars($part); ?></span>
+              <?php else: ?>
+                <a href="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentPath); ?>" class="breadcrumb-item"><?php echo htmlspecialchars($part); ?></a>
+              <?php endif; ?>
+            <?php endforeach; ?>
+          <?php endif; ?>
         </div>
-        
-        <hr style="border: 0; height: 2px; background: var(--accent-red); margin: 0 0 20px 0; opacity: 0.8; width: 100%; flex-shrink: 0;">
         
         <!-- Scrollable container for files -->
         <div class="files-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--accent-red) var(--background);">
-          <style>
-            /* Custom scrollbar styling for files container */
-            .files-container::-webkit-scrollbar {
-              width: 8px;
-            }
-            
-            .files-container::-webkit-scrollbar-track {
-              background: var(--background);
-              border-radius: 4px;
-            }
-            
-            .files-container::-webkit-scrollbar-thumb {
-              background: var(--accent-red);
-              border-radius: 4px;
-            }
-            
-            .files-container::-webkit-scrollbar-thumb:hover {
-              background: linear-gradient(135deg, var(--accent-red), #b71c1c);
-            }
-          </style>
+          
           <ul class="folder-list" id="fileList">
             <?php foreach ($files as $fileName): ?>
               <?php 
@@ -3322,7 +1108,7 @@ input:checked + .slider:before {
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
         <div id="videoPreviewContainer" style="display: none;">
-            <video id="videoPlayer" preload="auto" onclick="togglePlay(event)"></video>
+            <video id="videoPlayer" preload="auto"></video>
             <div id="bufferingIndicator">
                 <div class="spinner"></div>
             </div>
@@ -3333,6 +1119,7 @@ input:checked + .slider:before {
                         <div id="videoProgressBar"></div>
                         <div id="videoBufferBar"></div>
                     </div>
+                    <span id="videoDuration" class="duration-display">0:00 / 0:00</span>
                     <button id="fullscreenBtn" onclick="toggleFullscreen(event)"><i class="fas fa-expand"></i></button>
                 </div>
             </div>
@@ -3353,9 +1140,6 @@ input:checked + .slider:before {
       <div class="dialog-buttons" id="dialogButtons"></div>
     </div>
   </div>
-
-  <!-- Mobile menu overlay -->
-  <div id="mobileMenuOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999;"></div>
 
   <!-- Add context menu at the bottom of the page -->
   <div id="contextMenu" class="context-menu">
@@ -3387,6 +1171,9 @@ input:checked + .slider:before {
       <div class="context-menu-item" id="contextMenuOpenFolder">
           <i class="fas fa-folder-open"></i> Open
       </div>
+      <div class="context-menu-item" id="contextMenuShareFolder">
+          <i class="fas fa-globe" style="color: red;"></i> Share
+      </div>
       <div class="context-menu-divider"></div>
       <div class="context-menu-item" id="contextMenuRenameFolder">
           <i class="fas fa-edit"></i> Rename
@@ -3397,7 +1184,30 @@ input:checked + .slider:before {
     </div>
   </div>
 
-<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+  <div class="dock">
+    <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentRel); ?>">
+      <input type="file" name="upload_files[]" multiple id="fileInput" style="display:none;" />
+      <button type="button" class="btn" id="uploadBtn" title="Upload">
+        <i class="fas fa-cloud-upload-alt"></i>
+      </button>
+    </form>
+    <button type="button" class="btn" id="gridToggleBtn" title="Toggle Grid View">
+      <i class="fas fa-th"></i>
+    </button>
+    <button type="button" class="btn theme-toggle-btn" id="themeToggleBtn" title="Toggle Theme">
+      <i class="fas fa-moon"></i>
+    </button>
+  </div>
+
+  <div id="uploadProgressContainer" style="display: none;">
+    <div style="background:var(--border-color); width:100%; height:20px; border-radius:4px; overflow:hidden;">
+      <div id="uploadProgressBar"></div>
+    </div>
+    <div id="uploadProgressPercent">0.0%</div>
+    <button class="cancel-upload-btn" id="cancelUploadBtn">Cancel</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 <script>
 let selectedFolder = null;
 let currentXhr = null;
@@ -3642,16 +1452,22 @@ function openPreviewModal(fileURL, fileName) {
             // Set optimal video attributes for performance
             videoPlayer.preload = "auto";
             
-            // Add adaptive playback attributes
+            // Add adaptive playback attributes and codec support
             videoPlayer.setAttribute('playsinline', '');
             videoPlayer.setAttribute('crossorigin', 'anonymous');
             videoPlayer.setAttribute('controlsList', 'nodownload');
             
-            // Handle source differently for better performance
-            if (videoPlayer.src !== file.url) {
-                videoPlayer.src = file.url;
-                videoPlayer.load();
-            }
+            // Add codec support
+            const sourceElement = document.createElement('source');
+            sourceElement.src = file.url;
+            sourceElement.type = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'; // Add explicit codec support
+            
+            // Clear previous sources
+            videoPlayer.innerHTML = '';
+            videoPlayer.appendChild(sourceElement);
+            
+            // Add fallback text
+            videoPlayer.appendChild(document.createTextNode('Your browser does not support the video tag.'));
             
             videoContainer.style.display = 'block';
             previewContent.classList.add('video-preview');
@@ -3664,6 +1480,17 @@ function openPreviewModal(fileURL, fileName) {
             videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
                 bufferingIndicator.style.display = 'none';
+                
+                // Attempt autoplay
+                const playPromise = videoPlayer.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        document.getElementById('playPauseBtn').innerHTML = '<i class="fas fa-pause"></i>';
+                    }).catch(error => {
+                        console.error('Autoplay prevented:', error);
+                        document.getElementById('playPauseBtn').innerHTML = '<i class="fas fa-play"></i>';
+                    });
+                }
             };
             
             // Add waiting event listener for rebuffering
@@ -3810,15 +1637,113 @@ function updateNavigationButtons() {
 }
 
 function setupVideoControls(video) {
+    const videoContainer = document.getElementById('videoPreviewContainer');
+    const controls = videoContainer.querySelector('.video-controls');
     const progressBar = document.getElementById('videoProgressBar');
     const playPauseBtn = document.getElementById('playPauseBtn');
     const bufferingIndicator = document.getElementById('bufferingIndicator');
+    const durationDisplay = document.getElementById('videoDuration');
     
-    // Update progress bar
+    let hideTimeout;
+
+    if ('ontouchstart' in window) {
+        // Touch device - ultra simple approach
+        videoContainer.addEventListener('touchstart', (e) => {
+            // Don't handle touches on controls
+            if (e.target.closest('.video-controls')) {
+                return;
+            }
+
+            e.preventDefault();
+            
+            // Show controls
+            controls.classList.add('active');
+            
+            // Clear any existing timeout
+            clearTimeout(hideTimeout);
+            
+            // Set new timeout to hide controls after 1 second
+            hideTimeout = setTimeout(() => {
+                if (!video.paused) {
+                    controls.classList.remove('active');
+                }
+            }, 1000);
+        });
+
+        // Keep controls visible when video is paused
+        video.addEventListener('pause', () => {
+            clearTimeout(hideTimeout);
+            controls.classList.add('active');
+        });
+
+        // Start hide timer when video plays
+        video.addEventListener('play', () => {
+            clearTimeout(hideTimeout);
+            hideTimeout = setTimeout(() => {
+                controls.classList.remove('active');
+            }, 1000);
+        });
+
+    } else {
+        // Desktop behavior remains the same
+        videoContainer.addEventListener('mousemove', () => {
+            controls.classList.add('active');
+            document.body.style.cursor = 'default';
+            clearTimeout(hideTimeout);
+            
+            if (!video.paused) {
+                hideTimeout = setTimeout(() => {
+                    controls.classList.remove('active');
+                    document.body.style.cursor = 'none';
+                }, 2000);
+            }
+        });
+
+        videoContainer.addEventListener('mouseleave', () => {
+            if (!video.paused) {
+                controls.classList.remove('active');
+                document.body.style.cursor = 'none';
+            }
+        });
+
+        controls.addEventListener('mouseenter', () => {
+            clearTimeout(hideTimeout);
+            controls.classList.add('active');
+            document.body.style.cursor = 'default';
+        });
+
+        controls.addEventListener('mouseleave', () => {
+            if (!video.paused) {
+                hideTimeout = setTimeout(() => {
+                    controls.classList.remove('active');
+                    document.body.style.cursor = 'none';
+                }, 2000);
+            }
+        });
+    }
+
+    // Store timeout reference for cleanup
+    controls._hideTimeout = hideTimeout;
+
+    // Format time helper function
+    function formatTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        if (h > 0) {
+            return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+    
+    // Update progress bar and duration
     video.ontimeupdate = () => {
         if (video.duration) {
             const percent = (video.currentTime / video.duration) * 100;
             progressBar.style.width = percent + '%';
+            
+            // Update duration display
+            durationDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
             
             // Update buffered progress
             updateBufferProgress(video);
@@ -3845,6 +1770,23 @@ function setupVideoControls(video) {
     // Video ended
     video.onended = () => {
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+    };
+
+    // Autoplay when loaded
+    video.oncanplay = () => {
+        videoContainer.classList.add('loaded');
+        bufferingIndicator.style.display = 'none';
+        // Attempt to autoplay
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            }).catch(error => {
+                console.error('Autoplay prevented:', error);
+                // Don't show alert for autoplay restriction
+                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+            });
+        }
     };
 
     // Improve error handling
@@ -4219,16 +2161,19 @@ gridToggleBtn.addEventListener('click', () => {
 
 function closePreviewModal() {
     const previewModal = document.getElementById('previewModal');
-    const videoPlayer = document.getElementById('videoPlayer');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
     const videoContainer = document.getElementById('videoPreviewContainer');
     const pdfContainer = document.getElementById('pdfPreviewContainer');
     const pdfViewer = document.getElementById('pdfViewer');
     const pdfControls = document.getElementById('pdfControls');
-    const bufferingIndicator = document.getElementById('bufferingIndicator');
     const pdfLoadingIndicator = document.getElementById('pdfLoadingIndicator');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const bufferingIndicator = document.getElementById('bufferingIndicator');
     const previewContent = document.getElementById('previewContent');
+    
+    // Reset cursor style to default
+    document.body.style.cursor = 'default';
     
     // Clear video properly
     try {
@@ -4244,6 +2189,12 @@ function closePreviewModal() {
             videoPlayer.pause();
             videoPlayer.removeAttribute('src');
             videoPlayer.load();
+            
+            // Reset video controls
+            const controls = videoContainer.querySelector('.video-controls');
+            if (controls) {
+                controls.classList.remove('active');
+            }
         }
         
         // Reset buffering indicator
@@ -4300,6 +2251,12 @@ function closePreviewModal() {
     
     // Remove keyboard event handler
     document.onkeydown = null;
+    
+    // Clear any remaining timeouts
+    const videoControls = videoContainer.querySelector('.video-controls');
+    if (videoControls && videoControls._controlsTimeout) {
+        clearTimeout(videoControls._controlsTimeout);
+    }
 }
 
 // Context Menu Functionality
@@ -4320,54 +2277,32 @@ document.addEventListener('contextmenu', function(e) {
 
 // Function to position the context menu
 function positionContextMenu(x, y) {
-  // Check if we're on mobile
-  const isMobile = window.innerWidth <= 768;
-  const overlay = document.getElementById('mobileMenuOverlay');
+  // First make the menu visible but off-screen to calculate its dimensions
+  contextMenu.style.display = 'block';
+  contextMenu.style.left = '-9999px';
+  contextMenu.style.top = '-9999px';
   
-  if (isMobile) {
-    // On mobile, position at the bottom of the screen
-    contextMenu.style.left = '0';
-    contextMenu.style.top = 'auto';
-    contextMenu.style.bottom = '0';
-    contextMenu.style.width = '100%';
-    contextMenu.style.borderRadius = '10px 10px 0 0';
-    contextMenu.style.boxShadow = '0 -2px 10px rgba(0, 0, 0, 0.2)';
-    
-    // Show overlay
-    overlay.style.display = 'block';
-  } else {
-    // On desktop, position near the cursor
-    
-    // First make the menu visible but off-screen to calculate its dimensions
-    contextMenu.style.display = 'block';
-    contextMenu.style.left = '-9999px';
-    contextMenu.style.top = '-9999px';
-    
-    const menuWidth = contextMenu.offsetWidth;
-    const menuHeight = contextMenu.offsetHeight;
-    const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
-    
-    // Check if menu goes beyond right edge
-    if (x + menuWidth > windowWidth) {
-      x = Math.max(5, windowWidth - menuWidth - 5);
-    }
-    
-    // Check if menu goes beyond bottom edge
-    if (y + menuHeight > windowHeight) {
-      y = windowHeight - menuHeight - 5;
-    }
-    
-    contextMenu.style.left = `${x}px`;
-    contextMenu.style.top = `${y}px`;
-    contextMenu.style.bottom = 'auto';
-    contextMenu.style.width = '';
-    contextMenu.style.borderRadius = '5px';
-    contextMenu.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
-    
-    // Hide overlay
-    overlay.style.display = 'none';
+  const menuWidth = contextMenu.offsetWidth;
+  const menuHeight = contextMenu.offsetHeight;
+  const windowWidth = window.innerWidth;
+  const windowHeight = window.innerHeight;
+  
+  // Check if menu goes beyond right edge
+  if (x + menuWidth > windowWidth) {
+    x = Math.max(5, windowWidth - menuWidth - 5);
   }
+  
+  // Check if menu goes beyond bottom edge
+  if (y + menuHeight > windowHeight) {
+    y = windowHeight - menuHeight - 5;
+  }
+  
+  contextMenu.style.left = `${x}px`;
+  contextMenu.style.top = `${y}px`;
+  contextMenu.style.bottom = 'auto';
+  contextMenu.style.width = '';
+  contextMenu.style.borderRadius = '5px';
+  contextMenu.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
 }
 
 // Initialize context menu functionality after DOM is fully loaded
@@ -4745,13 +2680,6 @@ document.addEventListener('DOMContentLoaded', function() {
 // Hide context menu when clicking elsewhere
 document.addEventListener('click', function() {
   contextMenu.style.display = 'none';
-  document.getElementById('mobileMenuOverlay').style.display = 'none';
-});
-
-// Add click handler for the overlay
-document.getElementById('mobileMenuOverlay').addEventListener('click', function() {
-  contextMenu.style.display = 'none';
-  this.style.display = 'none';
 });
 
 // Prevent context menu from closing when clicking inside it
@@ -5126,6 +3054,326 @@ document.getElementById('contextMenuOpenFolder').addEventListener('click', funct
   }
 });
 
+document.getElementById('contextMenuShareFolder').addEventListener('click', function() {
+  if (selectedFolder) {
+    const folderPath = document.querySelector('.folder-item.selected').getAttribute('data-folder-path');
+    
+    // Create a modal dialog for sharing folder
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-content" style="width: 500px;">
+        <div class="modal-header">
+          <h2>Share Folder</h2>
+          <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <p>Share folder: <strong>${selectedFolder}</strong></p>
+          
+          <div class="share-toggle-container" style="margin: 20px 0; display: flex; align-items: center;">
+            <label for="folderShareToggle" style="margin-right: 10px;">Enable sharing:</label>
+            <label class="switch">
+              <input type="checkbox" id="folderShareToggle">
+              <span class="slider round"></span>
+            </label>
+            <span id="folderShareToggleStatus" style="margin-left: 10px; font-size: 14px;">Off</span>
+          </div>
+          
+          <div id="folderShareStatus" style="margin: 15px 0; display: none;"></div>
+          <div id="folderShareLink" style="display: none;">
+            <p style="margin-bottom: 5px;">Share link:</p>
+            <input type="text" id="folderShareLinkInput" readonly style="width: 100%; padding: 8px; margin-bottom: 10px; background-color: var(--content-bg); color: var(--text-color); border: 1px solid var(--border-color); outline: none; border-radius: 4px;">
+            <div style="display: flex; gap: 20px;">
+              <button id="copyFolderShareLink" type="button" class="multi-select-btn" title="Copy Link" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
+                <i class="fas fa-copy" style="margin-right: 8px;"></i>Copy Link
+              </button>
+              <button id="previewFolderShareLink" type="button" class="multi-select-btn" title="Preview Link" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
+                <i class="fas fa-external-link-alt" style="margin-right: 8px;"></i>Preview
+              </button>
+            </div>
+          </div>
+          <div id="folderShareLoading" style="display: none;">
+            <div class="spinner" style="margin: 0 auto; width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: var(--accent-red); animation: spin 1s linear infinite;"></div>
+            <p style="text-align: center; margin-top: 10px;">Processing...</p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.style.display = 'block';
+    
+    const folderShareToggle = document.getElementById('folderShareToggle');
+    const folderShareToggleStatus = document.getElementById('folderShareToggleStatus');
+    const folderShareStatus = document.getElementById('folderShareStatus');
+    const folderShareLink = document.getElementById('folderShareLink');
+    const folderShareLoading = document.getElementById('folderShareLoading');
+    const folderShareLinkInput = document.getElementById('folderShareLinkInput');
+    
+    // Helper function to handle fetch errors
+    const handleFetchError = (error) => {
+      console.error('Fetch error:', error);
+      folderShareLoading.style.display = 'none';
+      folderShareStatus.style.display = 'block';
+      folderShareStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+    };
+    
+    // Helper function to handle response parsing
+    const handleResponse = async (response) => {
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      
+      // Check if response is ok (status in the range 200-299)
+      if (!response.ok) {
+        console.error('Response not OK:', response.status, response.statusText);
+        return response.text().then(text => {
+          console.error('Error response text:', text);
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            console.error('Failed to parse error response as JSON:', e);
+            throw new Error('Server error: ' + response.status);
+          }
+        });
+      }
+      
+      // Try to parse as JSON
+      return response.text().then(text => {
+        console.log('Response text:', text);
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          console.error('Failed to parse response as JSON:', e, 'Raw response:', text);
+          throw new Error('Failed to parse JSON response');
+        }
+      });
+    };
+    
+    // Check if folder is shared
+    folderShareLoading.style.display = 'block';
+    
+    fetch(`folder_share_handler.php?action=check_folder_share&folder_path=${encodeURIComponent(folderPath)}`)
+      .then(response => {
+        console.log('Check folder share response status:', response.status);
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error('Folder sharing handler not found. Please ensure folder_share_handler.php exists.');
+          } else {
+            throw new Error('Network response was not ok: ' + response.status);
+          }
+        }
+        return handleResponse(response);
+      })
+      .then(data => {
+        console.log('Check folder share response data:', data);
+        folderShareLoading.style.display = 'none';
+        
+        if (data && data.success) {
+          if (data.is_shared) {
+            // Folder is already shared, set toggle to on
+            folderShareToggle.checked = true;
+            folderShareToggleStatus.textContent = 'On';
+            folderShareToggleStatus.style.color = '#4CAF50';
+            
+            // Show share link
+            folderShareLink.style.display = 'block';
+            // Use the full URL from the server response
+            folderShareLinkInput.value = data.share_url;
+            
+            // Find the folder item and add the share icon if it doesn't exist
+            const folderItem = document.querySelector(`.folder-item[data-folder-name="${selectedFolder.replace(/"/g, '\\"')}"]`);
+            if (folderItem) {
+              const folderActions = folderItem.querySelector('.folder-actions');
+              if (folderActions && !folderActions.querySelector('.share-icon')) {
+                const shareIcon = document.createElement('i');
+                shareIcon.className = 'fas fa-globe share-icon';
+                shareIcon.title = 'This folder is shared';
+                folderActions.insertBefore(shareIcon, folderActions.firstChild);
+              }
+            }
+          }
+        } else if (data && data.message) {
+          // Show error message
+          folderShareStatus.style.display = 'block';
+          folderShareStatus.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+        }
+      })
+      .catch(error => {
+        console.error('Check folder share error:', error);
+        handleFetchError(error);
+      });
+    
+    // Toggle share functionality
+    folderShareToggle.addEventListener('change', function() {
+      folderShareLoading.style.display = 'block';
+      folderShareStatus.style.display = 'none';
+      folderShareLink.style.display = 'none';
+      
+      if (this.checked) {
+        // Enable sharing
+        folderShareToggleStatus.textContent = 'On';
+        folderShareToggleStatus.style.color = '#4CAF50';
+        
+        console.log('Enabling sharing for folder:', folderPath);
+        
+        // Create share
+        const formData = new FormData();
+        formData.append('folder_path', folderPath);
+        formData.append('action', 'create_folder_share');
+        
+        fetch('folder_share_handler.php', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => {
+          console.log('Create folder share response status:', response.status);
+          return handleResponse(response);
+        })
+        .then(data => {
+          console.log('Create folder share response data:', data);
+          folderShareLoading.style.display = 'none';
+          
+          if (data && data.success) {
+            folderShareStatus.style.display = 'block';
+            folderShareStatus.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+            
+            folderShareLink.style.display = 'block';
+            // Use the full URL from the server response
+            folderShareLinkInput.value = data.share_url;
+            
+            // Add share icon to the folder item
+            const folderItem = document.querySelector(`.folder-item[data-folder-name="${selectedFolder.replace(/"/g, '\\"')}"]`);
+            if (folderItem) {
+              const folderActions = folderItem.querySelector('.folder-actions');
+              if (folderActions) {
+                // Remove existing share icon if any
+                const existingIcon = folderActions.querySelector('.share-icon');
+                if (existingIcon) {
+                  existingIcon.remove();
+                }
+                
+                // Add new share icon
+                const shareIcon = document.createElement('i');
+                shareIcon.className = 'fas fa-globe share-icon';
+                shareIcon.title = 'This folder is shared';
+                folderActions.insertBefore(shareIcon, folderActions.firstChild);
+              }
+            }
+          } else {
+            folderShareStatus.style.display = 'block';
+            folderShareStatus.innerHTML = `<div class="alert alert-danger">${data.message || 'Unknown error'}</div>`;
+            // Reset toggle if failed
+            folderShareToggle.checked = false;
+            folderShareToggleStatus.textContent = 'Off';
+            folderShareToggleStatus.style.color = '';
+          }
+        })
+        .catch(error => {
+          console.error('Create folder share error:', error);
+          folderShareLoading.style.display = 'none';
+          folderShareStatus.style.display = 'block';
+          folderShareStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+          // Reset toggle if failed
+          folderShareToggle.checked = false;
+          folderShareToggleStatus.textContent = 'Off';
+          folderShareToggleStatus.style.color = '';
+        });
+      } else {
+        // Disable sharing
+        folderShareToggleStatus.textContent = 'Off';
+        folderShareToggleStatus.style.color = '';
+        
+        console.log('Disabling sharing for folder:', folderPath);
+        
+        // Use fetch instead of XMLHttpRequest for better consistency
+        fetch(`folder_share_handler.php?folder_path=${encodeURIComponent(folderPath)}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+        .then(response => {
+          console.log('Delete folder share response status:', response.status);
+          return handleResponse(response);
+        })
+        .then(data => {
+          console.log('Delete folder share response data:', data);
+          folderShareLoading.style.display = 'none';
+          
+          if (data && data.success) {
+            folderShareStatus.style.display = 'block';
+            folderShareStatus.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+            folderShareLink.style.display = 'none';
+            
+            // Find the folder item and remove the share icon
+            const folderItem = document.querySelector(`.folder-item[data-folder-name="${selectedFolder.replace(/"/g, '\\"')}"]`);
+            if (folderItem) {
+              const shareIcon = folderItem.querySelector('.share-icon');
+              if (shareIcon) {
+                shareIcon.remove();
+              }
+            }
+          } else {
+            folderShareStatus.style.display = 'block';
+            folderShareStatus.innerHTML = `<div class="alert alert-danger">${data.message || 'Unknown error'}</div>`;
+            // Reset toggle if failed
+            folderShareToggle.checked = true;
+            folderShareToggleStatus.textContent = 'On';
+            folderShareToggleStatus.style.color = '#4CAF50';
+          }
+        })
+        .catch(error => {
+          console.error('Delete folder share error:', error);
+          folderShareLoading.style.display = 'none';
+          folderShareStatus.style.display = 'block';
+          folderShareStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+          // Reset toggle if failed
+          folderShareToggle.checked = true;
+          folderShareToggleStatus.textContent = 'On';
+          folderShareToggleStatus.style.color = '#4CAF50';
+        });
+      }
+    });
+    
+    // Copy link button
+    document.getElementById('copyFolderShareLink').addEventListener('click', function() {
+      folderShareLinkInput.select();
+      document.execCommand('copy');
+      const originalText = this.innerHTML;
+      this.innerHTML = '<i class="fas fa-check" style="margin-right: 8px;"></i>Copied!';
+      setTimeout(() => {
+        this.innerHTML = originalText;
+      }, 2000);
+    });
+    
+    // Preview link button
+    document.getElementById('previewFolderShareLink').addEventListener('click', function() {
+      window.open(folderShareLinkInput.value, '_blank');
+    });
+    
+    // Close modal when clicking on X
+    modal.querySelector('.close').addEventListener('click', function() {
+      modal.style.display = 'none';
+      setTimeout(() => {
+        document.body.removeChild(modal);
+      }, 300);
+    });
+    
+    // Close modal when clicking outside of it
+    window.addEventListener('click', function(event) {
+      if (event.target === modal) {
+        modal.style.display = 'none';
+        setTimeout(() => {
+          document.body.removeChild(modal);
+        }, 300);
+      }
+    });
+    
+    contextMenu.style.display = 'none';
+  }
+});
+
 document.getElementById('contextMenuRenameFolder').addEventListener('click', function() {
   if (selectedFolder) {
     renameFolderPrompt(selectedFolder);
@@ -5321,11 +3569,11 @@ function updateSelectedButtons() {
   if (selectedFiles.size > 0) {
     deleteSelectedBtn.style.display = 'inline-flex';
     downloadSelectedBtn.style.display = 'inline-flex';
-    selectAllBtn.innerHTML = '<i class="fas fa-times" style="margin-right: 5px;"></i>Cancel';
+    selectAllBtn.innerHTML = '<i class="fas fa-times"></i>';
   } else {
     deleteSelectedBtn.style.display = 'none';
     downloadSelectedBtn.style.display = 'none';
-    selectAllBtn.innerHTML = '<i class="fas fa-check-square" style="margin-right: 5px;"></i>Select All';
+    selectAllBtn.innerHTML = '<i class="fas fa-check-square" style="margin-right: 8px;"></i>All';
   }
 }
 
@@ -5500,21 +3748,120 @@ downloadSelectedBtn.addEventListener('click', function() {
       }
     });
 
-    // Hide share icons in grid view when the page loads
-    document.addEventListener('DOMContentLoaded', function() {
-      const fileList = document.getElementById('fileList');
-      const isGridView = localStorage.getItem('gridView') === 'true';
+    // Function to check and add share icons
+    function refreshShareIcons() {
+      console.log('Refreshing share icons...');
       
-      if (isGridView && fileList) {
-        const shareIcons = document.querySelectorAll('.share-icon, .fa-globe.share-icon, .hide-in-grid');
-        shareIcons.forEach(function(icon) {
-          icon.style.display = 'none';
-          icon.style.visibility = 'hidden';
-          icon.style.opacity = '0';
-        });
+      // Get all folder items that don't already have share icons
+      const folderItems = Array.from(document.querySelectorAll('.folder-item[data-folder-name]'))
+        .filter(item => !item.querySelector('.share-icon'));
+      
+      // Get all file items that don't already have share icons
+      const fileItems = Array.from(document.querySelectorAll('.folder-item[data-file-name]'))
+        .filter(item => !item.querySelector('.share-icon'));
+      
+      if (folderItems.length === 0 && fileItems.length === 0) {
+        console.log('No new items to check for sharing status.');
+        return;
       }
+      
+      const currentPath = document.getElementById('currentPath')?.value || '';
+      console.log(`Found ${folderItems.length} folders and ${fileItems.length} files to check. Current path: ${currentPath}`);
+      
+      // Check folders
+      folderItems.forEach(folderItem => {
+        const folderName = folderItem.getAttribute('data-folder-name');
+        const folderPath = folderItem.getAttribute('data-folder-path') || 
+                          (currentPath ? currentPath + '/' + folderName : folderName);
+        
+        console.log(`Checking folder: ${folderName}, path: ${folderPath}`);
+        
+        fetch(`folder_share_handler.php?action=check_folder_share&folder_path=${encodeURIComponent(folderPath)}`)
+          .then(response => response.json())
+          .then(data => {
+            console.log(`Folder ${folderName} share response:`, data);
+            if (data && data.success && data.is_shared) {
+              const folderActions = folderItem.querySelector('.folder-actions');
+              if (folderActions && !folderActions.querySelector('.share-icon')) {
+                console.log(`Adding share icon to folder: ${folderName}`);
+                const shareIcon = document.createElement('i');
+                shareIcon.className = 'fas fa-globe share-icon';
+                shareIcon.title = 'This folder is shared';
+                shareIcon.style.cssText = 'color: red !important; margin-right: 8px !important; display: inline-block !important; visibility: visible !important; opacity: 1 !important;';
+                folderActions.insertBefore(shareIcon, folderActions.firstChild);
+              }
+            }
+          })
+          .catch(error => console.error(`Error checking share status for folder ${folderName}:`, error));
+      });
+      
+      // Check files
+      fileItems.forEach(fileItem => {
+        const fileName = fileItem.getAttribute('data-file-name');
+        const filePath = currentPath ? currentPath + '/' + fileName : fileName;
+        
+        fetch(`share_handler.php?action=check_share&file_path=${encodeURIComponent(filePath)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data && data.success && data.is_shared) {
+              const folderActions = fileItem.querySelector('.folder-actions');
+              if (folderActions && !folderActions.querySelector('.share-icon')) {
+                console.log(`Adding share icon to file: ${fileName}`);
+                const shareIcon = document.createElement('i');
+                shareIcon.className = 'fas fa-globe share-icon';
+                shareIcon.title = 'This file is shared';
+                shareIcon.style.cssText = 'color: red !important; margin-right: 8px !important; display: inline-block !important; visibility: visible !important; opacity: 1 !important;';
+                folderActions.insertBefore(shareIcon, folderActions.firstChild);
+              }
+            }
+          })
+          .catch(error => console.error(`Error checking share status for file ${fileName}:`, error));
+      });
+    }
+    
+    // Run when the page is fully loaded
+    window.onload = function() {
+      console.log('Window fully loaded - checking share status');
+      setTimeout(refreshShareIcons, 500);
+      
+      // Set up a periodic check to ensure icons are always visible
+      setInterval(refreshShareIcons, 5000);
+      
+      // Also check when view is toggled
+      document.getElementById('viewToggle')?.addEventListener('click', () => {
+        console.log('View toggled - checking share status');
+        setTimeout(refreshShareIcons, 300);
+      });
+    };
+    
+    // Also run when DOM is initially loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM Content Loaded - checking share status');
+      setTimeout(refreshShareIcons, 300);
     });
 </script>
+
+<style>
+@media (max-width: 768px) {
+  #sidebarToggle {
+    display: flex !important;
+  }
+}
+</style>
+
+<div class="mobile-nav">
+  <div class="mobile-nav-content">
+    <div class="mobile-nav-header">
+      <div class="mobile-nav-title">Menu</div>
+      <button class="mobile-nav-close" onclick="toggleMobileNav()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="mobile-nav-body">
+      <!-- Mobile navigation content -->
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
