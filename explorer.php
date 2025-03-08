@@ -1,11 +1,6 @@
 <?php
 session_start();
 
-// Configure session for persistent login
-ini_set('session.gc_maxlifetime', 30 * 24 * 60 * 60); // 30 days
-ini_set('session.cookie_lifetime', 30 * 24 * 60 * 60); // 30 days
-session_set_cookie_params(30 * 24 * 60 * 60); // 30 days
-
 // Debug log setup with toggle
 define('DEBUG', false);
 $debug_log = '/var/www/html/selfhostedgdrive/debug.log';
@@ -148,12 +143,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
             // Check if this is a video file to apply optimized streaming
             $isVideo = in_array($ext, ['mp4', 'webm', 'ogg', 'mkv']);
             if ($isVideo) {
-                // Force video MIME type
-                header('Content-Type: video/mp4');
-                header('Accept-Ranges: bytes');
+                // Set additional headers for video streaming
+                header("X-Content-Duration: $fileSize");
+                header("Content-Duration: $fileSize");
                 
-                // Use larger buffer for video
-                $bufferSize = 524288; // 512KB chunks
+                // Use a larger buffer for initial chunk if this is a starting segment
+                if ($start < 1048576) { // 1MB
+                    $bufferSize = 524288; // 512KB for initial segment
+                }
             }
             
             while ($remaining > 0 && !feof($fp) && !connection_aborted()) {
@@ -829,110 +826,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download_files'])) {
   
 </head>
 <body>
-  <div id="popupOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 99998;"></div>
-  
-  <div id="popupMenu" style="display: none; position: fixed; bottom: -100%; left: 0; right: 0; background: #1e1e1e; z-index: 99999; transition: bottom 0.3s ease; border-radius: 15px 15px 0 0;">
-    <div style="padding: 20px;">
-      <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-        <span style="color: white; font-size: 18px;">Options</span>
-        <button onclick="hidePopup()" style="background: none; border: none; color: white; font-size: 20px;">×</button>
-      </div>
-      
-      <button onclick="handlePopupAction('open')" style="width: 100%; padding: 15px; margin: 5px 0; background: none; border: 1px solid #333; color: white; text-align: left; font-size: 16px; border-radius: 8px;">
-        <i class="fas fa-eye" style="margin-right: 10px;"></i> Open
-      </button>
-      
-      <button onclick="handlePopupAction('download')" style="width: 100%; padding: 15px; margin: 5px 0; background: none; border: 1px solid #333; color: white; text-align: left; font-size: 16px; border-radius: 8px;">
-        <i class="fas fa-download" style="margin-right: 10px;"></i> Download
-      </button>
-      
-      <button onclick="handlePopupAction('share')" style="width: 100%; padding: 15px; margin: 5px 0; background: none; border: 1px solid #333; color: white; text-align: left; font-size: 16px; border-radius: 8px;">
-        <i class="fas fa-share" style="margin-right: 10px;"></i> Share
-      </button>
-      
-      <button onclick="handlePopupAction('rename')" style="width: 100%; padding: 15px; margin: 5px 0; background: none; border: 1px solid #333; color: white; text-align: left; font-size: 16px; border-radius: 8px;">
-        <i class="fas fa-edit" style="margin-right: 10px;"></i> Rename
-      </button>
-      
-      <button onclick="handlePopupAction('delete')" style="width: 100%; padding: 15px; margin: 5px 0; background: none; border: 1px solid #333; color: red; text-align: left; font-size: 16px; border-radius: 8px;">
-        <i class="fas fa-trash" style="margin-right: 10px;"></i> Delete
-      </button>
-    </div>
-  </div>
-
-  <script>
-  let selectedItem = null;
-  const popup = document.getElementById('popupMenu');
-  const overlay = document.getElementById('popupOverlay');
-
-  function showPopup(item) {
-    selectedItem = item;
-    overlay.style.display = 'block';
-    popup.style.display = 'block';
-    setTimeout(() => popup.style.bottom = '0', 10);
-  }
-
-  function hidePopup() {
-    popup.style.bottom = '-100%';
-    overlay.style.display = 'none';
-    setTimeout(() => popup.style.display = 'none', 300);
-    selectedItem = null;
-  }
-
-  function handlePopupAction(action) {
-    if (!selectedItem) return;
-    
-    switch(action) {
-      case 'open':
-        if (selectedItem.classList.contains('file-item')) {
-          openFile(selectedItem);
-        } else {
-          openFolder(selectedItem);
-        }
-        break;
-      case 'download':
-        downloadFile(selectedItem);
-        break;
-      case 'share':
-        if (selectedItem.classList.contains('file-item')) {
-          shareFile(selectedItem);
-        } else {
-          shareFolder(selectedItem);
-        }
-        break;
-      case 'rename':
-        if (selectedItem.classList.contains('file-item')) {
-          renameFile(selectedItem);
-        } else {
-          renameFolder(selectedItem);
-        }
-        break;
-      case 'delete':
-        if (selectedItem.classList.contains('file-item')) {
-          deleteFile(selectedItem);
-        } else {
-          deleteFolder(selectedItem);
-        }
-        break;
-    }
-    hidePopup();
-  }
-
-  // Show popup when clicking three dots
-  document.addEventListener('click', function(e) {
-    const threeDots = e.target.closest('.three-dots, .more-options-btn, .folder-more-options-btn');
-    if (threeDots) {
-      e.preventDefault();
-      e.stopPropagation();
-      const item = threeDots.closest('.file-item, .folder-item');
-      if (item) showPopup(item);
-    }
-  });
-
-  // Hide popup when clicking overlay
-  overlay.addEventListener('click', hidePopup);
-  </script>
-
   <div class="app-container">
     <div class="sidebar" id="sidebar">
       <div id="sidebar-particles-js"></div>
@@ -982,58 +875,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download_files'])) {
 
     <div class="main-content">
       <div class="header-area">
-        <div class="header-title" style="display: flex; flex: 1; width: 100%; gap: 20px; align-items: center; padding: 8px 20px;">
-          <!-- Hamburger menu button -->
-          <button type="button" class="btn" id="sidebarToggle" onclick="toggleSidebar()" style="display: none; margin-right: 10px;">
+        <div class="header-title">
+          <button class="hamburger" onclick="toggleSidebar()">
             <i class="fas fa-bars"></i>
           </button>
-
-          <!-- Fixed multi-select controls container -->
-          <div class="multi-select-controls-container" style="display: flex; flex: 1; background: var(--sidebar-bg); opacity: 0.8; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border-radius: 8px; padding: 8px 15px; margin-bottom: 0; margin-top: 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-            <div class="multi-select-controls" style="display: flex; align-items: center; width: 100%; justify-content: space-between; flex-wrap: nowrap;">
-              <!-- Left side - Select All button -->
-              <button type="button" class="multi-select-btn" id="selectAllBtn" title="Select All Files" style="font-size: 13px; padding: 8px 16px; min-width: 80px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; flex-shrink: 0;">
-                <i class="fas fa-check-square" style="margin-right: 8px;"></i>All
-              </button>
-              
-              <!-- Right side - Delete and Download buttons -->
-              <div style="display: flex; gap: 20px; flex-shrink: 0;">
-                <button type="button" class="multi-select-btn" id="deleteSelectedBtn" title="Delete Selected Files" style="font-size: 13px; padding: 8px; width: 36px; height: 36px; background: rgba(211, 47, 47, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; display: flex; align-items: center; justify-content: center;">
-                  <i class="fas fa-trash-alt"></i>
-                </button>
-                <button type="button" class="multi-select-btn" id="downloadSelectedBtn" title="Download Selected Files" style="font-size: 13px; padding: 8px; width: 36px; height: 36px; background: rgba(0, 0, 0, 0.1); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; display: flex; align-items: center; justify-content: center;">
-                  <i class="fas fa-download"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-          <div style="display: flex; gap: 10px; margin-right: 20px;">
-            <a href="/selfhostedgdrive/logout.php" class="btn logout-btn" title="Logout">
-              <i class="fa fa-sign-out" aria-hidden="true"></i>
+          <?php if ($parentLink): ?>
+            <a class="btn-back" href="<?php echo htmlspecialchars($parentLink); ?>" title="Back">
+              <i class="fas fa-arrow-left"></i>
             </a>
+          <?php endif; ?>
+          <div class="breadcrumb-navigation">
+            <a href="/selfhostedgdrive/explorer.php?folder=Home" class="breadcrumb-item">Home</a>
+            <?php if ($currentRel !== 'Home'): ?>
+              <?php
+                $pathParts = explode('/', $currentRel);
+                $currentPath = '';
+                
+                foreach ($pathParts as $index => $part):
+                  $currentPath .= ($index > 0 ? '/' : '') . $part;
+              ?>
+                <span class="breadcrumb-separator">/</span>
+                <?php if ($index === count($pathParts) - 1): ?>
+                  <span class="breadcrumb-item current"><?php echo htmlspecialchars($part); ?></span>
+                <?php else: ?>
+                  <a href="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentPath); ?>" class="breadcrumb-item"><?php echo htmlspecialchars($part); ?></a>
+                <?php endif; ?>
+              <?php endforeach; ?>
+            <?php endif; ?>
           </div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <a href="/selfhostedgdrive/logout.php" class="btn logout-btn" title="Logout">
+            <i class="fa fa-sign-out" aria-hidden="true"></i>
+          </a>
         </div>
       </div>
       <div class="content-inner" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding-top: 20px; padding-bottom: 50px; display: flex; flex-direction: column; overflow: hidden;">
-        <div class="breadcrumb-navigation">
-          <a href="/selfhostedgdrive/explorer.php?folder=Home" class="breadcrumb-item">Home</a>
-          <?php if ($currentRel !== 'Home'): ?>
-            <?php
-              $pathParts = explode('/', $currentRel);
-              $currentPath = '';
-              
-              foreach ($pathParts as $index => $part):
-                $currentPath .= ($index > 0 ? '/' : '') . $part;
-            ?>
-              <span class="breadcrumb-separator">/</span>
-              <?php if ($index === count($pathParts) - 1): ?>
-                <span class="breadcrumb-item current"><?php echo htmlspecialchars($part); ?></span>
-              <?php else: ?>
-                <a href="/selfhostedgdrive/explorer.php?folder=<?php echo urlencode($currentPath); ?>" class="breadcrumb-item"><?php echo htmlspecialchars($part); ?></a>
-              <?php endif; ?>
-            <?php endforeach; ?>
-          <?php endif; ?>
+        <!-- Fixed multi-select controls container -->
+        <div class="multi-select-controls-container" style="background: var(--sidebar-bg); opacity: 0.8; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); flex-shrink: 0;">
+          <div class="multi-select-controls" style="display: flex; align-items: center; justify-content: space-between;">
+            <!-- Left side - Select All button -->
+            <button type="button" class="multi-select-btn" id="selectAllBtn" title="Select All Files" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
+              <i class="fas fa-check-square" style="margin-right: 8px;"></i>Select All
+            </button>
+            
+            <!-- Right side - Delete and Download buttons -->
+            <div style="display: flex; gap: 20px;">
+              <button type="button" class="multi-select-btn" id="deleteSelectedBtn" title="Delete Selected Files" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: rgba(211, 47, 47, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                <i class="fas fa-trash-alt" style="margin-right: 8px;"></i>Delete
+              </button>
+              <button type="button" class="multi-select-btn" id="downloadSelectedBtn" title="Download Selected Files" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: rgba(0, 0, 0, 0.1); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
+                <i class="fas fa-download" style="margin-right: 8px;"></i>Download
+              </button>
+            </div>
+          </div>
+          
+          
         </div>
+        
+        <hr style="border: 0; height: 2px; background: var(--accent-red); margin: 0 0 20px 0; opacity: 0.8; width: 100%; flex-shrink: 0;">
         
         <!-- Scrollable container for files -->
         <div class="files-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--accent-red) var(--background);">
@@ -1106,7 +1006,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download_files'])) {
         <div id="imagePreviewContainer" style="display: none;"></div>
         <div id="iconPreviewContainer" style="display: none;"></div>
         <div id="videoPreviewContainer" style="display: none;">
-            <video id="videoPlayer" preload="auto"></video>
+            <video id="videoPlayer" preload="auto" onclick="togglePlay(event)"></video>
             <div id="bufferingIndicator">
                 <div class="spinner"></div>
             </div>
@@ -1117,7 +1017,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download_files'])) {
                         <div id="videoProgressBar"></div>
                         <div id="videoBufferBar"></div>
                     </div>
-                    <span id="videoDuration" class="duration-display">0:00 / 0:00</span>
                     <button id="fullscreenBtn" onclick="toggleFullscreen(event)"><i class="fas fa-expand"></i></button>
                 </div>
             </div>
@@ -1447,15 +1346,19 @@ function openPreviewModal(fileURL, fileName) {
         if (file.type === 'video') {
             videoContainer.classList.remove('loaded');
             
-            // Force video playback settings
+            // Set optimal video attributes for performance
             videoPlayer.preload = "auto";
-            videoPlayer.innerHTML = '';
             
-            // Force MP4/AAC playback
-            const source = document.createElement('source');
-            source.src = file.url;
-            source.type = 'video/mp4';
-            videoPlayer.appendChild(source);
+            // Add adaptive playback attributes
+            videoPlayer.setAttribute('playsinline', '');
+            videoPlayer.setAttribute('crossorigin', 'anonymous');
+            videoPlayer.setAttribute('controlsList', 'nodownload');
+            
+            // Handle source differently for better performance
+            if (videoPlayer.src !== file.url) {
+                videoPlayer.src = file.url;
+                videoPlayer.load();
+            }
             
             videoContainer.style.display = 'block';
             previewContent.classList.add('video-preview');
@@ -1468,17 +1371,6 @@ function openPreviewModal(fileURL, fileName) {
             videoPlayer.oncanplay = () => {
                 videoContainer.classList.add('loaded');
                 bufferingIndicator.style.display = 'none';
-                
-                // Attempt autoplay
-                const playPromise = videoPlayer.play();
-                if (playPromise !== undefined) {
-                    playPromise.then(() => {
-                        document.getElementById('playPauseBtn').innerHTML = '<i class="fas fa-pause"></i>';
-                    }).catch(error => {
-                        console.error('Autoplay prevented:', error);
-                        document.getElementById('playPauseBtn').innerHTML = '<i class="fas fa-play"></i>';
-                    });
-                }
             };
             
             // Add waiting event listener for rebuffering
@@ -1625,113 +1517,15 @@ function updateNavigationButtons() {
 }
 
 function setupVideoControls(video) {
-    const videoContainer = document.getElementById('videoPreviewContainer');
-    const controls = videoContainer.querySelector('.video-controls');
     const progressBar = document.getElementById('videoProgressBar');
     const playPauseBtn = document.getElementById('playPauseBtn');
     const bufferingIndicator = document.getElementById('bufferingIndicator');
-    const durationDisplay = document.getElementById('videoDuration');
     
-    let hideTimeout;
-
-    if ('ontouchstart' in window) {
-        // Touch device - ultra simple approach
-        videoContainer.addEventListener('touchstart', (e) => {
-            // Don't handle touches on controls
-            if (e.target.closest('.video-controls')) {
-                return;
-            }
-
-            e.preventDefault();
-            
-            // Show controls
-            controls.classList.add('active');
-            
-            // Clear any existing timeout
-            clearTimeout(hideTimeout);
-            
-            // Set new timeout to hide controls after 1 second
-            hideTimeout = setTimeout(() => {
-                if (!video.paused) {
-                    controls.classList.remove('active');
-                }
-            }, 1000);
-        });
-
-        // Keep controls visible when video is paused
-        video.addEventListener('pause', () => {
-            clearTimeout(hideTimeout);
-            controls.classList.add('active');
-        });
-
-        // Start hide timer when video plays
-        video.addEventListener('play', () => {
-            clearTimeout(hideTimeout);
-            hideTimeout = setTimeout(() => {
-                controls.classList.remove('active');
-            }, 1000);
-        });
-
-    } else {
-        // Desktop behavior remains the same
-        videoContainer.addEventListener('mousemove', () => {
-            controls.classList.add('active');
-            document.body.style.cursor = 'default';
-            clearTimeout(hideTimeout);
-            
-            if (!video.paused) {
-                hideTimeout = setTimeout(() => {
-                    controls.classList.remove('active');
-                    document.body.style.cursor = 'none';
-                }, 2000);
-            }
-        });
-
-        videoContainer.addEventListener('mouseleave', () => {
-            if (!video.paused) {
-                controls.classList.remove('active');
-                document.body.style.cursor = 'none';
-            }
-        });
-
-        controls.addEventListener('mouseenter', () => {
-            clearTimeout(hideTimeout);
-            controls.classList.add('active');
-            document.body.style.cursor = 'default';
-        });
-
-        controls.addEventListener('mouseleave', () => {
-            if (!video.paused) {
-                hideTimeout = setTimeout(() => {
-                    controls.classList.remove('active');
-                    document.body.style.cursor = 'none';
-                }, 2000);
-            }
-        });
-    }
-
-    // Store timeout reference for cleanup
-    controls._hideTimeout = hideTimeout;
-
-    // Format time helper function
-    function formatTime(seconds) {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = Math.floor(seconds % 60);
-        if (h > 0) {
-            return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        }
-        return `${m}:${s.toString().padStart(2, '0')}`;
-    }
-    
-    // Update progress bar and duration
+    // Update progress bar
     video.ontimeupdate = () => {
         if (video.duration) {
             const percent = (video.currentTime / video.duration) * 100;
             progressBar.style.width = percent + '%';
-            
-            // Update duration display
-            durationDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
             
             // Update buffered progress
             updateBufferProgress(video);
@@ -1758,23 +1552,6 @@ function setupVideoControls(video) {
     // Video ended
     video.onended = () => {
         playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-    };
-
-    // Autoplay when loaded
-    video.oncanplay = () => {
-        videoContainer.classList.add('loaded');
-        bufferingIndicator.style.display = 'none';
-        // Attempt to autoplay
-        const playPromise = video.play();
-        if (playPromise !== undefined) {
-            playPromise.then(() => {
-                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-            }).catch(error => {
-                console.error('Autoplay prevented:', error);
-                // Don't show alert for autoplay restriction
-                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-            });
-        }
     };
 
     // Improve error handling
@@ -2149,19 +1926,16 @@ gridToggleBtn.addEventListener('click', () => {
 
 function closePreviewModal() {
     const previewModal = document.getElementById('previewModal');
+    const videoPlayer = document.getElementById('videoPlayer');
     const imageContainer = document.getElementById('imagePreviewContainer');
     const iconContainer = document.getElementById('iconPreviewContainer');
     const videoContainer = document.getElementById('videoPreviewContainer');
     const pdfContainer = document.getElementById('pdfPreviewContainer');
     const pdfViewer = document.getElementById('pdfViewer');
     const pdfControls = document.getElementById('pdfControls');
-    const pdfLoadingIndicator = document.getElementById('pdfLoadingIndicator');
-    const videoPlayer = document.getElementById('videoPlayer');
     const bufferingIndicator = document.getElementById('bufferingIndicator');
+    const pdfLoadingIndicator = document.getElementById('pdfLoadingIndicator');
     const previewContent = document.getElementById('previewContent');
-    
-    // Reset cursor style to default
-    document.body.style.cursor = 'default';
     
     // Clear video properly
     try {
@@ -2177,12 +1951,6 @@ function closePreviewModal() {
             videoPlayer.pause();
             videoPlayer.removeAttribute('src');
             videoPlayer.load();
-            
-            // Reset video controls
-            const controls = videoContainer.querySelector('.video-controls');
-            if (controls) {
-                controls.classList.remove('active');
-            }
         }
         
         // Reset buffering indicator
@@ -2239,12 +2007,6 @@ function closePreviewModal() {
     
     // Remove keyboard event handler
     document.onkeydown = null;
-    
-    // Clear any remaining timeouts
-    const videoControls = videoContainer.querySelector('.video-controls');
-    if (videoControls && videoControls._controlsTimeout) {
-        clearTimeout(videoControls._controlsTimeout);
-    }
 }
 
 // Context Menu Functionality
@@ -3557,11 +3319,11 @@ function updateSelectedButtons() {
   if (selectedFiles.size > 0) {
     deleteSelectedBtn.style.display = 'inline-flex';
     downloadSelectedBtn.style.display = 'inline-flex';
-    selectAllBtn.innerHTML = '<i class="fas fa-times"></i>';
+    selectAllBtn.innerHTML = '<i class="fas fa-times" style="margin-right: 5px;"></i>Cancel';
   } else {
     deleteSelectedBtn.style.display = 'none';
     downloadSelectedBtn.style.display = 'none';
-    selectAllBtn.innerHTML = '<i class="fas fa-check-square" style="margin-right: 8px;"></i>All';
+    selectAllBtn.innerHTML = '<i class="fas fa-check-square" style="margin-right: 5px;"></i>Select All';
   }
 }
 
@@ -3828,28 +3590,6 @@ downloadSelectedBtn.addEventListener('click', function() {
       setTimeout(refreshShareIcons, 300);
     });
 </script>
-
-<style>
-@media (max-width: 768px) {
-  #sidebarToggle {
-    display: flex !important;
-  }
-}
-</style>
-
-<div class="mobile-nav">
-  <div class="mobile-nav-content">
-    <div class="mobile-nav-header">
-      <div class="mobile-nav-title">Menu</div>
-      <button class="mobile-nav-close" onclick="toggleMobileNav()">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    <div class="mobile-nav-body">
-      <!-- Mobile navigation content -->
-    </div>
-  </div>
-</div>
 
 </body>
 </html>

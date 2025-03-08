@@ -390,7 +390,7 @@ function create_folder_content_page($folderName, $folderPath, $username, $shareI
                 <?php foreach ($breadcrumbs as $index => $crumb): ?>
                 <?php if ($index < count($breadcrumbs) - 1): ?>
                 <li class="breadcrumb-item">
-                    <a href="?id=<?php echo urlencode($shareId); ?>&path=<?php echo urlencode($crumb['path']); ?>">
+                    <a href="?id=<?php echo urlencode($shareId); ?>&path=<?php echo rawurlencode($crumb['path']); ?>">
                         <?php echo htmlspecialchars($crumb['name']); ?>
                     </a>
                 </li>
@@ -415,7 +415,7 @@ function create_folder_content_page($folderName, $folderPath, $username, $shareI
                     <i class="fas fa-arrow-up"></i>
                 </div>
                 <div class="item-name">
-                    <a href="?id=<?php echo urlencode($shareId); ?>&path=<?php echo urlencode($parentPath); ?>">
+                    <a href="?id=<?php echo urlencode($shareId); ?>&path=<?php echo rawurlencode($parentPath); ?>">
                         ..
                     </a>
                 </div>
@@ -458,7 +458,7 @@ function create_folder_content_page($folderName, $folderPath, $username, $shareI
                         <i class="fas fa-folder"></i>
                     </div>
                     <div class="item-name">
-                        <a href="?id=<?php echo urlencode($shareId); ?>&path=<?php echo urlencode($folderRelativePath); ?>">
+                        <a href="?id=<?php echo urlencode($shareId); ?>&path=<?php echo rawurlencode($folderRelativePath); ?>">
                             <?php echo htmlspecialchars($folder['name']); ?>
                         </a>
                     </div>
@@ -466,7 +466,7 @@ function create_folder_content_page($folderName, $folderPath, $username, $shareI
                         <?php echo $folder['size'] ? formatFileSize($folder['size']) : '-'; ?>
                     </div>
                     <div class="item-actions">
-                        <a href="?id=<?php echo urlencode($shareId); ?>&download=1&path=<?php echo urlencode($folderRelativePath); ?>">
+                        <a href="?id=<?php echo urlencode($shareId); ?>&download=1&path=<?php echo rawurlencode($folderRelativePath); ?>">
                             <i class="fas fa-download"></i> Download
                         </a>
                     </div>
@@ -498,7 +498,7 @@ function create_folder_content_page($folderName, $folderPath, $username, $shareI
                     </div>
                     <div class="item-name">
                         <?php if ($canPreview): ?>
-                        <a href="?id=<?php echo urlencode($shareId); ?>&file=<?php echo urlencode($fileRelativePath); ?>&preview=1">
+                        <a href="?id=<?php echo urlencode($shareId); ?>&file=<?php echo rawurlencode($fileRelativePath); ?>&preview=1">
                             <?php echo htmlspecialchars($file['name']); ?>
                         </a>
                         <?php else: ?>
@@ -509,7 +509,7 @@ function create_folder_content_page($folderName, $folderPath, $username, $shareI
                         <?php echo formatFileSize($file['size']); ?>
                     </div>
                     <div class="item-actions">
-                        <a href="?id=<?php echo urlencode($shareId); ?>&file=<?php echo urlencode($fileRelativePath); ?>&download=1">
+                        <a href="?id=<?php echo urlencode($shareId); ?>&file=<?php echo rawurlencode($fileRelativePath); ?>&download=1">
                             <i class="fas fa-download"></i> Download
                         </a>
                     </div>
@@ -519,7 +519,7 @@ function create_folder_content_page($folderName, $folderPath, $username, $shareI
         </div>
 
         <?php if (!empty($folderContents)): ?>
-        <a href="?id=<?php echo urlencode($shareId); ?>&download=1&path=<?php echo urlencode($currentPath); ?>" class="download-all">
+        <a href="?id=<?php echo urlencode($shareId); ?>&download=1&path=<?php echo rawurlencode($currentPath); ?>" class="download-all">
             <i class="fas fa-download"></i> Download All Files
         </a>
         <?php endif; ?>
@@ -986,7 +986,7 @@ try {
     log_debug("Actual folder path: $actualFolderPath");
     
     // Handle different actions based on query parameters
-    $currentPath = isset($_GET['path']) ? trim($_GET['path'], '/') : '';
+    $currentPath = isset($_GET['path']) ? rawurldecode(trim($_GET['path'], '/')) : '';
     log_debug("Current path within shared folder: $currentPath");
     
     $targetPath = $actualFolderPath;
@@ -1002,7 +1002,7 @@ try {
     
     // Handle file download or preview
     if (isset($_GET['file'])) {
-        $requestedFile = trim($_GET['file'], '/');
+        $requestedFile = rawurldecode(trim($_GET['file'], '/'));
         log_debug("File requested: $requestedFile");
         
         // Security check: prevent path traversal attacks

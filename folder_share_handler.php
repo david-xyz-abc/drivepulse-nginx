@@ -217,7 +217,7 @@ function check_folder_share() {
         send_json_response(['success' => false, 'error' => 'No folder specified']);
     }
     
-    $folderPath = $_GET['folder_path'];
+    $folderPath = rawurldecode($_GET['folder_path']);
     $folderKey = $username . ':' . $folderPath;
     $folderName = basename($folderPath);
     
@@ -332,7 +332,7 @@ function create_folder_share() {
         send_json_response(['success' => false, 'error' => 'No folder specified']);
     }
     
-    $folderPath = $_POST['folder_path'];
+    $folderPath = rawurldecode($_POST['folder_path']);
     $folderKey = $username . ':' . $folderPath;
     $folderName = basename($folderPath);
     
@@ -575,6 +575,7 @@ function delete_folder_share($folderPath) {
         send_json_response(['success' => false, 'error' => 'No folder specified']);
     }
     
+    $folderPath = rawurldecode($folderPath);
     $folderKey = $username . ':' . $folderPath;
     $folderName = basename($folderPath);
     
