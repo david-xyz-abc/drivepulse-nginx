@@ -2,10 +2,10 @@
 session_start();
 
 // Check for admin password in session or verify it
-if (!isset($_SESSION['admin']) && (!isset($_POST['password']) || $_POST['password'] !== '2254')) {
+if (!isset($_SESSION['admin']) && (!isset($_POST['password']) || $_POST['password'] !== '123')) {
     header("Location: /selfhostedgdrive/index.php");
     exit;
-} else if (isset($_POST['password']) && $_POST['password'] === '2254') {
+} else if (isset($_POST['password']) && $_POST['password'] === '123') {
     $_SESSION['admin'] = true;
 }
 
