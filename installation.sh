@@ -4,71 +4,43 @@
 
 # Check for root privileges
 if [ "$(id -u)" -ne 0 ]; then
-    echo "ERROR: This script must be run as root. Try: sudo bash installation.sh"
+    echo "Please run as root (sudo bash installation.sh)"
     exit 1
 fi
 
-# Base GitHub URL
-GITHUB_BASE_URL="https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main"
+while :
+do
+echo "
+DrivePulse Installation Manager
+------------------------------
+1. Install
+2. Update
+3. Uninstall
+4. Change Admin Password
+5. Exit
 
-while true; do
-    clear
-    echo "======================================"
-    echo "DrivePulse Installation Manager"
-    echo "======================================"
-    echo "Please select an option:"
-    echo "1) Install DrivePulse"
-    echo "2) Update DrivePulse"
-    echo "3) Uninstall DrivePulse"
-    echo "4) Change Admin Password"
-    echo "5) Exit"
-    echo "======================================"
-
-    read choice
-
-    case $choice in
-        1)
-            echo "You selected: Install DrivePulse"
-            echo -n "Are you sure? (y/N): "
-            read confirm
-            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
-                curl -sSL "${GITHUB_BASE_URL}/install.sh" | tr -d '\r' | sudo bash
-            fi
-            ;;
-        2)
-            echo "You selected: Update DrivePulse"
-            echo -n "Are you sure? (y/N): "
-            read confirm
-            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
-                curl -sSL "${GITHUB_BASE_URL}/update.sh" | tr -d '\r' | sudo bash
-            fi
-            ;;
-        3)
-            echo "You selected: Uninstall DrivePulse"
-            echo -n "Are you sure? This will remove all data! (y/N): "
-            read confirm
-            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
-                curl -sSL "${GITHUB_BASE_URL}/uninstall.sh" | tr -d '\r' | sudo bash
-            fi
-            ;;
-        4)
-            echo "You selected: Change Admin Password"
-            echo -n "Are you sure? (y/N): "
-            read confirm
-            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
-                curl -sSL "${GITHUB_BASE_URL}/adminpass.sh" | tr -d '\r' | sudo bash
-            fi
-            ;;
-        5)
-            echo "Exiting..."
-            exit 0
-            ;;
-        *)
-            echo "Invalid option. Please enter a number between 1 and 5."
-            ;;
-    esac
-
-    echo
-    echo -n "Press Enter to continue..."
-    read
+Choose an option: "
+read n
+case $n in
+    1) echo "Installing DrivePulse..."
+       curl -sSL https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/install.sh | tr -d '\r' | sudo bash
+       echo "Press enter to continue"
+       read;;
+    2) echo "Updating DrivePulse..."
+       curl -sSL https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/update.sh | tr -d '\r' | sudo bash
+       echo "Press enter to continue"
+       read;;
+    3) echo "Uninstalling DrivePulse..."
+       curl -sSL https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/uninstall.sh | tr -d '\r' | sudo bash
+       echo "Press enter to continue"
+       read;;
+    4) echo "Changing admin password..."
+       curl -sSL https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/adminpass.sh | tr -d '\r' | sudo bash
+       echo "Press enter to continue"
+       read;;
+    5) exit;;
+    *) echo "Invalid option"
+       echo "Press enter to continue"
+       read;;
+esac
 done 
