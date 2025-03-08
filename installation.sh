@@ -1,46 +1,89 @@
 #!/bin/bash
-# DrivePulse Installation Manager
-# This script provides a menu to install, update, or uninstall DrivePulse
+clear
+echo "DrivePulse Installation Manager"
+echo "------------------------------"
 
 # Check for root privileges
 if [ "$(id -u)" -ne 0 ]; then
-    echo "Please run as root (sudo bash installation.sh)"
+    echo "Error: Please run as root (sudo bash installation.sh)"
     exit 1
 fi
 
-while :
-do
-echo "
-DrivePulse Installation Manager
-------------------------------
-1. Install
-2. Update
-3. Uninstall
-4. Change Admin Password
-5. Exit
+# Check if curl is installed
+if ! command -v curl &> /dev/null; then
+    echo "Error: curl is not installed. Installing curl..."
+    apt-get update && apt-get install -y curl
+fi
 
-Choose an option: "
-read n
-case $n in
-    1) echo "Installing DrivePulse..."
-       curl -sSL https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/install.sh | tr -d '\r' | sudo bash
-       echo "Press enter to continue"
-       read;;
-    2) echo "Updating DrivePulse..."
-       curl -sSL https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/update.sh | tr -d '\r' | sudo bash
-       echo "Press enter to continue"
-       read;;
-    3) echo "Uninstalling DrivePulse..."
-       curl -sSL https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/uninstall.sh | tr -d '\r' | sudo bash
-       echo "Press enter to continue"
-       read;;
-    4) echo "Changing admin password..."
-       curl -sSL https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/adminpass.sh | tr -d '\r' | sudo bash
-       echo "Press enter to continue"
-       read;;
-    5) exit;;
-    *) echo "Invalid option"
-       echo "Press enter to continue"
-       read;;
-esac
+# Function to verify script download
+verify_and_run() {
+    local script_url="$1"
+    local temp_file=$(mktemp)
+    
+    echo "Downloading script..."
+    if ! curl -sSL "$script_url" -o "$temp_file"; then
+        echo "Error: Failed to download script"
+        rm -f "$temp_file"
+        return 1
+    fi
+    
+    # Check if file is empty or too small
+    if [ ! -s "$temp_file" ] || [ $(wc -l < "$temp_file") -lt 5 ]; then
+        echo "Error: Downloaded script is invalid"
+        rm -f "$temp_file"
+        return 1
+    fi
+    
+    # Execute the script
+    bash "$temp_file"
+    local status=$?
+    
+    # Cleanup
+    rm -f "$temp_file"
+    return $status
+}
+
+while true; do
+    echo ""
+    echo "1. Install DrivePulse"
+    echo "2. Update DrivePulse"
+    echo "3. Uninstall DrivePulse"
+    echo "4. Change Admin Password"
+    echo "5. Exit"
+    echo ""
+    read -p "Choose an option [1-5]: " choice
+    echo ""
+
+    case $choice in
+        1)
+            echo "Starting installation..."
+            verify_and_run "https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/install.sh"
+            ;;
+        2)
+            echo "Starting update..."
+            verify_and_run "https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/update.sh"
+            ;;
+        3)
+            echo "Starting uninstallation..."
+            read -p "Are you sure you want to uninstall? This will delete all data! (y/N): " confirm
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                verify_and_run "https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/uninstall.sh"
+            fi
+            ;;
+        4)
+            echo "Changing admin password..."
+            verify_and_run "https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main/adminpass.sh"
+            ;;
+        5)
+            echo "Exiting..."
+            exit 0
+            ;;
+        *)
+            echo "Invalid option. Please enter a number between 1 and 5."
+            ;;
+    esac
+
+    echo ""
+    read -p "Press Enter to continue..."
+    clear
 done 
