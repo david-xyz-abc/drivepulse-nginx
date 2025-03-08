@@ -4,15 +4,14 @@
 
 # Check for root privileges
 if [ "$(id -u)" -ne 0 ]; then
-  echo "ERROR: This script must be run as root. Try: sudo bash installation.sh"
-  exit 1
+    echo "ERROR: This script must be run as root. Try: sudo bash installation.sh"
+    exit 1
 fi
 
 # Base GitHub URL
 GITHUB_BASE_URL="https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main"
 
-# Function to display the menu
-show_menu() {
+while true; do
     clear
     echo "======================================"
     echo "DrivePulse Installation Manager"
@@ -24,84 +23,52 @@ show_menu() {
     echo "4) Change Admin Password"
     echo "5) Exit"
     echo "======================================"
-}
 
-# Function to handle the installation
-handle_install() {
-    echo "Starting DrivePulse installation..."
-    curl -sSL "${GITHUB_BASE_URL}/install.sh" | tr -d '\r' | sudo bash
-    return $?
-}
+    read choice
 
-# Function to handle the update
-handle_update() {
-    echo "Starting DrivePulse update..."
-    curl -sSL "${GITHUB_BASE_URL}/update.sh" | tr -d '\r' | sudo bash
-    return $?
-}
-
-# Function to handle the uninstallation
-handle_uninstall() {
-    echo "Starting DrivePulse uninstallation..."
-    curl -sSL "${GITHUB_BASE_URL}/uninstall.sh" | tr -d '\r' | sudo bash
-    return $?
-}
-
-# Function to handle admin password change
-handle_admin_password() {
-    echo "Starting admin password change..."
-    curl -sSL "${GITHUB_BASE_URL}/adminpass.sh" | tr -d '\r' | sudo bash
-    return $?
-}
-
-# Main loop
-while true; do
-    show_menu
-    read -p "Enter your choice [1-5]: " choice
-
-    # Validate input is a number
-    if ! [[ "$choice" =~ ^[1-5]$ ]]; then
-        echo "Invalid input: Please enter a number between 1 and 5"
-        sleep 2
-        continue
-    fi
-    
-    case "$choice" in
+    case $choice in
         1)
             echo "You selected: Install DrivePulse"
-            read -p "Are you sure you want to install DrivePulse? [y/N] " confirm
-            if [[ "$confirm" =~ ^[Yy]$ ]]; then
-                handle_install
+            echo -n "Are you sure? (y/N): "
+            read confirm
+            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+                curl -sSL "${GITHUB_BASE_URL}/install.sh" | tr -d '\r' | sudo bash
             fi
             ;;
         2)
             echo "You selected: Update DrivePulse"
-            read -p "Are you sure you want to update DrivePulse? [y/N] " confirm
-            if [[ "$confirm" =~ ^[Yy]$ ]]; then
-                handle_update
+            echo -n "Are you sure? (y/N): "
+            read confirm
+            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+                curl -sSL "${GITHUB_BASE_URL}/update.sh" | tr -d '\r' | sudo bash
             fi
             ;;
         3)
             echo "You selected: Uninstall DrivePulse"
-            read -p "Are you sure you want to uninstall DrivePulse? This will remove all data! [y/N] " confirm
-            if [[ "$confirm" =~ ^[Yy]$ ]]; then
-                handle_uninstall
+            echo -n "Are you sure? This will remove all data! (y/N): "
+            read confirm
+            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+                curl -sSL "${GITHUB_BASE_URL}/uninstall.sh" | tr -d '\r' | sudo bash
             fi
             ;;
         4)
             echo "You selected: Change Admin Password"
-            read -p "Are you sure you want to change the admin password? [y/N] " confirm
-            if [[ "$confirm" =~ ^[Yy]$ ]]; then
-                handle_admin_password
+            echo -n "Are you sure? (y/N): "
+            read confirm
+            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+                curl -sSL "${GITHUB_BASE_URL}/adminpass.sh" | tr -d '\r' | sudo bash
             fi
             ;;
         5)
             echo "Exiting..."
             exit 0
             ;;
+        *)
+            echo "Invalid option. Please enter a number between 1 and 5."
+            ;;
     esac
-    
-    # If we get here, we've completed an operation or had an invalid choice
-    echo ""
-    read -p "Press Enter to return to the menu..."
+
+    echo
+    echo -n "Press Enter to continue..."
+    read
 done 
