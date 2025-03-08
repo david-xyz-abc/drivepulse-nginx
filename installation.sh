@@ -28,9 +28,10 @@ handle_install() {
     echo "Starting DrivePulse installation..."
     if [ -f "./install.sh" ]; then
         bash ./install.sh
+        return 0
     else
         echo "ERROR: install.sh not found in the current directory!"
-        exit 1
+        return 1
     fi
 }
 
@@ -39,9 +40,10 @@ handle_update() {
     echo "Starting DrivePulse update..."
     if [ -f "./update.sh" ]; then
         bash ./update.sh
+        return 0
     else
         echo "ERROR: update.sh not found in the current directory!"
-        exit 1
+        return 1
     fi
 }
 
@@ -50,9 +52,10 @@ handle_uninstall() {
     echo "Starting DrivePulse uninstallation..."
     if [ -f "./uninstall.sh" ]; then
         bash ./uninstall.sh
+        return 0
     else
         echo "ERROR: uninstall.sh not found in the current directory!"
-        exit 1
+        return 1
     fi
 }
 
@@ -61,9 +64,10 @@ handle_admin_password() {
     echo "Starting admin password change..."
     if [ -f "./adminpass.sh" ]; then
         bash ./adminpass.sh
+        return 0
     else
         echo "ERROR: adminpass.sh not found in the current directory!"
-        exit 1
+        return 1
     fi
 }
 
@@ -71,43 +75,46 @@ handle_admin_password() {
 while true; do
     show_menu
     read -p "Enter your choice [1-5]: " choice
+
+    # Validate input is a number
+    if ! [[ "$choice" =~ ^[1-5]$ ]]; then
+        echo "Invalid input: Please enter a number between 1 and 5"
+        sleep 2
+        continue
+    fi
     
-    case $choice in
+    case "$choice" in
         1)
             echo "You selected: Install DrivePulse"
             read -p "Are you sure you want to install DrivePulse? [y/N] " confirm
-            if [[ $confirm =~ ^[Yy]$ ]]; then
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
                 handle_install
             fi
             ;;
         2)
             echo "You selected: Update DrivePulse"
             read -p "Are you sure you want to update DrivePulse? [y/N] " confirm
-            if [[ $confirm =~ ^[Yy]$ ]]; then
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
                 handle_update
             fi
             ;;
         3)
             echo "You selected: Uninstall DrivePulse"
             read -p "Are you sure you want to uninstall DrivePulse? This will remove all data! [y/N] " confirm
-            if [[ $confirm =~ ^[Yy]$ ]]; then
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
                 handle_uninstall
             fi
             ;;
         4)
             echo "You selected: Change Admin Password"
             read -p "Are you sure you want to change the admin password? [y/N] " confirm
-            if [[ $confirm =~ ^[Yy]$ ]]; then
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
                 handle_admin_password
             fi
             ;;
         5)
             echo "Exiting..."
             exit 0
-            ;;
-        *)
-            echo "Invalid option. Please try again."
-            sleep 2
             ;;
     esac
     

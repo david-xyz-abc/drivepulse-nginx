@@ -148,14 +148,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'serve' && isset($_GET['file']
             // Check if this is a video file to apply optimized streaming
             $isVideo = in_array($ext, ['mp4', 'webm', 'ogg', 'mkv']);
             if ($isVideo) {
-                // Set additional headers for video streaming
-                header("X-Content-Duration: $fileSize");
-                header("Content-Duration: $fileSize");
+                // Force video MIME type
+                header('Content-Type: video/mp4');
+                header('Accept-Ranges: bytes');
                 
-                // Use a larger buffer for initial chunk if this is a starting segment
-                if ($start < 1048576) { // 1MB
-                    $bufferSize = 524288; // 512KB for initial segment
-                }
+                // Use larger buffer for video
+                $bufferSize = 524288; // 512KB chunks
             }
             
             while ($remaining > 0 && !feof($fp) && !connection_aborted()) {
@@ -1449,25 +1447,15 @@ function openPreviewModal(fileURL, fileName) {
         if (file.type === 'video') {
             videoContainer.classList.remove('loaded');
             
-            // Set optimal video attributes for performance
+            // Force video playback settings
             videoPlayer.preload = "auto";
-            
-            // Add adaptive playback attributes and codec support
-            videoPlayer.setAttribute('playsinline', '');
-            videoPlayer.setAttribute('crossorigin', 'anonymous');
-            videoPlayer.setAttribute('controlsList', 'nodownload');
-            
-            // Add codec support
-            const sourceElement = document.createElement('source');
-            sourceElement.src = file.url;
-            sourceElement.type = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'; // Add explicit codec support
-            
-            // Clear previous sources
             videoPlayer.innerHTML = '';
-            videoPlayer.appendChild(sourceElement);
             
-            // Add fallback text
-            videoPlayer.appendChild(document.createTextNode('Your browser does not support the video tag.'));
+            // Force MP4/AAC playback
+            const source = document.createElement('source');
+            source.src = file.url;
+            source.type = 'video/mp4';
+            videoPlayer.appendChild(source);
             
             videoContainer.style.display = 'block';
             previewContent.classList.add('video-preview');
