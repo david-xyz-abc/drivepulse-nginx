@@ -42,7 +42,44 @@ function getSystemStats() {
     $stats['disk_used'] = $disk_total - $disk_free;
     $stats['disk_total'] = $disk_total;
     
+    // Network Stats
+    $stats['network_in'] = shell_exec("cat /sys/class/net/eth0/statistics/rx_bytes");
+    $stats['network_out'] = shell_exec("cat /sys/class/net/eth0/statistics/tx_bytes");
+    
+    // System Uptime
+    $stats['uptime'] = shell_exec("uptime -p");
+    
     return $stats;
+}
+
+// Function to get file type statistics
+function getFileTypeStats($dir) {
+    $stats = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
+    );
+    
+    foreach ($iterator as $file) {
+        if ($file->isFile()) {
+            $ext = strtolower(pathinfo($file->getFilename(), PATHINFO_EXTENSION));
+            if (!isset($stats[$ext])) {
+                $stats[$ext] = ['count' => 0, 'size' => 0];
+            }
+            $stats[$ext]['count']++;
+            $stats[$ext]['size'] += $file->getSize();
+        }
+    }
+    
+    return $stats;
+}
+
+// Function to get activity logs
+function getActivityLogs() {
+    $logFile = __DIR__ . '/activity.log';
+    if (file_exists($logFile)) {
+        return array_slice(file($logFile), -50); // Get last 50 lines
+    }
+    return [];
 }
 
 // Handle AJAX request for system stats
@@ -52,39 +89,61 @@ if (isset($_GET['get_stats'])) {
     exit;
 }
 
-// Handle user deletion if requested
-if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
-    $userToDelete = $_POST['delete_user'];
-    $userDir = "/var/www/html/webdav/users/" . $userToDelete;
+// Handle user management
+if (isset($_POST['action'])) {
     $usersFile = __DIR__ . '/users.json';
-
-    // Remove user from users.json
-    if (file_exists($usersFile)) {
-        $users = json_decode(file_get_contents($usersFile), true);
-        if (isset($users[$userToDelete])) {
-            unset($users[$userToDelete]);
-            file_put_contents($usersFile, json_encode($users, JSON_PRETTY_PRINT));
-        }
-    }
-
-    // Delete user directory and all contents
-    if (is_dir($userDir)) {
-        $files = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($userDir, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
-        );
-        foreach ($files as $file) {
-            if ($file->isDir()) {
-                rmdir($file->getRealPath());
-            } else {
-                unlink($file->getRealPath());
+    $users = file_exists($usersFile) ? json_decode(file_get_contents($usersFile), true) : [];
+    
+    switch ($_POST['action']) {
+        case 'add_user':
+            if (!empty($_POST['username']) && !empty($_POST['password'])) {
+                $users[$_POST['username']] = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                file_put_contents($usersFile, json_encode($users, JSON_PRETTY_PRINT));
+                // Create user directory
+                $userDir = "/var/www/html/webdav/users/" . $_POST['username'];
+                if (!is_dir($userDir)) {
+                    mkdir($userDir, 0755, true);
+                }
             }
-        }
-        // Remove the empty directory itself
-        rmdir($userDir);
+            break;
+            
+        case 'edit_user':
+            if (!empty($_POST['username']) && !empty($_POST['new_password'])) {
+                $users[$_POST['username']] = password_hash($_POST['new_password'], PASSWORD_DEFAULT);
+                file_put_contents($usersFile, json_encode($users, JSON_PRETTY_PRINT));
+            }
+            break;
+            
+        case 'delete_user':
+            if (!empty($_POST['username'])) {
+                $userToDelete = $_POST['username'];
+                $userDir = "/var/www/html/webdav/users/" . $userToDelete;
+                
+                // Remove user from users.json
+                if (isset($users[$userToDelete])) {
+                    unset($users[$userToDelete]);
+                    file_put_contents($usersFile, json_encode($users, JSON_PRETTY_PRINT));
+                }
+                
+                // Delete user directory and all contents
+                if (is_dir($userDir)) {
+                    $files = new RecursiveIteratorIterator(
+                        new RecursiveDirectoryIterator($userDir, FilesystemIterator::SKIP_DOTS),
+                        RecursiveIteratorIterator::CHILD_FIRST
+                    );
+                    foreach ($files as $file) {
+                        if ($file->isDir()) {
+                            rmdir($file->getRealPath());
+                        } else {
+                            unlink($file->getRealPath());
+                        }
+                    }
+                    rmdir($userDir);
+                }
+            }
+            break;
     }
-
-    // Redirect to refresh the page
+    
     header("Location: /selfhostedgdrive/console.php");
     exit;
 }
@@ -94,7 +153,7 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Console</title>
+    <title>Advanced Admin Console</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
@@ -102,8 +161,11 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
         :root {
             --bg-primary: #0a0a0a;
             --bg-secondary: #1a1a1a;
+            --bg-tertiary: #2a2a2a;
             --accent-primary: #dc2626;
             --accent-secondary: #991b1b;
+            --accent-success: #22c55e;
+            --accent-warning: #f59e0b;
             --text-primary: #f5f5f5;
             --text-secondary: #a3a3a3;
             --border-radius: 12px;
@@ -138,6 +200,9 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
             padding: 2rem;
             background: linear-gradient(135deg, var(--accent-secondary) 0%, var(--accent-primary) 100%);
             border-radius: var(--border-radius) var(--border-radius) 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .header h1 {
@@ -148,145 +213,87 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
             gap: 1rem;
         }
 
-        .stats-grid {
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: var(--transition);
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 1.5rem;
             padding: 2rem;
         }
 
-        .stat-card {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 1.5rem;
+        .card {
+            background: var(--bg-tertiary);
             border-radius: var(--border-radius);
+            padding: 1.5rem;
             border: 1px solid rgba(255, 255, 255, 0.1);
             transition: var(--transition);
         }
 
-        .stat-card:hover {
+        .card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 4px 16px rgba(220, 38, 38, 0.2);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
         }
 
-        .stat-title {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
+        .card-header {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .card-icon {
+            font-size: 1.5rem;
+            color: var(--accent-primary);
         }
 
         .stat-value {
             font-size: 2rem;
             font-weight: 700;
             color: var(--accent-primary);
+            margin-bottom: 0.5rem;
         }
 
-        .users-section {
-            padding: 0 2rem 2rem;
-        }
-
-        .users-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: var(--bg-secondary);
-            border-radius: var(--border-radius);
-            overflow: hidden;
-        }
-
-        .users-table thead {
-            background: rgba(220, 38, 38, 0.1);
-        }
-
-        .users-table th {
-            padding: 1.2rem;
-            text-align: left;
-            font-weight: 600;
-            color: var(--accent-primary);
-        }
-
-        .users-table td {
-            padding: 1.2rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .user-storage {
-            min-width: 200px;
-        }
-
-        .storage-bar {
-            height: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 0.5rem;
-        }
-
-        .storage-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
-            transition: var(--transition);
-        }
-
-        .delete-btn {
-            background: none;
-            border: 1px solid var(--accent-primary);
-            color: var(--accent-primary);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .delete-btn:hover {
-            background: var(--accent-primary);
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        @media (max-width: 768px) {
-            body {
-                padding: 1rem;
-            }
-
-            .users-table thead {
-                display: none;
-            }
-
-            .users-table tr {
-                display: block;
-                margin-bottom: 1.5rem;
-                background: rgba(255, 255, 255, 0.02);
-                border-radius: var(--border-radius);
-            }
-
-            .users-table td {
-                display: grid;
-                grid-template-columns: 100px 1fr;
-                gap: 1rem;
-                padding: 1rem;
-                border-bottom: none;
-            }
-
-            .users-table td::before {
-                content: attr(data-label);
-                color: var(--text-secondary);
-                font-weight: 500;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .stat-value {
-                font-size: 1.5rem;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
+        .stat-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
         }
 
         .progress-bar {
@@ -303,10 +310,149 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
             transition: var(--transition);
         }
 
-        .stat-subtitle {
-            font-size: 0.8rem;
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            padding: 0 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tab {
+            padding: 1rem 2rem;
+            cursor: pointer;
             color: var(--text-secondary);
-            margin-top: 0.5rem;
+            font-weight: 500;
+            transition: var(--transition);
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+        }
+
+        .tab-content {
+            padding: 2rem;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-tertiary);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+
+        .users-table th {
+            padding: 1.2rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--accent-primary);
+            background: rgba(220, 38, 38, 0.1);
+        }
+
+        .users-table td {
+            padding: 1.2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .activity-log {
+            max-height: 400px;
+            overflow-y: auto;
+            background: var(--bg-tertiary);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+        }
+
+        .log-entry {
+            padding: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .file-type-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .file-type-item {
+            background: var(--bg-tertiary);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            text-align: center;
+        }
+
+        .file-type-icon {
+            font-size: 2rem;
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .users-table {
+                display: block;
+                overflow-x: auto;
+            }
         }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -339,99 +485,157 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
                 $('#disk-value').text(diskUsedGB.toFixed(1) + ' GB');
                 $('#disk-total').text('/ ' + diskTotalGB.toFixed(1) + ' GB');
                 $('#disk-bar').css('width', diskPercent + '%');
+
+                // Update Network
+                $('#network-in').text(formatBytes(data.network_in));
+                $('#network-out').text(formatBytes(data.network_out));
+
+                // Update Uptime
+                $('#uptime').text(data.uptime);
             });
+        }
+
+        function showModal(modalId) {
+            $('#' + modalId).fadeIn();
+        }
+
+        function hideModal(modalId) {
+            $('#' + modalId).fadeOut();
+        }
+
+        function switchTab(tabId) {
+            $('.tab').removeClass('active');
+            $('#' + tabId).addClass('active');
+            $('.tab-content').hide();
+            $('#' + tabId + '-content').show();
         }
 
         // Update stats every 5 seconds
         $(document).ready(function() {
             updateSystemStats();
             setInterval(updateSystemStats, 5000);
+            
+            // Initialize tabs
+            switchTab('dashboard-tab');
         });
     </script>
 </head>
 <body>
     <div class="admin-container">
         <div class="header">
-            <h1><i class="fas fa-terminal"></i> Storage Admin Console</h1>
-        </div>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-title"><i class="fas fa-microchip"></i> CPU Usage</div>
-                <div class="stat-value" id="cpu-value">0%</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="cpu-bar" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-title"><i class="fas fa-memory"></i> RAM Usage</div>
-                <div class="stat-value">
-                    <span id="ram-value">0 GB</span>
-                    <span class="stat-subtitle" id="ram-total">/ 0 GB</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="ram-bar" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-title"><i class="fas fa-hdd"></i> Disk Usage</div>
-                <div class="stat-value">
-                    <span id="disk-value">0 GB</span>
-                    <span class="stat-subtitle" id="disk-total">/ 0 GB</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="disk-bar" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-title"><i class="fas fa-users"></i> Total Users</div>
-                <div class="stat-value">
-                    <?php
-                    $usersFile = __DIR__ . '/users.json';
-                    $users = file_exists($usersFile) ? json_decode(file_get_contents($usersFile), true) : [];
-                    $userCount = count($users);
-                    echo $userCount;
-                    ?>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-title"><i class="fas fa-database"></i> Storage Used</div>
-                <div class="stat-value">
-                    <?php
-                    $totalSize = 0;
-                    foreach ($users as $username => $hash) {
-                        $userDir = "/var/www/html/webdav/users/" . $username;
-                        if (is_dir($userDir)) {
-                            $totalSize += getDirSize($userDir);
-                        }
-                    }
-                    echo round($totalSize / (1024 * 1024 * 1024), 2) . " GB";
-                    ?>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-title"><i class="fas fa-server"></i> Total Storage</div>
-                <div class="stat-value">
-                    <?php
-                    $totalStorage = disk_total_space("/var/www/html/webdav");
-                    echo round($totalStorage / (1024 * 1024 * 1024), 2) . " GB";
-                    ?>
-                </div>
+            <h1><i class="fas fa-terminal"></i> Advanced Storage Admin Console</h1>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="showModal('add-user-modal')">
+                    <i class="fas fa-user-plus"></i> Add User
+                </button>
+                <button class="btn btn-primary" onclick="showModal('backup-modal')">
+                    <i class="fas fa-download"></i> Backup
+                </button>
             </div>
         </div>
 
-        <div class="users-section">
+        <div class="tabs">
+            <div id="dashboard-tab" class="tab active" onclick="switchTab('dashboard-tab')">
+                <i class="fas fa-chart-line"></i> Dashboard
+            </div>
+            <div id="users-tab" class="tab" onclick="switchTab('users-tab')">
+                <i class="fas fa-users"></i> Users
+            </div>
+            <div id="activity-tab" class="tab" onclick="switchTab('activity-tab')">
+                <i class="fas fa-history"></i> Activity
+            </div>
+            <div id="files-tab" class="tab" onclick="switchTab('files-tab')">
+                <i class="fas fa-file-alt"></i> Files
+            </div>
+            <div id="settings-tab" class="tab" onclick="switchTab('settings-tab')">
+                <i class="fas fa-cog"></i> Settings
+            </div>
+        </div>
+
+        <div id="dashboard-tab-content" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">CPU Usage</div>
+                        <div class="card-icon"><i class="fas fa-microchip"></i></div>
+                    </div>
+                    <div class="stat-value" id="cpu-value">0%</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="cpu-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">RAM Usage</div>
+                        <div class="card-icon"><i class="fas fa-memory"></i></div>
+                    </div>
+                    <div class="stat-value">
+                        <span id="ram-value">0 GB</span>
+                        <span class="stat-subtitle" id="ram-total">/ 0 GB</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="ram-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Disk Usage</div>
+                        <div class="card-icon"><i class="fas fa-hdd"></i></div>
+                    </div>
+                    <div class="stat-value">
+                        <span id="disk-value">0 GB</span>
+                        <span class="stat-subtitle" id="disk-total">/ 0 GB</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="disk-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Network Traffic</div>
+                        <div class="card-icon"><i class="fas fa-network-wired"></i></div>
+                    </div>
+                    <div class="stat-value">
+                        <div>In: <span id="network-in">0 B</span></div>
+                        <div>Out: <span id="network-out">0 B</span></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">System Uptime</div>
+                        <div class="card-icon"><i class="fas fa-clock"></i></div>
+                    </div>
+                    <div class="stat-value" id="uptime">Loading...</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Total Users</div>
+                        <div class="card-icon"><i class="fas fa-users"></i></div>
+                    </div>
+                    <div class="stat-value">
+                        <?php
+                        $usersFile = __DIR__ . '/users.json';
+                        $users = file_exists($usersFile) ? json_decode(file_get_contents($usersFile), true) : [];
+                        echo count($users);
+                        ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="users-tab-content" class="tab-content" style="display: none;">
             <table class="users-table">
                 <thead>
                     <tr>
                         <th>User</th>
                         <th>Storage</th>
                         <th>Files</th>
+                        <th>Last Active</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -447,19 +651,24 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
                         $storagePercentage = $totalSize > 0 ? ($userSize / $totalSize) * 100 : 0;
                         ?>
                         <tr>
-                            <td data-label="User"><?php echo htmlspecialchars($username); ?></td>
-                            <td data-label="Storage" class="user-storage">
+                            <td><?php echo htmlspecialchars($username); ?></td>
+                            <td>
                                 <?php echo $userSizeGB; ?> GB
-                                <div class="storage-bar">
-                                    <div class="storage-fill" style="width: <?php echo $storagePercentage; ?>%"></div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: <?php echo $storagePercentage; ?>%"></div>
                                 </div>
                             </td>
-                            <td data-label="Files"><?php echo $fileCount; ?></td>
-                            <td data-label="Actions">
-                                <form method="POST" onsubmit="return confirm('Permanently delete user <?php echo htmlspecialchars($username); ?>?');">
-                                    <input type="hidden" name="delete_user" value="<?php echo htmlspecialchars($username); ?>">
-                                    <button type="submit" class="delete-btn">
-                                        <i class="fas fa-trash"></i> Delete
+                            <td><?php echo $fileCount; ?></td>
+                            <td>Never</td>
+                            <td>
+                                <button class="btn btn-secondary" onclick="showModal('edit-user-modal')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="action" value="delete_user">
+                                    <input type="hidden" name="username" value="<?php echo htmlspecialchars($username); ?>">
+                                    <button type="submit" class="btn btn-secondary" onclick="return confirm('Delete user <?php echo htmlspecialchars($username); ?>?')">
+                                        <i class="fas fa-trash"></i>
                                     </button>
                                 </form>
                             </td>
@@ -467,6 +676,136 @@ if (isset($_POST['delete_user']) && !empty($_POST['delete_user'])) {
                     <?php endforeach; ?>
                 </tbody>
             </table>
+        </div>
+
+        <div id="activity-tab-content" class="tab-content" style="display: none;">
+            <div class="activity-log">
+                <?php foreach (getActivityLogs() as $log): ?>
+                    <div class="log-entry">
+                        <?php echo htmlspecialchars($log); ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <div id="files-tab-content" class="tab-content" style="display: none;">
+            <div class="file-type-stats">
+                <?php
+                $fileStats = getFileTypeStats("/var/www/html/webdav");
+                foreach ($fileStats as $ext => $stats):
+                    $icon = match($ext) {
+                        'jpg', 'jpeg', 'png', 'gif' => 'fa-image',
+                        'pdf' => 'fa-file-pdf',
+                        'doc', 'docx' => 'fa-file-word',
+                        'xls', 'xlsx' => 'fa-file-excel',
+                        'zip', 'rar' => 'fa-file-archive',
+                        default => 'fa-file'
+                    };
+                ?>
+                    <div class="file-type-item">
+                        <div class="file-type-icon">
+                            <i class="fas <?php echo $icon; ?>"></i>
+                        </div>
+                        <div class="file-type-name"><?php echo strtoupper($ext); ?></div>
+                        <div class="file-type-count"><?php echo $stats['count']; ?> files</div>
+                        <div class="file-type-size"><?php echo round($stats['size'] / (1024 * 1024), 2); ?> MB</div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <div id="settings-tab-content" class="tab-content" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">System Settings</div>
+                </div>
+                <form method="POST">
+                    <div class="form-group">
+                        <label>Default Storage Quota (GB)</label>
+                        <input type="number" name="default_quota" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label>Maximum File Size (MB)</label>
+                        <input type="number" name="max_file_size" value="100">
+                    </div>
+                    <div class="form-group">
+                        <label>Allowed File Types</label>
+                        <input type="text" name="allowed_types" value="jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx,zip,rar">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="add-user-modal" class="modal">
+        <div class="modal-content">
+            <h2>Add New User</h2>
+            <form method="POST">
+                <input type="hidden" name="action" value="add_user">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label>Storage Quota (GB)</label>
+                    <input type="number" name="quota" value="10">
+                </div>
+                <button type="submit" class="btn btn-primary">Add User</button>
+                <button type="button" class="btn btn-secondary" onclick="hideModal('add-user-modal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="edit-user-modal" class="modal">
+        <div class="modal-content">
+            <h2>Edit User</h2>
+            <form method="POST">
+                <input type="hidden" name="action" value="edit_user">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" name="new_password">
+                </div>
+                <div class="form-group">
+                    <label>Storage Quota (GB)</label>
+                    <input type="number" name="quota">
+                </div>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-secondary" onclick="hideModal('edit-user-modal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Backup Modal -->
+    <div id="backup-modal" class="modal">
+        <div class="modal-content">
+            <h2>Backup System</h2>
+            <form method="POST">
+                <input type="hidden" name="action" value="backup">
+                <div class="form-group">
+                    <label>Backup Type</label>
+                    <select name="backup_type">
+                        <option value="full">Full Backup</option>
+                        <option value="incremental">Incremental Backup</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Destination</label>
+                    <input type="text" name="backup_destination" value="/backup">
+                </div>
+                <button type="submit" class="btn btn-primary">Start Backup</button>
+                <button type="button" class="btn btn-secondary" onclick="hideModal('backup-modal')">Cancel</button>
+            </form>
         </div>
     </div>
 </body>
