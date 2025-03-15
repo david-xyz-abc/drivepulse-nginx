@@ -4,6 +4,44 @@ session_start();
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Critical styles to prevent flash - must be first in head -->
+  <style>
+    /* Immediate dark background application */
+    html, body {
+      background-color: #121212 !important;
+      color: #e0e0e0 !important;
+      transition: none !important;
+    }
+    /* Hide content until fully loaded */
+    body > * {
+      opacity: 0;
+    }
+    /* Only preloader should be visible */
+    .preloader {
+      opacity: 1 !important;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #121212;
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .preloader-spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      border-top-color: #ff4444;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
   <meta charset="UTF-8">
   <title>DrivePulse - Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -83,13 +121,18 @@ session_start();
       box-shadow: 0 8px 32px rgba(0,0,0,0.4);
       text-align: center;
       transform: translateY(0);
-      opacity: 1;
+      opacity: 0;
+      animation: containerEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
       transition: transform 0.3s, box-shadow 0.3s;
     }
     body.light-mode .login-container {
       background: rgba(255, 255, 255, 0.9);
       border: 1px solid rgba(244, 67, 54, 0.3);
       box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    @keyframes containerEntrance {
+      0% { opacity: 0; transform: translateY(40px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
     .login-container:hover {
       transform: translateY(-2px);
@@ -269,6 +312,11 @@ session_start();
   </style>
 </head>
 <body class="light-mode">
+  <!-- Preloader -->
+  <div class="preloader">
+    <div class="preloader-spinner"></div>
+  </div>
+
   <div id="particles-js"></div>
   <div class="container">
     <div class="login-container">
@@ -287,7 +335,7 @@ session_start();
       ?>
 
       <!-- Login Form -->
-      <form id="loginForm">
+      <form action="authenticate.php" method="post" id="loginForm">
         <div class="form-group">
           <label for="username">Username</label>
           <input type="text" id="username" name="username" required>
@@ -304,7 +352,7 @@ session_start();
       <span class="toggle-link" onclick="toggleForms()">Need an account? Register here</span>
 
       <!-- Registration Form -->
-      <form id="registerForm" class="hidden">
+      <form action="register.php" method="post" id="registerForm" class="hidden">
         <div class="form-group">
           <label for="reg_username">Username</label>
           <input type="text" id="reg_username" name="username" required>
@@ -320,117 +368,186 @@ session_start();
 
       <span class="toggle-link hidden" onclick="toggleForms()" id="loginLink">Already have an account? Sign in</span>
     </div>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-  <script>
-    // Initialize particles.js
-    particlesJS('particles-js', {
-      particles: {
-        number: { value: 80, density: { enable: true, value_area: 800 } },
-        color: { value: '#ff4444' },
-        shape: { type: 'circle' },
-        opacity: { value: 0.5, random: false },
-        size: { value: 3, random: true },
-        line_linked: {
-          enable: true,
-          distance: 150,
-          color: '#ff4444',
-          opacity: 0.2,
-          width: 1
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script>
+      // Enhanced particle configuration
+      particlesJS('particles-js', {
+        particles: {
+          number: { 
+            value: 120,
+            density: { 
+              enable: true, 
+              value_area: 1500
+            }
+          },
+          color: { 
+            value: "#f44336"
+          },
+          shape: {
+            type: "circle",
+            stroke: {
+              width: 0,
+              color: "#ff0000"
+            }
+          },
+          opacity: {
+            value: 0.6,
+            random: true,
+            anim: {
+              enable: true,
+              speed: 0.8,
+              opacity_min: 0.3,
+              sync: false
+            }
+          },
+          size: {
+            value: 4,
+            random: {
+              enable: true,
+              minimumValue: 2
+            }
+          },
+          line_linked: {
+            enable: true,
+            distance: 120,
+            color: "#f44336",
+            opacity: 0.4,
+            width: 1.5
+          },
+          move: {
+            enable: true,
+            speed: 3.5,
+            direction: "none",
+            random: true,
+            straight: false,
+            out_mode: "out",
+            bounce: false,
+            attract: {
+              enable: true,
+              rotateX: 600,
+              rotateY: 1200
+            }
+          }
         },
-        move: {
-          enable: true,
-          speed: 2,
-          direction: 'none',
-          random: false,
-          straight: false,
-          out_mode: 'out',
-          bounce: false
-        }
-      },
-      interactivity: {
-        detect_on: 'canvas',
-        events: {
-          onhover: { enable: true, mode: 'grab' },
-          onclick: { enable: true, mode: 'push' },
-          resize: true
+        interactivity: {
+          detect_on: "canvas",
+          events: {
+            onhover: {
+              enable: true,
+              mode: "repulse"
+            },
+            onclick: {
+              enable: true,
+              mode: "push"
+            },
+            resize: true
+          }
         },
-        modes: {
-          grab: { distance: 140, line_linked: { opacity: 0.5 } },
-          push: { particles_nb: 4 }
-        }
-      },
-      retina_detect: true
-    });
-
-    // Handle form submissions
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      const formData = new FormData(this);
-      
-      fetch('authenticate.php', {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => response.text())
-      .then(text => {
-        // Check if the response is a redirect
-        const match = text.match(/<meta http-equiv="refresh" content="0;url=([^"]+)">/);
-        if (match) {
-          window.location.href = match[1];
-        } else if (text.includes('error')) {
-          // If there's an error, reload to show the error message
-          window.location.reload();
-        } else {
-          // Default redirect to explorer.php
-          window.location.href = 'explorer.php?folder=Home';
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        window.location.reload();
+        retina_detect: true
       });
-    });
 
-    document.getElementById('registerForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      const formData = new FormData(this);
-      
-      fetch('register.php', {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => response.text())
-      .then(text => {
-        // Always reload to show success/error message
-        window.location.reload();
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        window.location.reload();
-      });
-    });
-
-    // Toggle between login and registration forms
-    function toggleForms() {
-      const loginForm = document.getElementById('loginForm');
-      const registerForm = document.getElementById('registerForm');
-      const loginLink = document.getElementById('loginLink');
-      const registerLink = document.querySelector('.toggle-link:not(#loginLink)');
-      
-      if (loginForm.classList.contains('hidden')) {
-        registerForm.classList.add('hidden');
-        loginForm.classList.remove('hidden');
-        loginLink.classList.add('hidden');
-        registerLink.classList.remove('hidden');
-      } else {
-        loginForm.classList.add('hidden');
-        registerForm.classList.remove('hidden');
-        loginLink.classList.remove('hidden');
-        registerLink.classList.add('hidden');
+      function toggleForms() {
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const loginLink = document.getElementById('loginLink');
+        
+        loginForm.classList.toggle('hidden');
+        registerForm.classList.toggle('hidden');
+        loginLink.classList.toggle('hidden');
+        document.querySelectorAll('.toggle-link')[0].classList.toggle('hidden');
       }
-    }
-  </script>
+
+      // Secret admin access
+      let clicks = 0;
+      let lastClick = 0;
+      const CLICK_TIMEOUT = 3000;
+
+      document.querySelector('.logo-icon').addEventListener('click', function(e) {
+          const now = Date.now();
+          if (now - lastClick > CLICK_TIMEOUT) clicks = 0;
+          
+          clicks++;
+          lastClick = now;
+
+          if (clicks === 3) {
+              const password = prompt("Enter admin password:");
+              if (password === "123") {
+                  const form = document.createElement('form');
+                  form.method = 'POST';
+                  form.action = 'console.php';
+                  
+                  const passwordInput = document.createElement('input');
+                  passwordInput.type = 'hidden';
+                  passwordInput.name = 'password';
+                  passwordInput.value = password;
+                  
+                  form.appendChild(passwordInput);
+                  document.body.appendChild(form);
+                  form.submit();
+              }
+              clicks = 0;
+          }
+      });
+
+      // Handle preloader and prevent white flash
+      document.addEventListener('DOMContentLoaded', function() {
+        // First make sure the background color is applied
+        document.documentElement.style.backgroundColor = '#121212';
+        document.body.style.backgroundColor = '#121212';
+        
+        // Prepare to show content
+        setTimeout(function() {
+          // Fade out preloader
+          const preloader = document.querySelector('.preloader');
+          if (preloader) {
+            preloader.classList.add('fade-out');
+          }
+          
+          // Reveal content
+          const container = document.querySelector('.container');
+          if (container) {
+            container.style.opacity = '1';
+            container.style.transition = 'opacity 0.3s ease';
+          }
+          
+          // Remove preloader after animation completes
+          setTimeout(function() {
+            if (preloader) {
+              preloader.style.display = 'none';
+            }
+            
+            // Make all content visible
+            const allElements = document.querySelectorAll('body > *');
+            allElements.forEach(function(element) {
+              element.style.opacity = '1';
+              element.style.transition = 'opacity 0.3s ease';
+            });
+          }, 500);
+        }, 100);
+      });
+      
+      // Prevent white flash during navigation
+      window.addEventListener('beforeunload', function() {
+        // Show preloader before navigating away
+        const preloader = document.querySelector('.preloader');
+        if (preloader) {
+          preloader.classList.remove('fade-out');
+          preloader.style.display = 'flex';
+          preloader.style.opacity = '1';
+        }
+        
+        // Hide content to prevent flash
+        const allElements = document.querySelectorAll('body > *:not(.preloader)');
+        allElements.forEach(function(element) {
+          element.style.opacity = '0';
+        });
+        
+        // Force background color
+        document.documentElement.style.backgroundColor = '#121212';
+        document.body.style.backgroundColor = '#121212';
+      });
+    </script>
+  </div>
 </body>
 </html>
