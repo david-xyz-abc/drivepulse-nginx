@@ -563,7 +563,7 @@ function delete_share($filePath) {
     $deleted = false;
     $shareId = null;
     
-    // Check if the file is shared with exact key
+    // FIRST PRIORITY: Check if the file is shared with exact key
     if (isset($shares[$fileKey])) {
         $shareId = $shares[$fileKey];
         log_debug("Found share to disable: $fileKey -> $shareId");
@@ -576,8 +576,10 @@ function delete_share($filePath) {
         unset($shares[$fileKey]);
         save_shares($shares);
         $deleted = true;
-    } else {
-        // Check if any file with the same name is shared
+    }
+    
+    // SECOND PRIORITY: Check if any file with the same name is shared
+    if (!$deleted) {
         foreach ($shares as $key => $id) {
             if (strpos($key, $username . ':') === 0) {
                 $path = substr($key, strlen($username) + 1);
@@ -586,7 +588,7 @@ function delete_share($filePath) {
                     log_debug("Found share with same filename to disable: $key -> $shareId");
                     
                     // Store in inactive shares
-                    $inactiveShares[$fileKey] = $shareId;
+                    $inactiveShares[$key] = $shareId;
                     save_inactive_shares($inactiveShares);
                     
                     // Remove from active shares
@@ -595,6 +597,34 @@ function delete_share($filePath) {
                     $deleted = true;
                     break;
                 }
+            }
+        }
+    }
+    
+    // THIRD PRIORITY: Check alternate path formats
+    if (!$deleted) {
+        $normalizedFilePath = ltrim($filePath, '/');
+        $alternateKeys = [
+            $username . ':/' . $normalizedFilePath,
+            $username . ':Home/' . $normalizedFilePath,
+            $username . ':/Home/' . $normalizedFilePath,
+            $username . ':' . 'Home/' . $normalizedFilePath
+        ];
+        
+        foreach ($alternateKeys as $altKey) {
+            if (isset($shares[$altKey])) {
+                $shareId = $shares[$altKey];
+                log_debug("Found share with alternate key to disable: $altKey -> $shareId");
+                
+                // Store in inactive shares
+                $inactiveShares[$altKey] = $shareId;
+                save_inactive_shares($inactiveShares);
+                
+                // Remove from active shares
+                unset($shares[$altKey]);
+                save_shares($shares);
+                $deleted = true;
+                break;
             }
         }
     }

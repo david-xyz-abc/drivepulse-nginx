@@ -358,25 +358,22 @@ function normalize_path($path) {
     // First decode any URL encoding to handle spaces correctly
     $path = rawurldecode($path);
     // Convert backslashes to forward slashes
-    $path = str_replace('\\', '/', trim($path));
+    $path = str_replace('\\', '/', $path);
     // Remove multiple consecutive slashes
-    $path = preg_replace('#/+#', '/', $path);
+    $path = preg_replace('#/+#', '/', trim($path));
     // Remove trailing slash
     $path = rtrim($path, '/');
-    // Ensure spaces are preserved but path is clean
     return $path;
 }
 
 function encode_path_for_storage($path) {
     // First normalize the path
     $path = normalize_path($path);
-    // Split path into segments and encode each segment
+    // Split path into segments
     $segments = explode('/', $path);
+    // Encode each segment individually, preserving spaces as %20
     $encoded = array_map(function($segment) {
-        // First decode to prevent double-encoding
-        $decoded = rawurldecode($segment);
-        // Then encode, preserving spaces as %20
-        return rawurlencode($decoded);
+        return rawurlencode($segment);
     }, $segments);
     return implode('/', $encoded);
 }
@@ -384,7 +381,7 @@ function encode_path_for_storage($path) {
 function decode_path_from_storage($path) {
     // Split path into segments
     $segments = explode('/', $path);
-    // Decode each segment individually, preserving spaces
+    // Decode each segment individually
     $decoded = array_map(function($segment) {
         return rawurldecode($segment);
     }, $segments);
@@ -402,7 +399,7 @@ function create_folder_share() {
         }
         
         // Get the raw folder path and decode it
-        $rawFolderPath = $_POST['folder_path'];
+        $rawFolderPath = rawurldecode($_POST['folder_path']);
         log_debug("Original folder path from POST: $rawFolderPath");
         
         if (!$rawFolderPath) {
@@ -460,17 +457,19 @@ function create_folder_share() {
         $actualPath = null;
         
         foreach ($possiblePaths as $path) {
+            // Important: Use realpath to resolve the actual filesystem path
             $normalizedPath = normalize_path($path);
-            log_debug("Checking path: $normalizedPath");
+            $realPath = realpath($normalizedPath);
+            log_debug("Checking path: $normalizedPath (real path: " . ($realPath ?: "N/A") . ")");
             
-            if (file_exists($normalizedPath)) {
-                if (is_dir($normalizedPath)) {
+            if ($realPath && file_exists($realPath)) {
+                if (is_dir($realPath)) {
                     $folderExists = true;
-                    $actualPath = $normalizedPath;
+                    $actualPath = $realPath;
                     log_debug("Found folder at: $actualPath");
                     break;
                 } else {
-                    log_debug("Path exists but is not a directory: $normalizedPath");
+                    log_debug("Path exists but is not a directory: $realPath");
                 }
             } else {
                 log_debug("Path does not exist: $normalizedPath");
