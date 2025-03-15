@@ -2160,8 +2160,24 @@ function closePreviewModal() {
     const bufferingIndicator = document.getElementById('bufferingIndicator');
     const previewContent = document.getElementById('previewContent');
     
-    // Reset cursor style to default
+    // Force reset cursor style to default and ensure it's visible
     document.body.style.cursor = 'default';
+    
+    // Clear any cursor hide timeouts that might be pending
+    if (videoContainer._hideTimeout) {
+        clearTimeout(videoContainer._hideTimeout);
+        videoContainer._hideTimeout = null;
+    }
+    
+    // Clear video controls timeout if it exists
+    const controls = videoContainer.querySelector('.video-controls');
+    if (controls && controls._hideTimeout) {
+        clearTimeout(controls._hideTimeout);
+        controls._hideTimeout = null;
+    }
+    
+    // Reset cursor visibility for the entire document
+    document.documentElement.style.cursor = 'default';
     
     // Clear video properly
     try {
@@ -2179,7 +2195,6 @@ function closePreviewModal() {
             videoPlayer.load();
             
             // Reset video controls
-            const controls = videoContainer.querySelector('.video-controls');
             if (controls) {
                 controls.classList.remove('active');
             }
@@ -3826,6 +3841,26 @@ downloadSelectedBtn.addEventListener('click', function() {
     document.addEventListener('DOMContentLoaded', function() {
       console.log('DOM Content Loaded - checking share status');
       setTimeout(refreshShareIcons, 300);
+    });
+
+    // Add click outside handler to previewModal
+    document.addEventListener('DOMContentLoaded', function() {
+        const previewModal = document.getElementById('previewModal');
+        
+        // Handle clicks outside the video player
+        previewModal.addEventListener('click', function(e) {
+            // If clicking outside the video container or preview content
+            if (!e.target.closest('#videoPreviewContainer') && 
+                !e.target.closest('#previewContent') && 
+                !e.target.closest('#previewClose')) {
+                // Force reset cursor before closing
+                document.body.style.cursor = 'default';
+                document.documentElement.style.cursor = 'default';
+                closePreviewModal();
+            }
+        });
+        
+        // Rest of your DOMContentLoaded code...
     });
 </script>
 
