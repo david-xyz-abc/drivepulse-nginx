@@ -571,58 +571,80 @@ function serve_file($filePath, $fileName, $fileType = 'application/octet-stream'
 function create_zip_archive($sourceDir, $zipFile) {
     $rootPath = realpath($sourceDir);
     
+    if (!$rootPath) {
+        log_debug("Invalid source directory: $sourceDir");
+        return false;
+    }
+    
     if (file_exists($zipFile)) {
         @unlink($zipFile);
     }
     
-    // Check if ZipArchive class is available
-    if (class_exists('ZipArchive')) {
-        log_debug("Using ZipArchive to create zip file");
+    // Ensure ZipArchive is available
+    if (!class_exists('ZipArchive')) {
+        log_debug("ZipArchive class is not available. Please install php-zip");
+        return false;
+    }
+    
+    try {
         $zip = new ZipArchive();
-        if ($zip->open($zipFile, ZipArchive::CREATE) !== true) {
-            log_debug("Failed to create zip archive using ZipArchive");
-            return fallback_create_zip($sourceDir, $zipFile);
+        $result = $zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        
+        if ($result !== true) {
+            log_debug("Failed to create zip archive. Error code: " . $result);
+            return false;
         }
         
         $folderName = basename($rootPath);
+        log_debug("Creating zip archive for folder: $folderName");
         
-        if (is_dir($rootPath)) {
             // Create recursive directory iterator
             $files = new RecursiveIteratorIterator(
-                new RecursiveDirectoryIterator($rootPath),
+            new RecursiveDirectoryIterator($rootPath, RecursiveDirectoryIterator::SKIP_DOTS),
                 RecursiveIteratorIterator::LEAVES_ONLY
             );
             
             $rootPathLength = strlen($rootPath);
             $hasFiles = false;
             
-            foreach ($files as $name => $file) {
+        foreach ($files as $file) {
                 if (!$file->isDir()) {
                     $hasFiles = true;
-                    // Get real and relative path for current file
                     $filePath = $file->getRealPath();
-                    
-                    // Get relative path starting from folder name
                     $relativePath = substr($filePath, $rootPathLength + 1);
                     
-                    // Add current file to archive
-                    $zip->addFile($filePath, $folderName . '/' . $relativePath);
-                    log_debug("Added to zip: " . $filePath . " as " . $folderName . '/' . $relativePath);
+                // Add current file to archive with folder name prefix
+                $zipPath = $folderName . '/' . $relativePath;
+                if ($zip->addFile($filePath, $zipPath)) {
+                    log_debug("Added to zip: $filePath as $zipPath");
+                } else {
+                    log_debug("Failed to add file to zip: $filePath");
+                }
                 }
             }
             
             // If the folder is empty, add an empty directory
             if (!$hasFiles) {
-                $zip->addEmptyDir($folderName);
-                log_debug("Added empty directory to zip: " . $folderName);
+            if ($zip->addEmptyDir($folderName)) {
+                log_debug("Added empty directory to zip: $folderName");
+            } else {
+                log_debug("Failed to add empty directory to zip: $folderName");
             }
         }
         
-        $zip->close();
+        // Close the zip file
+        if (!$zip->close()) {
+            log_debug("Failed to close zip file. Status: " . $zip->getStatusString());
+            return false;
+        }
+        
         return file_exists($zipFile);
-    } else {
-        log_debug("ZipArchive class not found, using fallback method");
-        return fallback_create_zip($sourceDir, $zipFile);
+    } catch (Exception $e) {
+        log_debug("Error creating zip archive: " . $e->getMessage());
+        if (isset($zip)) {
+            $zip->close();
+        }
+        return false;
     }
 }
 
@@ -853,6 +875,26 @@ function deleteDir($dirPath) {
     }
 }
 
+// Add path handling functions at the top of the file after the existing functions
+function normalize_path($path) {
+    // First decode any URL encoding to handle spaces correctly
+    $path = rawurldecode($path);
+    // Convert backslashes to forward slashes
+    $path = str_replace('\\', '/', $path);
+    // Remove multiple consecutive slashes
+    $path = preg_replace('#/+#', '/', $path);
+    // Remove trailing slash
+    return rtrim($path, '/');
+}
+
+function encode_path_for_url($path) {
+    // Split path into segments
+    $segments = explode('/', $path);
+    // Encode each segment individually
+    $encoded = array_map('rawurlencode', $segments);
+    return implode('/', $encoded);
+}
+
 try {
     if (!isset($_GET['id']) || empty($_GET['id'])) {
         log_debug("No folder share ID provided");
@@ -987,6 +1029,7 @@ try {
     
     // Handle different actions based on query parameters
     $currentPath = isset($_GET['path']) ? rawurldecode(trim($_GET['path'], '/')) : '';
+    $currentPath = normalize_path($currentPath);
     log_debug("Current path within shared folder: $currentPath");
     
     $targetPath = $actualFolderPath;
@@ -1003,6 +1046,7 @@ try {
     // Handle file download or preview
     if (isset($_GET['file'])) {
         $requestedFile = rawurldecode(trim($_GET['file'], '/'));
+        $requestedFile = normalize_path($requestedFile);
         log_debug("File requested: $requestedFile");
         
         // Security check: prevent path traversal attacks
@@ -1061,11 +1105,10 @@ try {
     
     // Handle folder download
     if (isset($_GET['download']) && $_GET['download'] == 1) {
-        // Get and validate path parameter
         $downloadPath = '';
         if (isset($_GET['path'])) {
-            $downloadPath = (string)$_GET['path'];
-            $downloadPath = trim($downloadPath, '/');
+            $downloadPath = rawurldecode(trim($_GET['path'], '/'));
+            $downloadPath = normalize_path($downloadPath);
         }
         
         log_debug("Folder download requested. Path: " . ($downloadPath ?: "root folder"));
@@ -1168,4 +1211,4 @@ try {
     log_debug("Unexpected error: " . $e->getMessage());
     display_error("Server error: " . $e->getMessage(), 500);
 }
-?> 
+?> ?> 

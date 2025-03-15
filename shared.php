@@ -835,6 +835,17 @@ function serve_actual_file($filePath, $fileName, $fileType = 'application/octet-
     display_error("Failed to read file. Please try again later.");
 }
 
+function load_inactive_shares() {
+    $inactive_shares_file = __DIR__ . '/inactive_shares.json';
+    if (file_exists($inactive_shares_file)) {
+        $content = file_get_contents($inactive_shares_file);
+        if (!empty($content)) {
+            return json_decode($content, true) ?: [];
+        }
+    }
+    return [];
+}
+
 try {
     if (!isset($_GET['id']) || empty($_GET['id'])) {
         log_debug("No share ID provided");
@@ -864,8 +875,18 @@ try {
     $filePath = null;
     $username = null;
     $shares = load_shares();
+    $inactiveShares = load_inactive_shares();
     
     log_debug("Looking for share ID: $shareId in " . count($shares) . " shares");
+    
+    // Check if the share ID exists in inactive shares first
+    $isInactive = false;
+    foreach ($inactiveShares as $key => $id) {
+        if ($id === $shareId) {
+            log_debug("Share ID found in inactive shares: $shareId");
+            display_error("This share link has been disabled by the owner.");
+        }
+    }
     
     // First pass: Look for exact match
     foreach ($shares as $key => $id) {
