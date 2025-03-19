@@ -3006,7 +3006,7 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
     // Copy raw link button
     document.getElementById('copyRawLink').addEventListener('click', function() {
       const shareUrl = new URL(shareLinkInput.value);
-      const rawUrl = `${shareUrl.origin}/shared.php?id=${shareUrl.searchParams.get('id')}&preview=1`;
+      const rawUrl = `${shareUrl.origin}/selfhostedgdrive/shared.php?id=${shareUrl.searchParams.get('id')}&preview=1`;
       const tempInput = document.createElement('input');
       document.body.appendChild(tempInput);
       tempInput.value = rawUrl;
@@ -3355,7 +3355,7 @@ document.getElementById('contextMenuShareFolder').addEventListener('click', func
     // Copy raw link button
     document.getElementById('copyFolderRawLink').addEventListener('click', function() {
       const shareUrl = new URL(folderShareLinkInput.value);
-      const rawUrl = `${shareUrl.origin}/shared_folder.php?id=${shareUrl.searchParams.get('id')}&preview=1`;
+      const rawUrl = `${shareUrl.origin}/selfhostedgdrive/shared_folder.php?id=${shareUrl.searchParams.get('id')}&preview=1`;
       const tempInput = document.createElement('input');
       document.body.appendChild(tempInput);
       tempInput.value = rawUrl;
