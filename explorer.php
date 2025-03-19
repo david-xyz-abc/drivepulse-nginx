@@ -543,7 +543,9 @@ if (is_dir($currentDir)) {
                         'name' => $one,
                         'url' => $fileURL,
                         'type' => 'video',
-                        'icon' => getIconClass($one)
+                        'icon' => getIconClass($one),
+                        'previewUrl' => "/selfhostedgdrive/video_preview.php?video=" . urlencode($relativePath),
+                        'thumbnailUrl' => "/selfhostedgdrive/video_preview.php?video=" . urlencode($relativePath)
                     ];
                 } elseif (isPDF($one)) {
                     $fileURL = "/selfhostedgdrive/explorer.php?action=serve&file=" . urlencode($relativePath);
@@ -1063,6 +1065,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['download_files'])) {
                   <i class="<?php echo $iconClass; ?>"></i>
                   <div class="thumbnail-container image-preview-container">
                       <img class="thumbnail" src="<?php echo htmlspecialchars($fileURL); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" loading="lazy">
+                  </div>
+                  <?php elseif (isVideo($fileName)): ?>
+                  <i class="<?php echo $iconClass; ?>"></i>
+                  <div class="thumbnail-container video-preview-container">
+                      <img class="thumbnail" src="/selfhostedgdrive/video_preview.php?video=<?php echo urlencode($relativePath); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" loading="lazy">
+                      <div class="video-overlay">
+                          <i class="fas fa-play-circle"></i>
+                      </div>
                   </div>
                   <?php else: ?>
                   <i class="<?php echo $iconClass; ?>"></i>
