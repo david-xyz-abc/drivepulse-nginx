@@ -2881,4 +2881,21 @@ body {
 .video-preview-container:hover .video-overlay {
     opacity: 1;
 }
+
+/* Hide icons for video items */
+.folder-item .video-preview-container + i,
+.folder-item:has(.video-preview-container) i:not(.fa-play-circle):not(.fa-ellipsis-v):not(.small-dots) {
+    display: none !important;
+}
+
+/* Ensure video thumbnails take up full space */
+.folder-item .video-preview-container {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+/* Hide any remaining icons in grid view for video items */
+.folder-list.grid-view .folder-item:has(.video-preview-container) i:not(.fa-play-circle):not(.fa-ellipsis-v):not(.small-dots) {
+    display: none !important;
+}
   
