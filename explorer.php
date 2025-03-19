@@ -608,8 +608,9 @@ function isImage($fileName) {
  * Helper: Check if file is a video
  ************************************************/
 function isVideo($fileName) {
+    $videoExtensions = ['mp4', 'webm', 'ogg', 'mkv', 'avi', 'mov'];
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    return in_array($ext, ['mp4', 'webm', 'ogg', 'mkv']);
+    return in_array($ext, $videoExtensions);
 }
 
 /************************************************

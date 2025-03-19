@@ -1,6 +1,6 @@
 #!/bin/bash
 # Beginner-Friendly Installer and Updater for Self Hosted Google Drive (DriveDAV)
-# This script installs Nginx, PHP, required modules, downloads your PHP files from GitHub,
+# This script installs Nginx, PHP, FFmpeg, required modules, downloads your PHP files from GitHub,
 # creates necessary folders, sets proper permissions, adjusts PHP's size limits for both CLI and PHP-FPM,
 # and configures Nginx so that your application is available at /selfhostedgdrive/.
 # It also sets Nginx's client_max_body_size to allow large file uploads.
@@ -26,9 +26,9 @@ fi
 echo "Updating package lists..."
 apt-get update
 
-# Install Nginx and PHP with required modules
-echo "Installing Nginx and PHP with required modules..."
-apt-get install -y nginx php-fpm php-json php-mbstring php-xml wget curl
+# Install Nginx, PHP, FFmpeg and required modules
+echo "Installing Nginx, PHP, FFmpeg and required modules..."
+apt-get install -y nginx php-fpm php-json php-mbstring php-xml wget curl ffmpeg
 
 # Define application directories
 APP_DIR="/var/www/html/selfhostedgdrive"
@@ -45,7 +45,7 @@ fi
 BASE_URL="https://raw.githubusercontent.com/david-xyz-abc/drivepulse-nginx/main"
 
 # Define files to download
-FILES=("index.php" "authenticate.php" "explorer.php" "console.php" "logout.php" "register.php" "share_handler.php" "shared.php" "drivepulse.svg" "styles.css" "shared_folder.php" "folder_share_handler.php")
+FILES=("index.php" "authenticate.php" "explorer.php" "console.php" "logout.php" "register.php" "share_handler.php" "shared.php" "drivepulse.svg" "styles.css" "shared_folder.php" "folder_share_handler.php" "video_preview.php")
 
 # Download PHP files from GitHub into the application directory
 echo "Downloading PHP files from GitHub..."
@@ -89,6 +89,16 @@ chmod -R 775 "/var/www/html/webdav"  # 775 to allow group write access
 echo "Ensuring web server can create directories under WebDAV users directory..."
 find "/var/www/html/webdav" -type d -exec chmod 775 {} \;
 echo "WebDAV directory permissions set to: $(stat -c '%a %U:%G' "$WEBDAV_USERS_DIR")"
+
+# Create thumbnails directory in the WebDAV directory
+THUMBNAILS_DIR="/var/www/html/webdav/.thumbnails"
+echo "Creating thumbnails directory at $THUMBNAILS_DIR..."
+mkdir -p "$THUMBNAILS_DIR"
+
+# Set proper permissions for thumbnails directory
+echo "Setting proper permissions for thumbnails directory..."
+chown www-data:www-data "$THUMBNAILS_DIR"
+chmod 775 "$THUMBNAILS_DIR"
 
 # Determine PHP version
 PHP_VERSION=$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')
