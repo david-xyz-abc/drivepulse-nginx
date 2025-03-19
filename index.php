@@ -10,36 +10,6 @@ session_start();
     html, body {
       background-color: #121212 !important;
       color: #e0e0e0 !important;
-      transition: none !important;
-    }
-    /* Hide content until fully loaded */
-    body > * {
-      opacity: 0;
-    }
-    /* Only preloader should be visible */
-    .preloader {
-      opacity: 1 !important;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: #121212;
-      z-index: 9999;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    .preloader-spinner {
-      width: 50px;
-      height: 50px;
-      border: 5px solid rgba(255, 255, 255, 0.2);
-      border-radius: 50%;
-      border-top-color: #ff4444;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
     }
   </style>
   <meta charset="UTF-8">
@@ -312,11 +282,6 @@ session_start();
   </style>
 </head>
 <body class="light-mode">
-  <!-- Preloader -->
-  <div class="preloader">
-    <div class="preloader-spinner"></div>
-  </div>
-
   <div id="particles-js"></div>
   <div class="container">
     <div class="login-container">
@@ -488,64 +453,6 @@ session_start();
               }
               clicks = 0;
           }
-      });
-
-      // Handle preloader and prevent white flash
-      document.addEventListener('DOMContentLoaded', function() {
-        // First make sure the background color is applied
-        document.documentElement.style.backgroundColor = '#121212';
-        document.body.style.backgroundColor = '#121212';
-        
-        // Prepare to show content
-        setTimeout(function() {
-          // Fade out preloader
-          const preloader = document.querySelector('.preloader');
-          if (preloader) {
-            preloader.classList.add('fade-out');
-          }
-          
-          // Reveal content
-          const container = document.querySelector('.container');
-          if (container) {
-            container.style.opacity = '1';
-            container.style.transition = 'opacity 0.3s ease';
-          }
-          
-          // Remove preloader after animation completes
-          setTimeout(function() {
-            if (preloader) {
-              preloader.style.display = 'none';
-            }
-            
-            // Make all content visible
-            const allElements = document.querySelectorAll('body > *');
-            allElements.forEach(function(element) {
-              element.style.opacity = '1';
-              element.style.transition = 'opacity 0.3s ease';
-            });
-          }, 500);
-        }, 100);
-      });
-      
-      // Prevent white flash during navigation
-      window.addEventListener('beforeunload', function() {
-        // Show preloader before navigating away
-        const preloader = document.querySelector('.preloader');
-        if (preloader) {
-          preloader.classList.remove('fade-out');
-          preloader.style.display = 'flex';
-          preloader.style.opacity = '1';
-        }
-        
-        // Hide content to prevent flash
-        const allElements = document.querySelectorAll('body > *:not(.preloader)');
-        allElements.forEach(function(element) {
-          element.style.opacity = '0';
-        });
-        
-        // Force background color
-        document.documentElement.style.backgroundColor = '#121212';
-        document.body.style.backgroundColor = '#121212';
       });
     </script>
   </div>
