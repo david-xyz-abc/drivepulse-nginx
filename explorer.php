@@ -1671,18 +1671,15 @@ function setupVideoControls(video) {
                 controls.classList.remove('active');
             }, 1000);
         });
-
     } else {
-        // Desktop behavior remains the same
+        // Desktop behavior
         videoContainer.addEventListener('mousemove', () => {
             controls.classList.add('active');
-            document.body.style.cursor = 'default';
             clearTimeout(hideTimeout);
             
             if (!video.paused) {
                 hideTimeout = setTimeout(() => {
                     controls.classList.remove('active');
-                    document.body.style.cursor = 'none';
                 }, 2000);
             }
         });
@@ -1690,21 +1687,18 @@ function setupVideoControls(video) {
         videoContainer.addEventListener('mouseleave', () => {
             if (!video.paused) {
                 controls.classList.remove('active');
-                document.body.style.cursor = 'none';
             }
         });
 
         controls.addEventListener('mouseenter', () => {
             clearTimeout(hideTimeout);
             controls.classList.add('active');
-            document.body.style.cursor = 'default';
         });
 
         controls.addEventListener('mouseleave', () => {
             if (!video.paused) {
                 hideTimeout = setTimeout(() => {
                     controls.classList.remove('active');
-                    document.body.style.cursor = 'none';
                 }, 2000);
             }
         });
@@ -2744,6 +2738,9 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
               <button id="copyShareLink" type="button" class="multi-select-btn" title="Copy Link" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
                 <i class="fas fa-copy" style="margin-right: 8px;"></i>Copy Link
               </button>
+              <button id="copyRawLink" type="button" class="multi-select-btn" title="Copy Raw Link" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
+                <i class="fas fa-code" style="margin-right: 8px;"></i>Copy Raw
+              </button>
               <button id="previewShareLink" type="button" class="multi-select-btn" title="Preview Link" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
                 <i class="fas fa-external-link-alt" style="margin-right: 8px;"></i>Preview
               </button>
@@ -3006,6 +3003,23 @@ document.getElementById('contextMenuShare').addEventListener('click', function()
       }, 2000);
     });
     
+    // Copy raw link button
+    document.getElementById('copyRawLink').addEventListener('click', function() {
+      const shareUrl = new URL(shareLinkInput.value);
+      const rawUrl = `${shareUrl.origin}/shared.php?id=${shareUrl.searchParams.get('id')}&raw=1`;
+      const tempInput = document.createElement('input');
+      document.body.appendChild(tempInput);
+      tempInput.value = rawUrl;
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      const originalText = this.innerHTML;
+      this.innerHTML = '<i class="fas fa-check" style="margin-right: 8px;"></i>Copied!';
+      setTimeout(() => {
+        this.innerHTML = originalText;
+      }, 2000);
+    });
+    
     // Preview link button
     document.getElementById('previewShareLink').addEventListener('click', function() {
       window.open(shareLinkInput.value, '_blank');
@@ -3074,6 +3088,9 @@ document.getElementById('contextMenuShareFolder').addEventListener('click', func
             <div style="display: flex; gap: 20px;">
               <button id="copyFolderShareLink" type="button" class="multi-select-btn" title="Copy Link" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
                 <i class="fas fa-copy" style="margin-right: 8px;"></i>Copy Link
+              </button>
+              <button id="copyFolderRawLink" type="button" class="multi-select-btn" title="Copy Raw Link" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
+                <i class="fas fa-code" style="margin-right: 8px;"></i>Copy Raw
               </button>
               <button id="previewFolderShareLink" type="button" class="multi-select-btn" title="Preview Link" style="font-size: 13px; padding: 10px 24px; min-width: 120px; background: transparent; color: var(--text-color); border: 2px solid var(--border-color); border-radius: 0; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; font-weight: 500;">
                 <i class="fas fa-external-link-alt" style="margin-right: 8px;"></i>Preview
@@ -3328,6 +3345,23 @@ document.getElementById('contextMenuShareFolder').addEventListener('click', func
     document.getElementById('copyFolderShareLink').addEventListener('click', function() {
       folderShareLinkInput.select();
       document.execCommand('copy');
+      const originalText = this.innerHTML;
+      this.innerHTML = '<i class="fas fa-check" style="margin-right: 8px;"></i>Copied!';
+      setTimeout(() => {
+        this.innerHTML = originalText;
+      }, 2000);
+    });
+    
+    // Copy raw link button
+    document.getElementById('copyFolderRawLink').addEventListener('click', function() {
+      const shareUrl = new URL(folderShareLinkInput.value);
+      const rawUrl = `${shareUrl.origin}/shared_folder.php?id=${shareUrl.searchParams.get('id')}&raw=1`;
+      const tempInput = document.createElement('input');
+      document.body.appendChild(tempInput);
+      tempInput.value = rawUrl;
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
       const originalText = this.innerHTML;
       this.innerHTML = '<i class="fas fa-check" style="margin-right: 8px;"></i>Copied!';
       setTimeout(() => {
